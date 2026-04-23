@@ -69,3 +69,12 @@ Schema en Obsidian (`02 Apps/v2-flutter/Database Schema.md`) + migraciones en `s
 ## Acceso
 
 Un solo usuario admin. Login email/password via Supabase Auth. RLS en todas las tablas: admin escribe, app mobile lee como anónimo.
+
+## Testing
+
+Usuario de pruebas en Supabase:
+
+```
+admin@dvranlabs.com
+Test1212*
+```
