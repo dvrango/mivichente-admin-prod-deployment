@@ -1,6 +1,5 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { buttonVariants } from '@/components/ui/button'
+import { PageHeader } from '@/components/shared/page-header'
 import { updateBusiness, type BusinessFormState } from '@/features/businesses/actions'
 import { BusinessForm } from '@/features/businesses/components/business-form'
 import { ToggleActiveButton } from '@/features/businesses/components/toggle-active-button'
@@ -22,15 +21,11 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/businesses" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-          ← Volver
-        </Link>
-        <h1 className="text-2xl font-semibold">Editar negocio</h1>
-        <div className="ml-auto">
-          <ToggleActiveButton id={business.id} isActive={business.is_active} />
-        </div>
-      </div>
+      <PageHeader
+        title={business.name}
+        breadcrumbs={[{ label: 'Negocios', href: '/businesses' }, { label: business.name }]}
+        actions={<ToggleActiveButton id={business.id} isActive={business.is_active} />}
+      />
       <BusinessForm
         action={action}
         submitLabel="Guardar"

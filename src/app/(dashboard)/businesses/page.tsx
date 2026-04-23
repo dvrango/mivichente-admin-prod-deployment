@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { PageHeader } from '@/components/shared/page-header'
 import { buttonVariants } from '@/components/ui/button'
 import { BusinessesFilters } from '@/features/businesses/components/businesses-filters'
 import { BusinessesTable } from '@/features/businesses/components/businesses-table'
@@ -20,17 +21,15 @@ export default async function BusinessesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Negocios</h1>
-          <p className="text-muted-foreground text-sm">
-            {businesses.length} {businesses.length === 1 ? 'negocio' : 'negocios'}
-          </p>
-        </div>
-        <Link href="/businesses/new" className={buttonVariants()}>
-          Nuevo negocio
-        </Link>
-      </div>
+      <PageHeader
+        title="Negocios"
+        description={`${businesses.length} ${businesses.length === 1 ? 'negocio' : 'negocios'}`}
+        actions={
+          <Link href="/businesses/new" className={buttonVariants()}>
+            Nuevo negocio
+          </Link>
+        }
+      />
 
       <BusinessesFilters search={filters.q} categoryId={filters.category} categories={categories} />
 

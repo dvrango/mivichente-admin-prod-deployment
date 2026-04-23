@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { PageHeader } from '@/components/shared/page-header'
 import { buttonVariants } from '@/components/ui/button'
 import { CategoriesFilters } from '@/features/categories/components/categories-filters'
 import { CategoriesTable } from '@/features/categories/components/categories-table'
@@ -16,17 +17,15 @@ export default async function CategoriesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Categorías</h1>
-          <p className="text-muted-foreground text-sm">
-            {categories.length} {categories.length === 1 ? 'categoría' : 'categorías'}
-          </p>
-        </div>
-        <Link href="/categories/new" className={buttonVariants()}>
-          Nueva categoría
-        </Link>
-      </div>
+      <PageHeader
+        title="Categorías"
+        description={`${categories.length} ${categories.length === 1 ? 'categoría' : 'categorías'}`}
+        actions={
+          <Link href="/categories/new" className={buttonVariants()}>
+            Nueva categoría
+          </Link>
+        }
+      />
 
       <CategoriesFilters active={filters.type} />
       <CategoriesTable categories={categories} />

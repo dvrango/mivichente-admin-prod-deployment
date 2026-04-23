@@ -1,5 +1,4 @@
-import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
+import { PageHeader } from '@/components/shared/page-header'
 import { createBusiness } from '@/features/businesses/actions'
 import { BusinessForm } from '@/features/businesses/components/business-form'
 import { getActiveCategoryOptions } from '@/features/businesses/queries'
@@ -9,12 +8,10 @@ export default async function NewBusinessPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/businesses" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-          ← Volver
-        </Link>
-        <h1 className="text-2xl font-semibold">Nuevo negocio</h1>
-      </div>
+      <PageHeader
+        title="Nuevo negocio"
+        breadcrumbs={[{ label: 'Negocios', href: '/businesses' }, { label: 'Nuevo' }]}
+      />
       <BusinessForm action={createBusiness} submitLabel="Crear" categories={categories} />
     </div>
   )

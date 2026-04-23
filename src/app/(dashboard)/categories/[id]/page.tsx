@@ -1,6 +1,5 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { buttonVariants } from '@/components/ui/button'
+import { PageHeader } from '@/components/shared/page-header'
 import { updateCategory, type CategoryFormState } from '@/features/categories/actions'
 import { CategoryForm } from '@/features/categories/components/category-form'
 import { ToggleActiveButton } from '@/features/categories/components/toggle-active-button'
@@ -18,15 +17,11 @@ export default async function EditCategoryPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/categories" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-          ← Volver
-        </Link>
-        <h1 className="text-2xl font-semibold">Editar categoría</h1>
-        <div className="ml-auto">
-          <ToggleActiveButton id={category.id} isActive={category.is_active} />
-        </div>
-      </div>
+      <PageHeader
+        title={category.name}
+        breadcrumbs={[{ label: 'Categorías', href: '/categories' }, { label: category.name }]}
+        actions={<ToggleActiveButton id={category.id} isActive={category.is_active} />}
+      />
       <CategoryForm
         action={action}
         submitLabel="Guardar"

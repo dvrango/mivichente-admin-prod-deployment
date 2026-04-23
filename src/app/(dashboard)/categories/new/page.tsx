@@ -1,17 +1,14 @@
-import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
+import { PageHeader } from '@/components/shared/page-header'
 import { createCategory } from '@/features/categories/actions'
 import { CategoryForm } from '@/features/categories/components/category-form'
 
 export default function NewCategoryPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/categories" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-          ← Volver
-        </Link>
-        <h1 className="text-2xl font-semibold">Nueva categoría</h1>
-      </div>
+      <PageHeader
+        title="Nueva categoría"
+        breadcrumbs={[{ label: 'Categorías', href: '/categories' }, { label: 'Nueva' }]}
+      />
       <CategoryForm action={createCategory} submitLabel="Crear" />
     </div>
   )
