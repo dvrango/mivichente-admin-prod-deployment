@@ -1,18 +1,11 @@
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase/server'
-import type { Category } from '@/lib/types'
-import { BusinessForm } from '../business-form'
-import { createBusiness } from '../actions'
+import { createBusiness } from '@/features/businesses/actions'
+import { BusinessForm } from '@/features/businesses/components/business-form'
+import { getActiveCategoryOptions } from '@/features/businesses/queries'
 
 export default async function NewBusinessPage() {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('categories')
-    .select('id, name, type')
-    .eq('is_active', true)
-    .order('name')
-  const categories = (data ?? []) as Pick<Category, 'id' | 'name' | 'type'>[]
+  const categories = await getActiveCategoryOptions()
 
   return (
     <div className="space-y-6">

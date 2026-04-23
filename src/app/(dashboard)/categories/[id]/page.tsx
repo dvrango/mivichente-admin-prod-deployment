@@ -1,20 +1,16 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { buttonVariants } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase/server'
-import type { Category } from '@/lib/types'
-import { CategoryForm } from '../category-form'
-import { updateCategory, type CategoryFormState } from '../actions'
-import { ToggleActiveButton } from '../toggle-active-button'
+import { updateCategory, type CategoryFormState } from '@/features/categories/actions'
+import { CategoryForm } from '@/features/categories/components/category-form'
+import { ToggleActiveButton } from '@/features/categories/components/toggle-active-button'
+import { getCategoryById } from '@/features/categories/queries'
 
 export default async function EditCategoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data, error } = await supabase.from('categories').select('*').eq('id', id).single()
+  const category = await getCategoryById(id)
+  if (!category) notFound()
 
-  if (error || !data) notFound()
-
-  const category = data as Category
   const action = updateCategory.bind(null, id) as (
     prev: CategoryFormState,
     formData: FormData,

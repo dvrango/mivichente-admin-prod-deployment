@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vichente Admin — Panel Web
 
-## Getting Started
+Panel de administración para Vichente App 2.0. Conectado a Supabase (compartido con la app mobile).
 
-First, run the development server:
+Arquitectura completa: `$OBSIDIAN_VAULT/Workbench/Vichente App/02 Apps/v2-admin-web/Arquitectura.md`
+
+---
+
+## Stack
+
+- Next.js 16 (App Router, `src/` layout)
+- TypeScript strict
+- shadcn/ui + Tailwind
+- Supabase (Postgres + Auth + Storage) con `@supabase/ssr`
+- Zod para validación
+- `@t3-oss/env-nextjs` para env vars
+- Vitest para testing
+
+## Setup
 
 ```bash
+cp .env.example .env.local   # rellenar con credenciales reales
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev         # desarrollo
+npm run build       # build de producción
+npm run lint
+npm run format      # prettier --write .
+npm run typecheck   # tsc --noEmit
+npm run test        # vitest
+npm run db:types    # regenerar src/lib/database.types.ts
+npm run db:push     # aplicar migraciones al remoto
+npm run db:reset    # resetear DB local
+```
 
-## Learn More
+## Estructura (feature-based)
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/                # routing, layouts, páginas
+├── features/           # dominios: businesses/, categories/, auth/
+│   └── <dominio>/
+│       ├── schema.ts   # Zod
+│       ├── queries.ts  # reads (Server Components)
+│       ├── actions.ts  # Server Actions (writes + revalidate)
+│       ├── types.ts
+│       └── components/
+├── components/
+│   ├── ui/             # shadcn (no modificar)
+│   └── shared/
+└── lib/
+    ├── env.ts          # validación de process.env
+    ├── database.types.ts  # GENERADO
+    └── supabase/       # client / server / admin / session
+proxy.ts                # auth guard (reemplaza middleware.ts en Next 16)
+supabase/migrations/    # SQL versionado
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Convenciones
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **`app/` solo orquesta** — los dominios viven en `features/`.
+- **Server Components por defecto.** `'use client'` solo para interactividad.
+- **Mutations vía Server Actions** con Zod + `revalidatePath`.
+- **Imports con `@/`** — nada de `../../../`.
+- **Tipos de DB generados** — correr `npm run db:types` tras cada migración.
 
-## Deploy on Vercel
+## Base de datos
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Schema y migraciones en `supabase/migrations/`. Fuente de verdad documentada en Obsidian (`02 Apps/v2-flutter/Database Schema.md`).

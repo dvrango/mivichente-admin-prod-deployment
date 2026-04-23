@@ -1,91 +1,71 @@
 # Vichente Admin — Panel Web
 
-Panel de administración para gestionar el directorio de Vichente App. Permite crear, editar y activar/desactivar negocios y categorías. Solo accesible para el admin.
-
-Docs del proyecto: `Workbench/Vichente App/vichente-eats/`
-
-- Qué construir: `01 Product/PRD Vichente App 2.0.md`
-- Arquitectura: `007 Tech/Arquitectura Vichente App 2.0.md`
-- Plan de ejecución: `08 Execution/Plan de Implementacion MVP 2.0.md`
-
----
+Arquitectura completa: `$OBSIDIAN_VAULT/Workbench/Vichente App/02 Apps/v2-admin-web/Arquitectura.md` ← leer antes de escribir código.
 
 ## Stack
 
-- **Next.js** (App Router)
-- **UI** — shadcn/ui
-- **Backend** — Supabase (`@supabase/supabase-js`, `@supabase/ssr`)
-- **Deploy** — Vercel
+Next.js 16 (App Router, `src/`) · TypeScript strict · shadcn/ui + Tailwind · Supabase (`@supabase/ssr`) · Zod · `@t3-oss/env-nextjs` · Vitest.
 
 ## Comandos
 
 ```bash
-npm run dev       # desarrollo local
-npm run build     # build de producción
-npm run lint      # linting
-npm run format    # prettier --write .
+npm run dev
+npm run build
+npm run lint
+npm run format
+npm run typecheck
+npm run test
+npm run db:types     # regenerar src/lib/database.types.ts tras migración
+npm run db:push
 ```
 
-## Estructura
-
-Este proyecto usa el layout `src/` de Next.js (default en Next 16). Migraciones SQL y config de Supabase CLI en `supabase/`.
+## Estructura (feature-based)
 
 ```
 src/
-├── app/
-│   ├── page.tsx             # redirect a /businesses
-│   ├── (auth)/
-│   │   └── login/page.tsx
-│   └── (dashboard)/
-│       ├── layout.tsx       # layout con sidebar, verifica auth
-│       ├── businesses/
-│       │   ├── page.tsx     # listado con búsqueda y filtros
-│       │   ├── new/page.tsx # crear negocio
-│       │   └── [id]/page.tsx # editar negocio
-│       └── categories/
-│           ├── page.tsx     # listado
-│           └── new/page.tsx # crear categoría
+├── app/                  # SOLO routing, layouts, páginas — sin lógica de negocio
+├── features/             # DOMINIOS (código real)
+│   ├── businesses/  { schema, queries, actions, types, components/ }
+│   ├── categories/  { schema, queries, actions, types, components/ }
+│   └── auth/        { schema, queries, actions, components/ }
 ├── components/
-│   └── ui/                  # componentes shadcn (no modificar)
+│   ├── ui/               # shadcn (no modificar)
+│   └── shared/
 └── lib/
-    ├── utils.ts             # cn() helper (shadcn)
-    └── supabase/
-        ├── client.ts        # cliente browser
-        ├── server.ts        # cliente server (cookies)
-        └── proxy.ts         # helper de sesión para proxy.ts
-
-proxy.ts                     # auth guard global (Next 16 reemplazo de middleware)
-supabase/
-├── config.toml              # Supabase CLI config
-└── migrations/              # SQL de migraciones
+    ├── env.ts            # validación Zod de process.env
+    ├── database.types.ts # GENERADO — no editar
+    └── supabase/         # client / server / admin / session
+proxy.ts                  # auth guard (Next 16 reemplazo de middleware.ts)
+supabase/migrations/
 ```
 
-## Convenciones
+## Reglas (críticas)
 
-- **Server Components por defecto** — solo usar `'use client'` cuando sea necesario (formularios, interactividad)
-- **shadcn/ui para todo** — no instalar otras librerías de UI
-- **Supabase server client en Server Components** — nunca exponer service role key al cliente
-- **`proxy.ts` protege el dashboard** — si no hay sesión, redirect a `/login`. En Next 16, `middleware.ts` fue renombrado a `proxy.ts` (misma semántica)
-- **Responsive obligatorio** — el panel debe funcionar en mobile, tablet y desktop
-  - Sidebar: drawer colapsable en mobile (`Sheet` de shadcn), fijo en desktop
-  - Tablas: scroll horizontal en mobile o vista tipo card en pantallas chicas
-  - Formularios: una columna en mobile, dos columnas en tablet+
-  - Breakpoints Tailwind: `sm` (640px), `md` (768px), `lg` (1024px)
+- **`app/` solo orquesta** — no SQL ni lógica inline; importar desde `features/*/queries.ts`.
+- **Server Components por defecto.** `'use client'` solo para forms/interactividad.
+- **Mutations = Server Action** (`'use server'` + parse con Zod + `revalidatePath`). Nada de API routes salvo webhooks.
+- **Un Zod schema por mutation** en `features/*/schema.ts` (fuente de verdad).
+- **Tipos de DB** se generan (`database.types.ts`). Nunca tipar tablas a mano.
+- **`server-only`** en `queries.ts` y `lib/supabase/admin.ts`.
+- **`SUPABASE_SERVICE_ROLE_KEY`** solo vía `lib/supabase/admin.ts`. Nunca `NEXT_PUBLIC_*`.
+- **Imports con `@/`** — sin `../../../`.
+- **`loading.tsx` + `error.tsx`** en cada segmento de dashboard.
+- **Responsive obligatorio.**
 
 ## Variables de entorno
+
+Validadas en `lib/env.ts` — el build falla si falta una.
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=   # solo server-side, nunca al cliente
+SUPABASE_SERVICE_ROLE_KEY=   # solo server
 ```
 
 ## Base de datos
 
-Schema completo en `007 Tech/Database Schema.md` (fuente de verdad).
-
-Fotos de negocios van a Supabase Storage, bucket `business-photos`. La columna `photo_url` guarda la URL pública.
+Schema en Obsidian (`02 Apps/v2-flutter/Database Schema.md`) + migraciones en `supabase/migrations/`. Tras cada migración: `npm run db:types`.
 
 ## Acceso
 
-Un solo usuario admin. Login con email/password via Supabase Auth. RLS configurado para que solo el admin pueda escribir en las tablas.
+Un solo usuario admin. Login email/password via Supabase Auth. RLS en todas las tablas: admin escribe, app mobile lee como anónimo.

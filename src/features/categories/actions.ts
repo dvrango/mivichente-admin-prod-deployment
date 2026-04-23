@@ -3,33 +3,20 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { CategoryType } from '@/lib/types'
+import { parseCategoryForm } from './schema'
 
 export type CategoryFormState = { error: string | null }
 
-const VALID_TYPES: readonly CategoryType[] = ['food', 'business']
-
-type Parsed =
-  | { ok: true; data: { name: string; icon: string | null; type: CategoryType } }
-  | { ok: false; error: string }
-
-function readForm(formData: FormData): Parsed {
-  const name = String(formData.get('name') ?? '').trim()
-  const icon = String(formData.get('icon') ?? '').trim() || null
-  const type = String(formData.get('type') ?? '') as CategoryType
-
-  if (!name) return { ok: false, error: 'El nombre es requerido.' }
-  if (!VALID_TYPES.includes(type)) return { ok: false, error: 'Tipo inválido.' }
-
-  return { ok: true, data: { name, icon, type } }
+function firstIssue(err: import('zod').ZodError): string {
+  return err.issues[0]?.message ?? 'Datos inválidos.'
 }
 
 export async function createCategory(
   _prev: CategoryFormState,
   formData: FormData,
 ): Promise<CategoryFormState> {
-  const parsed = readForm(formData)
-  if (!parsed.ok) return { error: parsed.error }
+  const parsed = parseCategoryForm(formData)
+  if (!parsed.success) return { error: firstIssue(parsed.error) }
 
   const supabase = await createClient()
   const { error } = await supabase.from('categories').insert(parsed.data)
@@ -45,8 +32,8 @@ export async function updateCategory(
   _prev: CategoryFormState,
   formData: FormData,
 ): Promise<CategoryFormState> {
-  const parsed = readForm(formData)
-  if (!parsed.ok) return { error: parsed.error }
+  const parsed = parseCategoryForm(formData)
+  if (!parsed.success) return { error: firstIssue(parsed.error) }
 
   const supabase = await createClient()
   const { error } = await supabase.from('categories').update(parsed.data).eq('id', id)

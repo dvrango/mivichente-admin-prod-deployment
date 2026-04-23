@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react'
 import { Button } from '@/components/ui/button'
-import { toggleBusinessActive } from './actions'
+import { toggleBusinessActive } from '../actions'
 
 export function ToggleActiveButton({ id, isActive }: { id: string; isActive: boolean }) {
   const [pending, startTransition] = useTransition()

@@ -13,9 +13,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import type { BusinessFormState } from './actions'
-
-type CategoryOption = { id: string; name: string }
+import type { BusinessFormState } from '../actions'
+import type { CategoryOption } from '../types'
 
 type Props = {
   action: (prev: BusinessFormState, formData: FormData) => Promise<BusinessFormState>

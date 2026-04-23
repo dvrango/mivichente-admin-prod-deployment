@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { CategoryType } from '@/lib/types'
-import type { CategoryFormState } from './actions'
+import type { CategoryFormState } from '../actions'
+import type { CategoryType } from '../types'
 
 type Props = {
   action: (prev: CategoryFormState, formData: FormData) => Promise<CategoryFormState>

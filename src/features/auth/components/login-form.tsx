@@ -4,12 +4,12 @@ import { useActionState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { login, type LoginState } from './actions'
+import { login, type LoginState } from '../actions'
 
-const initialState: LoginState = { error: null }
+const INITIAL: LoginState = { error: null }
 
 export function LoginForm() {
-  const [state, formAction, pending] = useActionState(login, initialState)
+  const [state, formAction, pending] = useActionState(login, INITIAL)
 
   return (
     <form action={formAction} className="space-y-4">

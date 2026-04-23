@@ -1,25 +1,20 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { buttonVariants } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase/server'
-import type { Business, Category } from '@/lib/types'
-import { BusinessForm } from '../business-form'
-import { updateBusiness, type BusinessFormState } from '../actions'
-import { ToggleActiveButton } from '../toggle-active-button'
+import { updateBusiness, type BusinessFormState } from '@/features/businesses/actions'
+import { BusinessForm } from '@/features/businesses/components/business-form'
+import { ToggleActiveButton } from '@/features/businesses/components/toggle-active-button'
+import { getActiveCategoryOptions, getBusinessById } from '@/features/businesses/queries'
 
 export default async function EditBusinessPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
-
-  const [businessRes, categoriesRes] = await Promise.all([
-    supabase.from('businesses').select('*').eq('id', id).single(),
-    supabase.from('categories').select('id, name, type').eq('is_active', true).order('name'),
+  const [business, categories] = await Promise.all([
+    getBusinessById(id),
+    getActiveCategoryOptions(),
   ])
 
-  if (businessRes.error || !businessRes.data) notFound()
+  if (!business) notFound()
 
-  const business = businessRes.data as Business
-  const categories = (categoriesRes.data ?? []) as Pick<Category, 'id' | 'name' | 'type'>[]
   const action = updateBusiness.bind(null, id) as (
     prev: BusinessFormState,
     formData: FormData,

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
-import { CategoryForm } from '../category-form'
-import { createCategory } from '../actions'
+import { createCategory } from '@/features/categories/actions'
+import { CategoryForm } from '@/features/categories/components/category-form'
 
 export default function NewCategoryPage() {
   return (
