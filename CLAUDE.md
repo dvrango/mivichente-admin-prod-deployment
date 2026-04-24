@@ -2,6 +2,17 @@
 
 Arquitectura completa: `$OBSIDIAN_VAULT/Workbench/Vichente App/02 Apps/v2-admin-web/Arquitectura.md` ← leer antes de escribir código.
 
+## Contexto y target users
+
+Panel administrativo privado de un negocio propio operando en un municipio de Durango, México.
+
+**Target users:**
+
+- Propietario del negocio (usuario principal, perfil no técnico).
+- Personal de confianza autorizado para gestionar contenido (negocios, categorías).
+
+**Localización:** español MX, formato de datos, teléfonos y direcciones mexicanos.
+
 ## Stack
 
 Next.js 16 (App Router, `src/`) · TypeScript strict · shadcn/ui + Tailwind · Supabase (`@supabase/ssr`) · Zod · `@t3-oss/env-nextjs` · Vitest.
