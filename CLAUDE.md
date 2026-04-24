@@ -62,6 +62,9 @@ supabase/migrations/
 - **Imports con `@/`** — sin `../../../`.
 - **`loading.tsx` + `error.tsx`** en cada segmento de dashboard.
 - **Responsive obligatorio.**
+- Todos los filtros deben ir por URL
+- Listas con paginacion o infinite scroll, no cargar todo de golpe
+- Inputs con validacion que es probable que se repitan en forms tienen que ser reusables
 
 ## Variables de entorno
 
