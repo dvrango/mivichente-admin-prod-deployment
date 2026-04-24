@@ -1,48 +1,84 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useState, useTransition } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { login, type LoginState } from '../actions'
-
-const INITIAL: LoginState = { error: null }
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { login } from '../actions'
+import { loginSchema, type LoginInput } from '../schema'
 
 export function LoginForm() {
-  const [state, formAction, pending] = useActionState(login, INITIAL)
+  const [isPending, startTransition] = useTransition()
+  const [serverError, setServerError] = useState<string | null>(null)
+
+  const form = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  })
+
+  function onSubmit(values: LoginInput) {
+    setServerError(null)
+    const fd = new FormData()
+    fd.set('email', values.email)
+    fd.set('password', values.password)
+    startTransition(async () => {
+      const result = await login({ error: null }, fd)
+      if (result?.error) setServerError(result.error)
+    })
+  }
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
           name="email"
-          type="email"
-          autoComplete="email"
-          required
-          disabled={pending}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" autoComplete="email" disabled={isPending} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">Contraseña</Label>
-        <Input
-          id="password"
+        <FormField
+          control={form.control}
           name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          disabled={pending}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Contraseña</FormLabel>
+              <FormControl>
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  disabled={isPending}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
-      {state.error ? (
-        <p className="text-destructive text-sm" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? 'Entrando…' : 'Entrar'}
-      </Button>
-    </form>
+        {serverError ? (
+          <p className="text-destructive text-sm" role="alert">
+            {serverError}
+          </p>
+        ) : null}
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending ? 'Entrando…' : 'Entrar'}
+        </Button>
+      </form>
+    </Form>
   )
 }

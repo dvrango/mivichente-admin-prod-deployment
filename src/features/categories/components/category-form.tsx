@@ -1,9 +1,18 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useState, useTransition } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -12,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { CategoryFormState } from '../actions'
+import { categoryFormSchema, type CategoryFormInput } from '../schema'
 import type { CategoryType } from '../types'
 
 type Props = {
@@ -24,55 +34,102 @@ type Props = {
   }
 }
 
-const INITIAL: CategoryFormState = { error: null }
+const TYPE_ITEMS = [
+  { value: 'food', label: 'Comida' },
+  { value: 'business', label: 'Negocios' },
+]
 
 export function CategoryForm({ action, submitLabel, defaults }: Props) {
-  const [state, formAction, pending] = useActionState(action, INITIAL)
+  const [isPending, startTransition] = useTransition()
+  const [serverError, setServerError] = useState<string | null>(null)
+
+  const form = useForm<CategoryFormInput>({
+    resolver: zodResolver(categoryFormSchema),
+    defaultValues: {
+      name: defaults?.name ?? '',
+      icon: defaults?.icon ?? '',
+      type: defaults?.type ?? 'food',
+    },
+  })
+
+  function onSubmit(values: CategoryFormInput) {
+    setServerError(null)
+    const fd = new FormData()
+    fd.set('name', values.name)
+    fd.set('icon', values.icon ?? '')
+    fd.set('type', values.type)
+    startTransition(async () => {
+      const result = await action({ error: null }, fd)
+      if (result?.error) setServerError(result.error)
+    })
+  }
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Nombre</Label>
-        <Input
-          id="name"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-lg space-y-4">
+        <FormField
+          control={form.control}
           name="name"
-          defaultValue={defaults?.name ?? ''}
-          required
-          disabled={pending}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nombre</FormLabel>
+              <FormControl>
+                <Input disabled={isPending} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="icon">Icono (emoji o texto)</Label>
-        <Input
-          id="icon"
+        <FormField
+          control={form.control}
           name="icon"
-          defaultValue={defaults?.icon ?? ''}
-          placeholder="🍔"
-          disabled={pending}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Icono (emoji o texto)</FormLabel>
+              <FormControl>
+                <Input placeholder="🍔" disabled={isPending} {...field} value={field.value ?? ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="type">Tipo</Label>
-        <Select name="type" defaultValue={defaults?.type ?? 'food'} disabled={pending}>
-          <SelectTrigger id="type" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="food">Comida</SelectItem>
-            <SelectItem value="business">Negocios</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {state.error ? (
-        <p className="text-destructive text-sm" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Guardando…' : submitLabel}
-        </Button>
-      </div>
-    </form>
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tipo</FormLabel>
+              <Select
+                value={field.value}
+                onValueChange={(v) => field.onChange(v)}
+                disabled={isPending}
+                items={TYPE_ITEMS}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="food">Comida</SelectItem>
+                  <SelectItem value="business">Negocios</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {serverError ? (
+          <p className="text-destructive text-sm" role="alert">
+            {serverError}
+          </p>
+        ) : null}
+        <div className="flex gap-2">
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Guardando…' : submitLabel}
+          </Button>
+        </div>
+      </form>
+    </Form>
   )
 }
