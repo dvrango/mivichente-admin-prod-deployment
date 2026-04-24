@@ -31,9 +31,12 @@ export const businessFormSchema = z.object({
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>
 
+export const BUSINESSES_PAGE_SIZE = 20
+
 export const businessFiltersSchema = z.object({
   q: z.string().trim().optional().default(''),
   category: z.string().trim().optional().default(''),
+  page: z.coerce.number().int().min(1).optional().default(1),
 })
 
 export type BusinessFilters = z.infer<typeof businessFiltersSchema>

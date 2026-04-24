@@ -1,7 +1,5 @@
 import Image from 'next/image'
-import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -11,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { BusinessWithCategory } from '../types'
-import { ToggleActiveButton } from './toggle-active-button'
+import { BusinessRowActions } from './business-row-actions'
 
 export function BusinessesTable({ businesses }: { businesses: BusinessWithCategory[] }) {
   return (
@@ -24,7 +22,9 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
             <TableHead>Categoría</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead className="w-48 text-right">Acciones</TableHead>
+            <TableHead className="w-12 text-right">
+              <span className="sr-only">Acciones</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -59,15 +59,7 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Link
-                      href={`/businesses/${b.id}`}
-                      className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                    >
-                      Editar
-                    </Link>
-                    <ToggleActiveButton id={b.id} isActive={b.is_active} />
-                  </div>
+                  <BusinessRowActions id={b.id} isActive={b.is_active} />
                 </TableCell>
               </TableRow>
             ))
