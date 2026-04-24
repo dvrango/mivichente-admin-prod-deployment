@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -17,14 +18,14 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-12">
+              <span className="sr-only">Acciones</span>
+            </TableHead>
             <TableHead className="w-20">Foto</TableHead>
             <TableHead>Nombre</TableHead>
             <TableHead>Categoría</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead className="w-12 text-right">
-              <span className="sr-only">Acciones</span>
-            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -38,6 +39,9 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
             businesses.map((b) => (
               <TableRow key={b.id}>
                 <TableCell>
+                  <BusinessRowActions id={b.id} isActive={b.is_active} />
+                </TableCell>
+                <TableCell>
                   {b.photo_url ? (
                     <Image
                       src={b.photo_url}
@@ -50,16 +54,17 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
                     <div className="bg-muted h-12 w-12 rounded-md" />
                   )}
                 </TableCell>
-                <TableCell className="font-medium">{b.name}</TableCell>
+                <TableCell className="font-medium">
+                  <Link href={`/businesses/${b.id}`} className="hover:underline">
+                    {b.name}
+                  </Link>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{b.category?.name ?? '—'}</TableCell>
                 <TableCell className="text-muted-foreground">{b.phone}</TableCell>
                 <TableCell>
                   <Badge variant={b.is_active ? 'default' : 'secondary'}>
                     {b.is_active ? 'Activo' : 'Inactivo'}
                   </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <BusinessRowActions id={b.id} isActive={b.is_active} />
                 </TableCell>
               </TableRow>
             ))

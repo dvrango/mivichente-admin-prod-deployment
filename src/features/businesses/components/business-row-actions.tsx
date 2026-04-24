@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -32,24 +33,26 @@ export function BusinessRowActions({ id, isActive }: Props) {
         }
       />
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-        <DropdownMenuItem render={<Link href={`/businesses/${id}`} />}>Editar</DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            startTransition(async () => {
-              await toggleBusinessActive(id, !isActive)
-              router.refresh()
-            })
-          }}
-        >
-          {isActive ? 'Desactivar' : 'Activar'}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>Duplicar</DropdownMenuItem>
-        <DropdownMenuItem disabled variant="destructive">
-          Eliminar
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+          <DropdownMenuItem render={<Link href={`/businesses/${id}`} />}>Editar</DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              startTransition(async () => {
+                await toggleBusinessActive(id, !isActive)
+                router.refresh()
+              })
+            }}
+          >
+            {isActive ? 'Desactivar' : 'Activar'}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled>Duplicar</DropdownMenuItem>
+          <DropdownMenuItem disabled variant="destructive">
+            Eliminar
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

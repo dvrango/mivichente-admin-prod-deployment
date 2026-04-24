@@ -1,28 +1,16 @@
-import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
-import type { CategoryType } from '../types'
+'use client'
 
-export function CategoriesFilters({ active }: { active: CategoryType | null }) {
-  return (
-    <div className="flex gap-2">
-      <FilterLink label="Todas" href="/categories" active={active === null} />
-      <FilterLink label="Comida" href="/categories?type=food" active={active === 'food'} />
-      <FilterLink
-        label="Negocios"
-        href="/categories?type=business"
-        active={active === 'business'}
-      />
-    </div>
-  )
-}
+import { FilterSegment } from '@/components/shared/filters'
 
-function FilterLink({ label, href, active }: { label: string; href: string; active: boolean }) {
+export function CategoriesFilters() {
   return (
-    <Link
-      href={href}
-      className={buttonVariants({ variant: active ? 'default' : 'outline', size: 'sm' })}
-    >
-      {label}
-    </Link>
+    <FilterSegment
+      paramKey="type"
+      options={[
+        { value: null, label: 'Todas' },
+        { value: 'food', label: 'Comida' },
+        { value: 'business', label: 'Negocios' },
+      ]}
+    />
   )
 }

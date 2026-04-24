@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { PageHeader } from '@/components/shared/page-header'
 import { buttonVariants } from '@/components/ui/button'
@@ -6,6 +7,7 @@ import { BusinessesPagination } from '@/features/businesses/components/businesse
 import { BusinessesTable } from '@/features/businesses/components/businesses-table'
 import { getAllCategoryOptions, getBusinesses } from '@/features/businesses/queries'
 import { businessFiltersSchema } from '@/features/businesses/schema'
+import { buildFilterUrl } from '@/lib/build-filter-url'
 
 export default async function BusinessesPage({
   searchParams,
@@ -23,12 +25,11 @@ export default async function BusinessesPage({
   const { rows, total, page, pageCount } = businessesPage
 
   function buildHref(nextPage: number) {
-    const params = new URLSearchParams()
-    if (filters.q) params.set('q', filters.q)
-    if (filters.category) params.set('category', filters.category)
-    if (nextPage > 1) params.set('page', String(nextPage))
-    const qs = params.toString()
-    return qs ? `/businesses?${qs}` : '/businesses'
+    return buildFilterUrl('/businesses', {
+      q: filters.q || null,
+      category: filters.category || null,
+      page: nextPage > 1 ? String(nextPage) : null,
+    })
   }
 
   return (
@@ -43,7 +44,9 @@ export default async function BusinessesPage({
         }
       />
 
-      <BusinessesFilters search={filters.q} categoryId={filters.category} categories={categories} />
+      <Suspense>
+        <BusinessesFilters categories={categories} />
+      </Suspense>
 
       <BusinessesTable businesses={rows} />
 

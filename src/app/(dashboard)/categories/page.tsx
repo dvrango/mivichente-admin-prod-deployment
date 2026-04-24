@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { PageHeader } from '@/components/shared/page-header'
 import { buttonVariants } from '@/components/ui/button'
@@ -27,7 +28,9 @@ export default async function CategoriesPage({
         }
       />
 
-      <CategoriesFilters active={filters.type} />
+      <Suspense>
+        <CategoriesFilters />
+      </Suspense>
       <CategoriesTable categories={categories} />
     </div>
   )
