@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PhoneInput } from '@/components/shared/phone-input'
+import { normalizeMxPhone } from '@/lib/validation/phone'
 import {
   Form,
   FormControl,
@@ -50,7 +52,7 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
     defaultValues: {
       name: defaults?.name ?? '',
       category_id: defaults?.category_id ?? '',
-      phone: defaults?.phone ?? '',
+      phone: normalizeMxPhone(defaults?.phone),
       address: defaults?.address ?? '',
       schedule: defaults?.schedule ?? '',
       photo: null,
@@ -129,7 +131,14 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
               <FormItem>
                 <FormLabel>Teléfono</FormLabel>
                 <FormControl>
-                  <Input type="tel" disabled={isPending} {...field} />
+                  <PhoneInput
+                    name={field.name}
+                    ref={field.ref}
+                    value={field.value}
+                    onBlur={field.onBlur}
+                    onChange={field.onChange}
+                    disabled={isPending}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { mxPhoneSchema } from '@/lib/validation/phone'
 
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024
 export const PHOTO_ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const
@@ -14,7 +15,7 @@ const photoSchema = z
 export const businessFormSchema = z.object({
   name: z.string().trim().min(1, 'El nombre es requerido.'),
   category_id: z.string().uuid('La categoría es requerida.'),
-  phone: z.string().trim().min(1, 'El teléfono es requerido.'),
+  phone: mxPhoneSchema,
   address: z
     .string()
     .trim()
