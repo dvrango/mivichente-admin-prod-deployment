@@ -37,13 +37,12 @@ export function BusinessRowActions({ id, isActive }: Props) {
           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
           <DropdownMenuItem render={<Link href={`/businesses/${id}`} />}>Editar</DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
+            onClick={() =>
               startTransition(async () => {
                 await toggleBusinessActive(id, !isActive)
                 router.refresh()
               })
-            }}
+            }
           >
             {isActive ? 'Desactivar' : 'Activar'}
           </DropdownMenuItem>

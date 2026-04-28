@@ -62,7 +62,10 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
                 <TableCell className="text-muted-foreground">{b.category?.name ?? '—'}</TableCell>
                 <TableCell className="text-muted-foreground">{b.phone}</TableCell>
                 <TableCell>
-                  <Badge variant={b.is_active ? 'default' : 'secondary'}>
+                  <Badge
+                    variant={b.is_active ? 'default' : 'secondary'}
+                    className={b.is_active ? 'bg-green-500 text-white hover:bg-green-600' : ''}
+                  >
                     {b.is_active ? 'Activo' : 'Inactivo'}
                   </Badge>
                 </TableCell>
