@@ -8,7 +8,7 @@ type Props = {
 
 export function Sidebar({ userEmail }: Props) {
   return (
-    <aside className="bg-background sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r p-4 lg:flex">
+    <aside className="bg-background hidden h-full w-64 shrink-0 flex-col border-r p-4 lg:flex">
       <div className="mb-6 text-lg font-semibold">Vichente Admin</div>
       <NavItems />
       <div className="mt-6 space-y-2 border-t pt-4">

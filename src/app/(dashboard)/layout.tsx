@@ -8,11 +8,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!user) redirect('/login')
 
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
+    <div className="flex flex-1 flex-col lg:flex-row overflow-hidden min-h-0">
       <Sidebar userEmail={user.email ?? null} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col min-h-0">
         <MobileTopbar userEmail={user.email ?? null} />
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
     </div>
   )
