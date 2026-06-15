@@ -1,7 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, KeyboardEvent } from 'react'
+import { X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,7 @@ type Props = {
     address?: string | null
     schedule?: string | null
     photo_url?: string | null
+    aliases?: string[] | null
   }
 }
 
@@ -46,6 +48,30 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(defaults?.photo_url ?? null)
+  const [aliases, setAliases] = useState<string[]>(defaults?.aliases ?? [])
+  const [aliasInput, setAliasInput] = useState('')
+  const aliasInputRef = useRef<HTMLInputElement>(null)
+
+  function addAlias(value: string) {
+    const trimmed = value.trim()
+    if (trimmed && !aliases.includes(trimmed)) {
+      setAliases((prev) => [...prev, trimmed])
+    }
+    setAliasInput('')
+  }
+
+  function removeAlias(alias: string) {
+    setAliases((prev) => prev.filter((a) => a !== alias))
+  }
+
+  function onAliasKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addAlias(aliasInput)
+    } else if (e.key === 'Backspace' && aliasInput === '' && aliases.length > 0) {
+      setAliases((prev) => prev.slice(0, -1))
+    }
+  }
 
   const form = useForm<BusinessFormInput>({
     resolver: zodResolver(businessFormSchema),
@@ -67,6 +93,7 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
     fd.set('phone', values.phone)
     fd.set('address', values.address ?? '')
     fd.set('schedule', values.schedule ?? '')
+    fd.set('aliases', JSON.stringify(aliases))
     if (values.photo) fd.set('photo', values.photo)
     startTransition(async () => {
       const result = await action({ error: null }, fd)
@@ -177,6 +204,49 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
             </FormItem>
           )}
         />
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none">
+            Aliases <span className="text-muted-foreground font-normal">(nombres populares)</span>
+          </label>
+          <div
+            className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
+            onClick={() => aliasInputRef.current?.focus()}
+          >
+            {aliases.map((alias) => (
+              <span
+                key={alias}
+                className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
+              >
+                {alias}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeAlias(alias)
+                  }}
+                  disabled={isPending}
+                  className="hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <input
+              ref={aliasInputRef}
+              value={aliasInput}
+              onChange={(e) => setAliasInput(e.target.value)}
+              onKeyDown={onAliasKeyDown}
+              onBlur={() => addAlias(aliasInput)}
+              disabled={isPending}
+              placeholder={aliases.length === 0 ? 'Escribe y presiona Enter o coma…' : ''}
+              className="min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Nombres como los conoce la gente. Ayudan a que la búsqueda los encuentre.
+          </p>
+        </div>
 
         <FormField
           control={form.control}

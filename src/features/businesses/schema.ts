@@ -27,6 +27,7 @@ export const businessFormSchema = z.object({
     .transform((v) => v || null)
     .nullable(),
   photo: photoSchema,
+  aliases: z.array(z.string().trim().min(1)).default([]),
 })
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>
@@ -42,6 +43,15 @@ export const businessFiltersSchema = z.object({
 export type BusinessFilters = z.infer<typeof businessFiltersSchema>
 
 export function parseBusinessForm(formData: FormData) {
+  const aliasesRaw = formData.get('aliases')
+  let aliases: string[] = []
+  if (typeof aliasesRaw === 'string' && aliasesRaw.trim()) {
+    try {
+      aliases = JSON.parse(aliasesRaw)
+    } catch {
+      aliases = []
+    }
+  }
   const raw = {
     name: formData.get('name'),
     category_id: formData.get('category_id'),
@@ -52,6 +62,7 @@ export function parseBusinessForm(formData: FormData) {
       const p = formData.get('photo')
       return p instanceof File && p.size > 0 ? p : null
     })(),
+    aliases,
   }
   return businessFormSchema.safeParse(raw)
 }

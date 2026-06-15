@@ -37,6 +37,7 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
           address: business.address,
           schedule: business.schedule,
           photo_url: business.photo_url,
+          aliases: business.aliases,
         }}
       />
     </div>
