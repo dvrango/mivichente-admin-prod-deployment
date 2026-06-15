@@ -10,7 +10,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "db:types": "supabase gen types typescript --linked > src/lib/database.types.ts",
+    "db:types": "sh scripts/gen-types-local.sh",
+    "db:types:prod": "supabase gen types typescript --linked > src/lib/database.types.ts",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "prepare": "husky"

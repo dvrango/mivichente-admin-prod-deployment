@@ -6,6 +6,7 @@ import { X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { PhoneInput } from '@/components/shared/phone-input'
 import { normalizeMxPhone } from '@/lib/validation/phone'
@@ -37,8 +38,10 @@ type Props = {
     name?: string
     category_id?: string | null
     phone?: string
+    phone_is_whatsapp?: boolean | null
     address?: string | null
     schedule?: string | null
+    maps_url?: string | null
     photo_url?: string | null
     aliases?: string[] | null
   }
@@ -79,8 +82,10 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
       name: defaults?.name ?? '',
       category_id: defaults?.category_id ?? '',
       phone: normalizeMxPhone(defaults?.phone),
+      phone_is_whatsapp: defaults?.phone_is_whatsapp ?? false,
       address: defaults?.address ?? '',
       schedule: defaults?.schedule ?? '',
+      maps_url: defaults?.maps_url ?? '',
       photo: null,
     },
   })
@@ -91,8 +96,10 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
     fd.set('name', values.name)
     fd.set('category_id', values.category_id)
     fd.set('phone', values.phone)
+    fd.set('phone_is_whatsapp', String(values.phone_is_whatsapp))
     fd.set('address', values.address ?? '')
     fd.set('schedule', values.schedule ?? '')
+    fd.set('maps_url', values.maps_url ?? '')
     fd.set('aliases', JSON.stringify(aliases))
     if (values.photo) fd.set('photo', values.photo)
     startTransition(async () => {
@@ -193,12 +200,51 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
 
         <FormField
           control={form.control}
+          name="phone_is_whatsapp"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center gap-2">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={isPending}
+                  id="phone_is_whatsapp"
+                />
+              </FormControl>
+              <FormLabel htmlFor="phone_is_whatsapp" className="!mt-0 cursor-pointer">
+                El teléfono tiene WhatsApp
+              </FormLabel>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="address"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Dirección</FormLabel>
               <FormControl>
                 <Textarea rows={2} disabled={isPending} {...field} value={field.value ?? ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="maps_url"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>URL de Google Maps</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="https://maps.app.goo.gl/..."
+                  disabled={isPending}
+                  {...field}
+                  value={field.value ?? ''}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -16,12 +16,18 @@ export const businessFormSchema = z.object({
   name: z.string().trim().min(1, 'El nombre es requerido.'),
   category_id: z.string().uuid('La categoría es requerida.'),
   phone: mxPhoneSchema,
+  phone_is_whatsapp: z.boolean().default(false),
   address: z
     .string()
     .trim()
     .transform((v) => v || null)
     .nullable(),
   schedule: z
+    .string()
+    .trim()
+    .transform((v) => v || null)
+    .nullable(),
+  maps_url: z
     .string()
     .trim()
     .transform((v) => v || null)
@@ -56,8 +62,10 @@ export function parseBusinessForm(formData: FormData) {
     name: formData.get('name'),
     category_id: formData.get('category_id'),
     phone: formData.get('phone'),
+    phone_is_whatsapp: formData.get('phone_is_whatsapp') === 'true',
     address: formData.get('address') ?? '',
     schedule: formData.get('schedule') ?? '',
+    maps_url: formData.get('maps_url') ?? '',
     photo: (() => {
       const p = formData.get('photo')
       return p instanceof File && p.size > 0 ? p : null
