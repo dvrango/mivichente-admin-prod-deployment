@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { DATA_SOURCE_LABELS, type DataSource } from '../schema'
 import type { BusinessWithCategory } from '../types'
 import { BusinessRowActions } from './business-row-actions'
 
@@ -26,12 +27,14 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
             <TableHead>Categoría</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>Estado</TableHead>
+            <TableHead>Verificado</TableHead>
+            <TableHead>Origen</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {businesses.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
+              <TableCell colSpan={8} className="text-muted-foreground py-8 text-center">
                 Sin negocios todavía.
               </TableCell>
             </TableRow>
@@ -39,7 +42,7 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
             businesses.map((b) => (
               <TableRow key={b.id}>
                 <TableCell>
-                  <BusinessRowActions id={b.id} isActive={b.is_active} />
+                  <BusinessRowActions id={b.id} isActive={b.is_active} isVerified={b.is_verified} />
                 </TableCell>
                 <TableCell>
                   {b.photo_url ? (
@@ -68,6 +71,16 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
                   >
                     {b.is_active ? 'Activo' : 'Inactivo'}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {b.is_verified ? (
+                    <Badge className="bg-blue-500 text-white hover:bg-blue-600">Verificado</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">{DATA_SOURCE_LABELS[b.data_source as DataSource]}</Badge>
                 </TableCell>
               </TableRow>
             ))

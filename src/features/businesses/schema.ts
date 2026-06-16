@@ -4,6 +4,18 @@ import { mxPhoneSchema } from '@/lib/validation/phone'
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024
 export const PHOTO_ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const
 
+// data_source no se edita desde el form: scraping/self_registered los pone un proceso
+// externo (script de scraping / auto-registro en la app); el admin panel siempre crea
+// negocios con data_source = 'admin' (ver actions.ts -> createBusiness).
+export const DATA_SOURCES = ['scraping', 'self_registered', 'admin'] as const
+export type DataSource = (typeof DATA_SOURCES)[number]
+
+export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
+  scraping: 'Scraping',
+  self_registered: 'Autónomo',
+  admin: 'Admin',
+}
+
 const photoSchema = z
   .custom<File | null>((v) => v === null || v instanceof File, 'Foto inválida')
   .refine((f) => !f || f.size <= PHOTO_MAX_BYTES, 'La foto excede 5 MB.')

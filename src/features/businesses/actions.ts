@@ -47,7 +47,9 @@ export async function createBusiness(
     photo_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
   }
 
-  const { error } = await supabase.from('businesses').insert({ ...data, photo_url })
+  const { error } = await supabase
+    .from('businesses')
+    .insert({ ...data, photo_url, data_source: 'admin' })
 
   if (error) {
     if (photo_url) {
@@ -93,7 +95,7 @@ export async function updateBusiness(
 
   const { error } = await supabase
     .from('businesses')
-    .update({ ...data, photo_url })
+    .update({ ...data, photo_url, data_source: 'admin' })
     .eq('id', id)
 
   if (error) return { error: error.message }
@@ -110,6 +112,22 @@ export async function updateBusiness(
 export async function toggleBusinessActive(id: string, nextActive: boolean) {
   const supabase = await createClient()
   const { error } = await supabase.from('businesses').update({ is_active: nextActive }).eq('id', id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/businesses')
+  revalidatePath(`/businesses/${id}`)
+}
+
+export async function toggleBusinessVerified(id: string, nextVerified: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({
+      is_verified: nextVerified,
+      verified_at: nextVerified ? new Date().toISOString() : null,
+    })
+    .eq('id', id)
 
   if (error) throw new Error(error.message)
 
