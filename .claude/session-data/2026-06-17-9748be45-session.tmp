@@ -1,0 +1,37 @@
+# Session: 2026-06-17
+**Date:** 2026-06-17
+**Started:** 14:17
+**Last Updated:** 14:19
+**Project:** admin
+**Branch:** master
+**Worktree:** /Users/dvran-air/Documents/development/dvranlabs/vichente-app-v2/admin
+
+---
+<!-- ECC:SUMMARY:START -->
+## Session Summary
+
+### Tasks
+- npm run build esta fallando
+- continue
+- commit this and push it
+- puedes hacer un pre push hook para q haga build? y no vuelva a pasar esto?
+
+### Files Modified
+- /Users/dvran-air/Documents/development/dvranlabs/vichente-app-v2/admin/src/features/businesses/schema.ts
+- /Users/dvran-air/Documents/development/dvranlabs/vichente-app-v2/admin/src/features/categories/components/category-form.tsx
+- /Users/dvran-air/Documents/development/dvranlabs/vichente-app-v2/admin/.husky/pre-push
+
+### Tools Used
+Bash, Read, Edit, Skill, Write
+
+### Stats
+- Total user messages: 4
+<!-- ECC:SUMMARY:END -->
+
+### Notes for Next Session
+-
+
+### Context to Load
+```
+[relevant files]
+```
