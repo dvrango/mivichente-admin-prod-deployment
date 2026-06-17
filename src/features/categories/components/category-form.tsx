@@ -48,7 +48,7 @@ export function CategoryForm({ action, submitLabel, defaults }: Props) {
     defaultValues: {
       name: defaults?.name ?? '',
       icon: defaults?.icon ?? '',
-      type: defaults?.type ?? 'food',
+      type: (defaults?.type ?? 'food') as 'food' | 'business',
     },
   })
 

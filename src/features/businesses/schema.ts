@@ -28,7 +28,7 @@ export const businessFormSchema = z.object({
   name: z.string().trim().min(1, 'El nombre es requerido.'),
   category_id: z.string().uuid('La categoría es requerida.'),
   phone: mxPhoneSchema,
-  phone_is_whatsapp: z.boolean().default(false),
+  phone_is_whatsapp: z.boolean(),
   address: z
     .string()
     .trim()
@@ -45,7 +45,7 @@ export const businessFormSchema = z.object({
     .transform((v) => v || null)
     .nullable(),
   photo: photoSchema,
-  aliases: z.array(z.string().trim().min(1)).default([]),
+  aliases: z.array(z.string().trim().min(1)),
 })
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>
