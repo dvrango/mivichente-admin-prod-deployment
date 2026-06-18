@@ -30,3 +30,7 @@ CREATE POLICY "business_hours_admin_write"
 
 -- index for fast lookup by business
 CREATE INDEX idx_business_hours_business_id ON business_hours(business_id);
+
+-- grants: anon reads active businesses' hours; authenticated (admin) has full access
+GRANT SELECT ON business_hours TO anon;
+GRANT ALL ON business_hours TO authenticated;

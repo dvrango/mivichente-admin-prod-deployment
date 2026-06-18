@@ -1,7 +1,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { BUSINESSES_PAGE_SIZE, type BusinessFilters } from './schema'
-import type { Business, BusinessWithCategory, CategoryOption } from './types'
+import type { Business, BusinessWithCategory, CategoryOption, WeeklyHours } from './types'
 
 export type BusinessesPage = {
   rows: BusinessWithCategory[]
@@ -64,4 +64,21 @@ export async function getAllCategoryOptions(): Promise<CategoryOption[]> {
   const { data, error } = await supabase.from('categories').select('id, name, type').order('name')
   if (error) throw error
   return data ?? []
+}
+
+export async function getBusinessHours(businessId: string): Promise<WeeklyHours> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('business_hours')
+    .select('day_of_week, opens_at, closes_at')
+    .eq('business_id', businessId)
+  if (error) throw error
+  const hours: WeeklyHours = {}
+  for (const row of data ?? []) {
+    hours[row.day_of_week] = {
+      opens_at: row.opens_at.slice(0, 5),
+      closes_at: row.closes_at.slice(0, 5),
+    }
+  }
+  return hours
 }

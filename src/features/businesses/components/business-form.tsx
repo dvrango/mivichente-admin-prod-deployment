@@ -28,7 +28,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { BusinessFormState } from '../actions'
 import { businessFormSchema, type BusinessFormInput } from '../schema'
-import type { CategoryOption } from '../types'
+import type { CategoryOption, WeeklyHours } from '../types'
+import { BusinessHoursEditor } from './business-hours-editor'
 
 type Props = {
   action: (prev: BusinessFormState, formData: FormData) => Promise<BusinessFormState>
@@ -40,19 +41,24 @@ type Props = {
     phone?: string
     phone_is_whatsapp?: boolean | null
     address?: string | null
-    schedule?: string | null
     maps_url?: string | null
     photo_url?: string | null
     aliases?: string[] | null
   }
+  defaultHours?: WeeklyHours
 }
 
-export function BusinessForm({ action, submitLabel, categories, defaults }: Props) {
+const clientSchema = businessFormSchema.omit({ aliases: true })
+type ClientFormInput = Omit<BusinessFormInput, 'aliases'>
+
+export function BusinessForm({ action, submitLabel, categories, defaults, defaultHours }: Props) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(defaults?.photo_url ?? null)
   const [aliases, setAliases] = useState<string[]>(defaults?.aliases ?? [])
   const [aliasInput, setAliasInput] = useState('')
+  const [hours, setHours] = useState<WeeklyHours>(defaultHours ?? {})
+  const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
   const aliasInputRef = useRef<HTMLInputElement>(null)
 
   function addAlias(value: string) {
@@ -76,21 +82,20 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
     }
   }
 
-  const form = useForm<BusinessFormInput>({
-    resolver: zodResolver(businessFormSchema),
+  const form = useForm<ClientFormInput>({
+    resolver: zodResolver(clientSchema),
     defaultValues: {
       name: defaults?.name ?? '',
       category_id: defaults?.category_id ?? '',
       phone: normalizeMxPhone(defaults?.phone),
       phone_is_whatsapp: defaults?.phone_is_whatsapp ?? false,
       address: defaults?.address ?? '',
-      schedule: defaults?.schedule ?? '',
       maps_url: defaults?.maps_url ?? '',
       photo: null,
     },
   })
 
-  function onSubmit(values: BusinessFormInput) {
+  function onSubmit(values: ClientFormInput) {
     setServerError(null)
     const fd = new FormData()
     fd.set('name', values.name)
@@ -98,9 +103,9 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
     fd.set('phone', values.phone)
     fd.set('phone_is_whatsapp', String(values.phone_is_whatsapp))
     fd.set('address', values.address ?? '')
-    fd.set('schedule', values.schedule ?? '')
     fd.set('maps_url', values.maps_url ?? '')
     fd.set('aliases', JSON.stringify(aliases))
+    fd.set('hours', JSON.stringify(hours))
     if (values.photo) fd.set('photo', values.photo)
     startTransition(async () => {
       const result = await action({ error: null }, fd)
@@ -157,46 +162,26 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
           )}
         />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Teléfono</FormLabel>
-                <FormControl>
-                  <PhoneInput
-                    name={field.name}
-                    ref={field.ref}
-                    value={field.value}
-                    onBlur={field.onBlur}
-                    onChange={field.onChange}
-                    disabled={isPending}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="schedule"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Horario</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Lun-Vie 9:00-18:00"
-                    disabled={isPending}
-                    {...field}
-                    value={field.value ?? ''}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Teléfono</FormLabel>
+              <FormControl>
+                <PhoneInput
+                  name={field.name}
+                  ref={field.ref}
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChange={field.onChange}
+                  disabled={isPending}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
@@ -250,6 +235,28 @@ export function BusinessForm({ action, submitLabel, categories, defaults }: Prop
             </FormItem>
           )}
         />
+
+        {showHours ? (
+          <BusinessHoursEditor
+            value={hours}
+            onChange={setHours}
+            onRemove={() => setShowHours(false)}
+            disabled={isPending}
+          />
+        ) : (
+          <div>
+            <p className="text-muted-foreground mb-2 text-sm font-medium">Horarios</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isPending}
+              onClick={() => setShowHours(true)}
+            >
+              + Agregar horarios
+            </Button>
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-sm font-medium leading-none">

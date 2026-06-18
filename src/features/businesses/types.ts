@@ -8,3 +8,6 @@ export type BusinessWithCategory = Business & {
 }
 
 export type CategoryOption = Pick<Category, 'id' | 'name' | 'type'>
+
+export type DayHours = { opens_at: string; closes_at: string }
+export type WeeklyHours = Partial<Record<number, DayHours>>

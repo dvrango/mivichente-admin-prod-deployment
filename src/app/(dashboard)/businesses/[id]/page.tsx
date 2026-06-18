@@ -6,13 +6,18 @@ import { updateBusiness, type BusinessFormState } from '@/features/businesses/ac
 import { BusinessForm } from '@/features/businesses/components/business-form'
 import { ToggleActiveButton } from '@/features/businesses/components/toggle-active-button'
 import { ToggleVerifiedButton } from '@/features/businesses/components/toggle-verified-button'
-import { getActiveCategoryOptions, getBusinessById } from '@/features/businesses/queries'
+import {
+  getActiveCategoryOptions,
+  getBusinessById,
+  getBusinessHours,
+} from '@/features/businesses/queries'
 
 export default async function EditBusinessPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [business, categories] = await Promise.all([
+  const [business, categories, hours] = await Promise.all([
     getBusinessById(id),
     getActiveCategoryOptions(),
+    getBusinessHours(id),
   ])
 
   if (!business) notFound()
@@ -52,11 +57,11 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
           phone: business.phone,
           phone_is_whatsapp: business.phone_is_whatsapp,
           address: business.address,
-          schedule: business.schedule,
           maps_url: business.maps_url,
           photo_url: business.photo_url,
           aliases: business.aliases,
         }}
+        defaultHours={hours}
       />
     </div>
   )
