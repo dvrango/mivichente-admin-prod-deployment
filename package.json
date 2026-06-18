@@ -10,10 +10,11 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "db:types": "sh scripts/gen-types-local.sh",
-    "db:types:prod": "supabase gen types typescript --linked > src/lib/database.types.ts",
+    "db:migrate:local": "PGSSLMODE=disable supabase migration up --db-url \"postgresql://postgres:postgres@100.96.221.80:54322/postgres\"",
     "db:push": "supabase db push",
-    "db:reset": "supabase db reset",
+    "db:types:local": "sh scripts/gen-types-local.sh",
+    "db:types:prod": "supabase gen types typescript --linked > src/lib/database.types.ts",
+    "db:reset:local": "supabase db reset",
     "prepare": "husky"
   },
   "lint-staged": {

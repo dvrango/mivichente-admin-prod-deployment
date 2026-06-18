@@ -35,9 +35,11 @@ npm run lint
 npm run format      # prettier --write .
 npm run typecheck   # tsc --noEmit
 npm run test        # vitest
-npm run db:types    # regenerar src/lib/database.types.ts
-npm run db:push     # aplicar migraciones al remoto
-npm run db:reset    # resetear DB local
+npm run db:migrate:local  # aplicar migrations pendientes en local (minipc)
+npm run db:push           # aplicar migrations pendientes en producción
+npm run db:types:local    # regenerar database.types.ts desde DB local
+npm run db:types:prod     # regenerar tipos desde Supabase remoto
+npm run db:reset:local    # resetear DB local desde cero (destructivo)
 ```
 
 ## Estructura (feature-based)
@@ -69,7 +71,7 @@ supabase/migrations/    # SQL versionado
 - **Server Components por defecto.** `'use client'` solo para interactividad.
 - **Mutations vía Server Actions** con Zod + `revalidatePath`.
 - **Imports con `@/`** — nada de `../../../`.
-- **Tipos de DB generados** — correr `npm run db:types` tras cada migración.
+- **Tipos de DB generados** — correr `npm run db:types:local` tras cada migración.
 
 ## Base de datos
 

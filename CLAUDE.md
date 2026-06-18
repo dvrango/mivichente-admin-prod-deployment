@@ -26,8 +26,11 @@ npm run lint
 npm run format
 npm run typecheck
 npm run test
-npm run db:types     # regenerar src/lib/database.types.ts tras migración
-npm run db:push
+npm run db:migrate:local  # aplicar migrations pendientes en local (minipc)
+npm run db:push           # aplicar migrations pendientes en producción
+npm run db:types:local    # regenerar database.types.ts desde DB local
+npm run db:types:prod     # regenerar tipos desde Supabase remoto
+npm run db:reset:local    # resetear DB local desde cero (destructivo)
 ```
 
 ## Estructura (feature-based)
@@ -78,7 +81,7 @@ SUPABASE_SERVICE_ROLE_KEY=   # solo server
 
 ## Base de datos
 
-Schema en Obsidian (`02 Apps/v2-flutter/Database Schema.md`) + migraciones en `supabase/migrations/`. Tras cada migración: `npm run db:types`.
+Schema en Obsidian (`02 Apps/v2-flutter/Database Schema.md`) + migraciones en `supabase/migrations/`. Tras cada migración: `npm run db:types:local`.
 
 ## Acceso
 
