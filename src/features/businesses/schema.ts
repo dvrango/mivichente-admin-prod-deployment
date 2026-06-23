@@ -49,7 +49,7 @@ export const businessFormSchema = z.object({
     .trim()
     .transform((v) => v || null)
     .nullable(),
-  municipio: z.enum(MUNICIPIOS, { errorMap: () => ({ message: 'Municipio inválido.' }) }),
+  municipio: z.enum(MUNICIPIOS, { message: 'Municipio inválido.' }),
   colonia: z
     .string()
     .trim()
@@ -61,18 +61,14 @@ export const businessFormSchema = z.object({
     .transform((v) => v || null)
     .nullable(),
   facebook_url: z
-    .string()
-    .trim()
-    .url('URL de Facebook inválida.')
-    .or(z.literal(''))
-    .transform((v) => v || null)
+    .literal('')
+    .transform(() => null)
+    .or(z.string().trim().url('URL de Facebook inválida.'))
     .nullable(),
   instagram_url: z
-    .string()
-    .trim()
-    .url('URL de Instagram inválida.')
-    .or(z.literal(''))
-    .transform((v) => v || null)
+    .literal('')
+    .transform(() => null)
+    .or(z.string().trim().url('URL de Instagram inválida.'))
     .nullable(),
   photo: photoSchema,
   aliases: z.array(z.string().trim().min(1)),
