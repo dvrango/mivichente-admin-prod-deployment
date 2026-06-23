@@ -8,6 +8,16 @@ export const PHOTO_ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'] as c
 // externo (script de scraping / auto-registro en la app); el admin panel siempre crea
 // negocios con data_source = 'admin' (ver actions.ts -> createBusiness).
 export const DATA_SOURCES = ['scraping', 'self_registered', 'admin'] as const
+
+export const MUNICIPIOS = [
+  'Vicente Guerrero',
+  'Suchil',
+  'Villa Unión',
+  'Nombre de Dios',
+  'Sombrerete',
+  'Otro',
+] as const
+export type Municipio = (typeof MUNICIPIOS)[number]
 export type DataSource = (typeof DATA_SOURCES)[number]
 
 export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
@@ -35,6 +45,12 @@ export const businessFormSchema = z.object({
     .transform((v) => v || null)
     .nullable(),
   maps_url: z
+    .string()
+    .trim()
+    .transform((v) => v || null)
+    .nullable(),
+  municipio: z.enum(MUNICIPIOS, { errorMap: () => ({ message: 'Municipio inválido.' }) }),
+  colonia: z
     .string()
     .trim()
     .transform((v) => v || null)
@@ -72,6 +88,8 @@ export function parseBusinessForm(formData: FormData) {
     phone_is_whatsapp: formData.get('phone_is_whatsapp') === 'true',
     address: formData.get('address') ?? '',
     maps_url: formData.get('maps_url') ?? '',
+    municipio: formData.get('municipio') ?? 'Vicente Guerrero',
+    colonia: formData.get('colonia') ?? '',
     photo: (() => {
       const p = formData.get('photo')
       return p instanceof File && p.size > 0 ? p : null

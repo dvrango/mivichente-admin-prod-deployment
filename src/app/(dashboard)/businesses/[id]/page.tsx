@@ -58,6 +58,8 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
           phone_is_whatsapp: business.phone_is_whatsapp,
           address: business.address,
           maps_url: business.maps_url,
+          municipio: business.municipio,
+          colonia: business.colonia,
           photo_url: business.photo_url,
           aliases: business.aliases,
         }}

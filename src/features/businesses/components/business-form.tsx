@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import type { BusinessFormState } from '../actions'
-import { businessFormSchema, type BusinessFormInput } from '../schema'
+import { businessFormSchema, MUNICIPIOS, type BusinessFormInput } from '../schema'
 import type { CategoryOption, WeeklyHours } from '../types'
 import { BusinessHoursEditor } from './business-hours-editor'
 
@@ -42,6 +42,8 @@ type Props = {
     phone_is_whatsapp?: boolean | null
     address?: string | null
     maps_url?: string | null
+    municipio?: string | null
+    colonia?: string | null
     photo_url?: string | null
     aliases?: string[] | null
   }
@@ -91,6 +93,8 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
       phone_is_whatsapp: defaults?.phone_is_whatsapp ?? false,
       address: defaults?.address ?? '',
       maps_url: defaults?.maps_url ?? '',
+      municipio: (defaults?.municipio ?? 'Vicente Guerrero') as (typeof MUNICIPIOS)[number],
+      colonia: defaults?.colonia ?? '',
       photo: null,
     },
   })
@@ -104,6 +108,8 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
     fd.set('phone_is_whatsapp', String(values.phone_is_whatsapp))
     fd.set('address', values.address ?? '')
     fd.set('maps_url', values.maps_url ?? '')
+    fd.set('municipio', values.municipio)
+    fd.set('colonia', values.colonia ?? '')
     fd.set('aliases', JSON.stringify(aliases))
     fd.set('hours', JSON.stringify(hours))
     if (values.photo) fd.set('photo', values.photo)
@@ -235,6 +241,58 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
             </FormItem>
           )}
         />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="municipio"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Municipio</FormLabel>
+                <Select
+                  value={field.value || undefined}
+                  onValueChange={(v) => field.onChange(v)}
+                  disabled={isPending}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecciona municipio" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {MUNICIPIOS.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="colonia"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Colonia <span className="text-muted-foreground font-normal">(opcional)</span>
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Ej. Centro, La Joya…"
+                    disabled={isPending}
+                    {...field}
+                    value={field.value ?? ''}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         {showHours ? (
           <BusinessHoursEditor
