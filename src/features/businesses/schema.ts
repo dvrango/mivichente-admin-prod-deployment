@@ -55,8 +55,28 @@ export const businessFormSchema = z.object({
     .trim()
     .transform((v) => v || null)
     .nullable(),
+  description: z
+    .string()
+    .trim()
+    .transform((v) => v || null)
+    .nullable(),
+  facebook_url: z
+    .string()
+    .trim()
+    .url('URL de Facebook inválida.')
+    .or(z.literal(''))
+    .transform((v) => v || null)
+    .nullable(),
+  instagram_url: z
+    .string()
+    .trim()
+    .url('URL de Instagram inválida.')
+    .or(z.literal(''))
+    .transform((v) => v || null)
+    .nullable(),
   photo: photoSchema,
   aliases: z.array(z.string().trim().min(1)),
+  offerings: z.array(z.string().trim().min(1)),
 })
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>
@@ -71,16 +91,17 @@ export const businessFiltersSchema = z.object({
 
 export type BusinessFilters = z.infer<typeof businessFiltersSchema>
 
-export function parseBusinessForm(formData: FormData) {
-  const aliasesRaw = formData.get('aliases')
-  let aliases: string[] = []
-  if (typeof aliasesRaw === 'string' && aliasesRaw.trim()) {
-    try {
-      aliases = JSON.parse(aliasesRaw)
-    } catch {
-      aliases = []
-    }
+function parseJsonArray(formData: FormData, key: string): string[] {
+  const raw = formData.get(key)
+  if (typeof raw !== 'string' || !raw.trim()) return []
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return []
   }
+}
+
+export function parseBusinessForm(formData: FormData) {
   const raw = {
     name: formData.get('name'),
     category_id: formData.get('category_id'),
@@ -90,11 +111,15 @@ export function parseBusinessForm(formData: FormData) {
     maps_url: formData.get('maps_url') ?? '',
     municipio: formData.get('municipio') ?? 'Vicente Guerrero',
     colonia: formData.get('colonia') ?? '',
+    description: formData.get('description') ?? '',
+    facebook_url: formData.get('facebook_url') ?? '',
+    instagram_url: formData.get('instagram_url') ?? '',
     photo: (() => {
       const p = formData.get('photo')
       return p instanceof File && p.size > 0 ? p : null
     })(),
-    aliases,
+    aliases: parseJsonArray(formData, 'aliases'),
+    offerings: parseJsonArray(formData, 'offerings'),
   }
   return businessFormSchema.safeParse(raw)
 }

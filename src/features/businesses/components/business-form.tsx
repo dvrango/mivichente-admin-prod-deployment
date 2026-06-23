@@ -44,14 +44,18 @@ type Props = {
     maps_url?: string | null
     municipio?: string | null
     colonia?: string | null
+    description?: string | null
+    facebook_url?: string | null
+    instagram_url?: string | null
     photo_url?: string | null
     aliases?: string[] | null
+    offerings?: string[] | null
   }
   defaultHours?: WeeklyHours
 }
 
-const clientSchema = businessFormSchema.omit({ aliases: true })
-type ClientFormInput = Omit<BusinessFormInput, 'aliases'>
+const clientSchema = businessFormSchema.omit({ aliases: true, offerings: true })
+type ClientFormInput = Omit<BusinessFormInput, 'aliases' | 'offerings'>
 
 export function BusinessForm({ action, submitLabel, categories, defaults, defaultHours }: Props) {
   const [isPending, startTransition] = useTransition()
@@ -59,9 +63,12 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
   const [previewUrl, setPreviewUrl] = useState<string | null>(defaults?.photo_url ?? null)
   const [aliases, setAliases] = useState<string[]>(defaults?.aliases ?? [])
   const [aliasInput, setAliasInput] = useState('')
+  const [offerings, setOfferings] = useState<string[]>(defaults?.offerings ?? [])
+  const [offeringInput, setOfferingInput] = useState('')
   const [hours, setHours] = useState<WeeklyHours>(defaultHours ?? {})
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
   const aliasInputRef = useRef<HTMLInputElement>(null)
+  const offeringInputRef = useRef<HTMLInputElement>(null)
 
   function addAlias(value: string) {
     const trimmed = value.trim()
@@ -84,6 +91,27 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
     }
   }
 
+  function addOffering(value: string) {
+    const trimmed = value.trim()
+    if (trimmed && !offerings.includes(trimmed)) {
+      setOfferings((prev) => [...prev, trimmed])
+    }
+    setOfferingInput('')
+  }
+
+  function removeOffering(offering: string) {
+    setOfferings((prev) => prev.filter((o) => o !== offering))
+  }
+
+  function onOfferingKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addOffering(offeringInput)
+    } else if (e.key === 'Backspace' && offeringInput === '' && offerings.length > 0) {
+      setOfferings((prev) => prev.slice(0, -1))
+    }
+  }
+
   const form = useForm<ClientFormInput>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -95,6 +123,9 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
       maps_url: defaults?.maps_url ?? '',
       municipio: (defaults?.municipio ?? 'Vicente Guerrero') as (typeof MUNICIPIOS)[number],
       colonia: defaults?.colonia ?? '',
+      description: defaults?.description ?? '',
+      facebook_url: defaults?.facebook_url ?? '',
+      instagram_url: defaults?.instagram_url ?? '',
       photo: null,
     },
   })
@@ -110,7 +141,11 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
     fd.set('maps_url', values.maps_url ?? '')
     fd.set('municipio', values.municipio)
     fd.set('colonia', values.colonia ?? '')
+    fd.set('description', values.description ?? '')
+    fd.set('facebook_url', values.facebook_url ?? '')
+    fd.set('instagram_url', values.instagram_url ?? '')
     fd.set('aliases', JSON.stringify(aliases))
+    fd.set('offerings', JSON.stringify(offerings))
     fd.set('hours', JSON.stringify(hours))
     if (values.photo) fd.set('photo', values.photo)
     startTransition(async () => {
@@ -292,6 +327,115 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
               </FormItem>
             )}
           />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Descripción <span className="text-muted-foreground font-normal">(opcional)</span>
+              </FormLabel>
+              <FormControl>
+                <Textarea
+                  rows={3}
+                  placeholder="Describe brevemente el negocio…"
+                  disabled={isPending}
+                  {...field}
+                  value={field.value ?? ''}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="facebook_url"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Facebook <span className="text-muted-foreground font-normal">(opcional)</span>
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="https://facebook.com/…"
+                    disabled={isPending}
+                    {...field}
+                    value={field.value ?? ''}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="instagram_url"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Instagram <span className="text-muted-foreground font-normal">(opcional)</span>
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="https://instagram.com/…"
+                    disabled={isPending}
+                    {...field}
+                    value={field.value ?? ''}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none">
+            Oferta <span className="text-muted-foreground font-normal">(qué vende / ofrece)</span>
+          </label>
+          <div
+            className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
+            onClick={() => offeringInputRef.current?.focus()}
+          >
+            {offerings.map((offering) => (
+              <span
+                key={offering}
+                className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
+              >
+                {offering}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeOffering(offering)
+                  }}
+                  disabled={isPending}
+                  className="hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <input
+              ref={offeringInputRef}
+              value={offeringInput}
+              onChange={(e) => setOfferingInput(e.target.value)}
+              onKeyDown={onOfferingKeyDown}
+              onBlur={() => addOffering(offeringInput)}
+              disabled={isPending}
+              placeholder={offerings.length === 0 ? 'Ej. tacos, burritos, agua fresca…' : ''}
+              className="min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Productos o servicios. Ayudan a encontrar el negocio por lo que ofrece.
+          </p>
         </div>
 
         {showHours ? (

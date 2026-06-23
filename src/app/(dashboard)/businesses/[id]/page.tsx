@@ -62,6 +62,10 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
           colonia: business.colonia,
           photo_url: business.photo_url,
           aliases: business.aliases,
+          description: business.description,
+          facebook_url: business.facebook_url,
+          instagram_url: business.instagram_url,
+          offerings: business.offerings,
         }}
         defaultHours={hours}
       />
