@@ -1523,6 +1523,7 @@ export type Database = {
       }
       categories: {
         Row: {
+          aliases: string[]
           created_at: string
           icon: string | null
           id: string
@@ -1531,6 +1532,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          aliases?: string[]
           created_at?: string
           icon?: string | null
           id?: string
@@ -1539,6 +1541,7 @@ export type Database = {
           type: string
         }
         Update: {
+          aliases?: string[]
           created_at?: string
           icon?: string | null
           id?: string

@@ -29,6 +29,7 @@ export default async function EditCategoryPage({ params }: { params: Promise<{ i
           name: category.name,
           icon: category.icon,
           type: category.type,
+          aliases: category.aliases,
         }}
       />
     </div>
