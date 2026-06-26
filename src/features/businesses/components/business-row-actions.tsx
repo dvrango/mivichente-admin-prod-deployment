@@ -14,11 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { toggleBusinessActive, toggleBusinessVerified } from '../actions'
+import { toggleBusinessActive, toggleBusinessFeatured, toggleBusinessVerified } from '../actions'
 
-type Props = { id: string; isActive: boolean; isVerified: boolean }
+type Props = { id: string; isActive: boolean; isVerified: boolean; isFeatured: boolean }
 
-export function BusinessRowActions({ id, isActive, isVerified }: Props) {
+export function BusinessRowActions({ id, isActive, isVerified, isFeatured }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -55,6 +55,16 @@ export function BusinessRowActions({ id, isActive, isVerified }: Props) {
             }
           >
             {isVerified ? 'Quitar verificación' : 'Verificar'}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              startTransition(async () => {
+                await toggleBusinessFeatured(id, !isFeatured)
+                router.refresh()
+              })
+            }
+          >
+            {isFeatured ? 'Quitar recomendación' : 'Recomendar'}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled>Duplicar</DropdownMenuItem>

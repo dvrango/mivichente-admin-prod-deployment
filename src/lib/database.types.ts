@@ -1342,6 +1342,7 @@ export type Database = {
       bus_schedules: {
         Row: {
           company: string
+          extra_times: Json
           id: string
           route_from: string
           route_to: string
@@ -1350,6 +1351,7 @@ export type Database = {
         }
         Insert: {
           company: string
+          extra_times?: Json
           id?: string
           route_from: string
           route_to: string
@@ -1358,6 +1360,7 @@ export type Database = {
         }
         Update: {
           company?: string
+          extra_times?: Json
           id?: string
           route_from?: string
           route_to?: string
@@ -1449,6 +1452,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_active: boolean
+          is_featured: boolean
           is_verified: boolean
           maps_url: string | null
           municipio: string
@@ -1474,6 +1478,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_active?: boolean
+          is_featured?: boolean
           is_verified?: boolean
           maps_url?: string | null
           municipio?: string
@@ -1499,6 +1504,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_active?: boolean
+          is_featured?: boolean
           is_verified?: boolean
           maps_url?: string | null
           municipio?: string
@@ -1556,6 +1562,41 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      businesses_open_now: {
+        Args: never
+        Returns: {
+          address: string | null
+          aliases: string[]
+          category_id: string | null
+          colonia: string | null
+          created_at: string
+          data_source: string
+          description: string | null
+          facebook_url: string | null
+          id: string
+          instagram_url: string | null
+          is_active: boolean
+          is_featured: boolean
+          is_verified: boolean
+          maps_url: string | null
+          municipio: string
+          name: string
+          name_normalized: string | null
+          offerings: string[]
+          phone: string
+          phone_is_whatsapp: boolean
+          photo_url: string | null
+          schedule: string | null
+          updated_at: string
+          verified_at: string | null
+        }[]
+        SetofOptions: {
+          from: '*'
+          to: 'businesses'
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       immutable_unaccent: { Args: { '': string }; Returns: string }
       search_businesses: {
         Args: { search_query: string }
@@ -1571,6 +1612,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_active: boolean
+          is_featured: boolean
           is_verified: boolean
           maps_url: string | null
           municipio: string

@@ -5,6 +5,7 @@ import { formatDateLong } from '@/lib/date'
 import { updateBusiness, type BusinessFormState } from '@/features/businesses/actions'
 import { BusinessForm } from '@/features/businesses/components/business-form'
 import { ToggleActiveButton } from '@/features/businesses/components/toggle-active-button'
+import { ToggleFeaturedButton } from '@/features/businesses/components/toggle-featured-button'
 import { ToggleVerifiedButton } from '@/features/businesses/components/toggle-verified-button'
 import {
   getActiveCategoryOptions,
@@ -43,6 +44,7 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
         actions={
           <div className="flex gap-2">
             <ToggleVerifiedButton id={business.id} isVerified={business.is_verified} />
+            <ToggleFeaturedButton id={business.id} isFeatured={business.is_featured} />
             <ToggleActiveButton id={business.id} isActive={business.is_active} />
           </div>
         }

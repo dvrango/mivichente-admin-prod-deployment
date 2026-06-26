@@ -167,6 +167,19 @@ export async function toggleBusinessActive(id: string, nextActive: boolean) {
   revalidatePath(`/businesses/${id}`)
 }
 
+export async function toggleBusinessFeatured(id: string, nextFeatured: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({ is_featured: nextFeatured })
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/businesses')
+  revalidatePath(`/businesses/${id}`)
+}
+
 export async function toggleBusinessVerified(id: string, nextVerified: boolean) {
   const supabase = await createClient()
   const { error } = await supabase
