@@ -21,7 +21,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -154,7 +156,10 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
     })
   }
 
-  const categoryItems = categories.map((c) => ({ value: c.id, label: c.name }))
+  const categoriesByType = {
+    food: categories.filter((c) => c.type === 'food'),
+    business: categories.filter((c) => c.type === 'business'),
+  }
 
   return (
     <Form {...form}>
@@ -183,7 +188,6 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
                 value={field.value || undefined}
                 onValueChange={(v) => field.onChange(v ?? '')}
                 disabled={isPending}
-                items={categoryItems}
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
@@ -191,11 +195,26 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+                  {categoriesByType.food.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Comida y bebida</SelectLabel>
+                      {categoriesByType.food.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {categoriesByType.business.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Comercios y servicios</SelectLabel>
+                      {categoriesByType.business.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
               <FormMessage />
