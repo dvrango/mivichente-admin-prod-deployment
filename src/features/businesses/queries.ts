@@ -17,13 +17,29 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
   const from = (filters.page - 1) * pageSize
   const to = from + pageSize - 1
 
+  if (filters.q) {
+    let rpcQuery = supabase
+      .rpc('search_businesses', { search_query: filters.q })
+      .select('*, category:categories(id, name, type)')
+
+    if (filters.category) rpcQuery = rpcQuery.eq('category_id', filters.category)
+
+    const { data, error } = await rpcQuery
+    if (error) throw error
+    const rows = (data ?? []) as BusinessWithCategory[]
+    const total = rows.length
+    const page = filters.page
+    const pageCount = Math.max(1, Math.ceil(total / pageSize))
+    const sliced = rows.slice(from, to + 1)
+    return { rows: sliced, total, page, pageSize, pageCount }
+  }
+
   let query = supabase
     .from('businesses')
     .select('*, category:categories(id, name, type)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to)
 
-  if (filters.q) query = query.ilike('name', `%${filters.q}%`)
   if (filters.category) query = query.eq('category_id', filters.category)
 
   const { data, error, count } = await query

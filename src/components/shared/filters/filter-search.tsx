@@ -25,12 +25,6 @@ export function FilterSearch({ paramKey = 'q', placeholder = 'Buscar…', classN
   }
 
   return (
-    <Input
-      value={value}
-      onChange={handleChange}
-      placeholder={placeholder}
-      disabled={filters.isPending}
-      className={className}
-    />
+    <Input value={value} onChange={handleChange} placeholder={placeholder} className={className} />
   )
 }
