@@ -191,7 +191,9 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona una categoría" />
+                    <SelectValue placeholder="Selecciona una categoría">
+                      {categories.find((c) => c.id === field.value)?.name}
+                    </SelectValue>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
