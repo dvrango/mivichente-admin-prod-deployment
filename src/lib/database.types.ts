@@ -1369,6 +1369,40 @@ export type Database = {
         }
         Relationships: []
       }
+      business_categories: {
+        Row: {
+          business_id: string
+          category_id: string
+          created_at: string
+          is_primary: boolean
+        }
+        Insert: {
+          business_id: string
+          category_id: string
+          created_at?: string
+          is_primary?: boolean
+        }
+        Update: {
+          business_id?: string
+          category_id?: string
+          created_at?: string
+          is_primary?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_categories_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_categories_category_id_fkey'
+            columns: ['category_id']
+            referencedRelation: 'categories'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       business_hours: {
         Row: {
           business_id: string
@@ -1438,6 +1472,31 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      business_reports: {
+        Row: {
+          business_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_reports_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
       }
       businesses: {
         Row: {
@@ -1633,6 +1692,8 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { '': string }; Returns: string[] }
       unaccent: { Args: { '': string }; Returns: string }
     }
     Enums: {
@@ -1677,7 +1738,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_29: {
+      messages_2026_06_28: {
         Row: {
           event: string | null
           extension: string
@@ -1710,7 +1771,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_30: {
+      messages_2026_06_29: {
         Row: {
           event: string | null
           extension: string
@@ -1743,7 +1804,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_31: {
+      messages_2026_06_30: {
         Row: {
           event: string | null
           extension: string
@@ -1776,7 +1837,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_06_01: {
+      messages_2026_07_01: {
         Row: {
           event: string | null
           extension: string
@@ -1809,7 +1870,73 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_06_02: {
+      messages_2026_07_02: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_07_03: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_07_04: {
         Row: {
           event: string | null
           extension: string

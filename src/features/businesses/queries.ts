@@ -1,7 +1,13 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { BUSINESSES_PAGE_SIZE, type BusinessFilters } from './schema'
-import type { Business, BusinessWithCategory, CategoryOption, WeeklyHours } from './types'
+import type {
+  Business,
+  BusinessCategoryIds,
+  BusinessWithCategory,
+  CategoryOption,
+  WeeklyHours,
+} from './types'
 
 export type BusinessesPage = {
   rows: BusinessWithCategory[]
@@ -18,15 +24,27 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
   const to = from + pageSize - 1
 
   if (filters.q) {
-    let rpcQuery = supabase
+    const { data, error } = await supabase
       .rpc('search_businesses', { search_query: filters.q })
-      .select('*, category:categories(id, name, type)')
-
-    if (filters.category) rpcQuery = rpcQuery.eq('category_id', filters.category)
-
-    const { data, error } = await rpcQuery
+      .select('*, category:categories!businesses_category_id_fkey(id, name, type)')
     if (error) throw error
-    const rows = (data ?? []) as BusinessWithCategory[]
+    let rows = (data ?? []) as BusinessWithCategory[]
+    // Filtro por categoría sobre el ≤50 de la RPC (no sólo la primaria):
+    // se consulta business_categories acotado a esos ids en vez de traer
+    // todos los negocios de la categoría.
+    if (filters.category && rows.length > 0) {
+      const { data: bcRows, error: bcError } = await supabase
+        .from('business_categories')
+        .select('business_id')
+        .eq('category_id', filters.category)
+        .in(
+          'business_id',
+          rows.map((r) => r.id),
+        )
+      if (bcError) throw bcError
+      const idSet = new Set((bcRows ?? []).map((r) => r.business_id))
+      rows = rows.filter((r) => idSet.has(r.id))
+    }
     const total = rows.length
     const page = filters.page
     const pageCount = Math.max(1, Math.ceil(total / pageSize))
@@ -34,13 +52,28 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
     return { rows: sliced, total, page, pageSize, pageCount }
   }
 
+  // Filtro por categoría: matchea si CUALQUIERA de las categorías del negocio
+  // coincide (no sólo la primaria). Se resuelven primero los business_id que
+  // tienen esa categoría en business_categories y luego se filtra por id.
+  let categoryBusinessIds: string[] | null = null
+  if (filters.category) {
+    const { data: bcRows, error: bcError } = await supabase
+      .from('business_categories')
+      .select('business_id')
+      .eq('category_id', filters.category)
+    if (bcError) throw bcError
+    categoryBusinessIds = [...new Set((bcRows ?? []).map((r) => r.business_id))]
+  }
+
   let query = supabase
     .from('businesses')
-    .select('*, category:categories(id, name, type)', { count: 'exact' })
+    .select('*, category:categories!businesses_category_id_fkey(id, name, type)', {
+      count: 'exact',
+    })
     .order('created_at', { ascending: false })
     .range(from, to)
 
-  if (filters.category) query = query.eq('category_id', filters.category)
+  if (categoryBusinessIds) query = query.in('id', categoryBusinessIds)
 
   const { data, error, count } = await query
   if (error) throw error
@@ -80,6 +113,20 @@ export async function getAllCategoryOptions(): Promise<CategoryOption[]> {
   const { data, error } = await supabase.from('categories').select('id, name, type').order('name')
   if (error) throw error
   return data ?? []
+}
+
+export async function getBusinessCategoryIds(businessId: string): Promise<BusinessCategoryIds> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('business_categories')
+    .select('category_id, is_primary')
+    .eq('business_id', businessId)
+  if (error) throw error
+  const rows = data ?? []
+  return {
+    primaryId: rows.find((r) => r.is_primary)?.category_id ?? null,
+    secondaryIds: rows.filter((r) => !r.is_primary).map((r) => r.category_id),
+  }
 }
 
 export async function getBusinessHours(businessId: string): Promise<WeeklyHours> {

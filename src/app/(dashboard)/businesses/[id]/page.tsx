@@ -10,15 +10,17 @@ import { ToggleVerifiedButton } from '@/features/businesses/components/toggle-ve
 import {
   getActiveCategoryOptions,
   getBusinessById,
+  getBusinessCategoryIds,
   getBusinessHours,
 } from '@/features/businesses/queries'
 
 export default async function EditBusinessPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [business, categories, hours] = await Promise.all([
+  const [business, categories, hours, categoryIds] = await Promise.all([
     getBusinessById(id),
     getActiveCategoryOptions(),
     getBusinessHours(id),
+    getBusinessCategoryIds(id),
   ])
 
   if (!business) notFound()
@@ -55,7 +57,8 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
         categories={categories}
         defaults={{
           name: business.name,
-          category_id: business.category_id,
+          primary_category_id: categoryIds.primaryId ?? business.category_id,
+          secondary_category_ids: categoryIds.secondaryIds,
           phone: business.phone,
           phone_is_whatsapp: business.phone_is_whatsapp,
           address: business.address,

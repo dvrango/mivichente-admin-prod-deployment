@@ -36,7 +36,10 @@ const photoSchema = z
 
 export const businessFormSchema = z.object({
   name: z.string().trim().min(1, 'El nombre es requerido.'),
-  category_id: z.string().uuid('La categoría es requerida.'),
+  // Categoría primaria (denormalizada en businesses.category_id — la card
+  // muestra este badge). Las secundarias viven sólo en business_categories.
+  primary_category_id: z.string().uuid('La categoría principal es requerida.'),
+  secondary_category_ids: z.array(z.string().uuid()).default([]),
   phone: mxPhoneSchema,
   phone_is_whatsapp: z.boolean(),
   address: z
@@ -98,9 +101,13 @@ function parseJsonArray(formData: FormData, key: string): string[] {
 }
 
 export function parseBusinessForm(formData: FormData) {
+  const secondaryRaw = parseJsonArray(formData, 'secondary_category_ids')
+  const primary = formData.get('primary_category_id')
   const raw = {
     name: formData.get('name'),
-    category_id: formData.get('category_id'),
+    primary_category_id: primary,
+    // Nunca dejar la primaria dentro de las secundarias (evita fila duplicada).
+    secondary_category_ids: secondaryRaw.filter((c) => c !== primary),
     phone: formData.get('phone'),
     phone_is_whatsapp: formData.get('phone_is_whatsapp') === 'true',
     address: formData.get('address') ?? '',

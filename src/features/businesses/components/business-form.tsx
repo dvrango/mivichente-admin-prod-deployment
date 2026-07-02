@@ -3,8 +3,9 @@
 import Image from 'next/image'
 import { useState, useTransition, useRef, KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -39,7 +40,8 @@ type Props = {
   categories: CategoryOption[]
   defaults?: {
     name?: string
-    category_id?: string | null
+    primary_category_id?: string | null
+    secondary_category_ids?: string[] | null
     phone?: string
     phone_is_whatsapp?: boolean | null
     address?: string | null
@@ -56,8 +58,14 @@ type Props = {
   defaultHours?: WeeklyHours
 }
 
-const clientSchema = businessFormSchema.omit({ aliases: true, offerings: true })
-type ClientFormInput = Omit<BusinessFormInput, 'aliases' | 'offerings'>
+// secondary_category_ids se maneja como estado local (igual que aliases/offerings),
+// no vía react-hook-form; por eso se omite del schema del cliente.
+const clientSchema = businessFormSchema.omit({
+  aliases: true,
+  offerings: true,
+  secondary_category_ids: true,
+})
+type ClientFormInput = Omit<BusinessFormInput, 'aliases' | 'offerings' | 'secondary_category_ids'>
 
 export function BusinessForm({ action, submitLabel, categories, defaults, defaultHours }: Props) {
   const [isPending, startTransition] = useTransition()
@@ -67,6 +75,10 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
   const [aliasInput, setAliasInput] = useState('')
   const [offerings, setOfferings] = useState<string[]>(defaults?.offerings ?? [])
   const [offeringInput, setOfferingInput] = useState('')
+  const [secondaryIds, setSecondaryIds] = useState<string[]>(defaults?.secondary_category_ids ?? [])
+  const [categorySearch, setCategorySearch] = useState('')
+  const [primarySearch, setPrimarySearch] = useState('')
+  const primarySearchInputRef = useRef<HTMLInputElement>(null)
   const [hours, setHours] = useState<WeeklyHours>(defaultHours ?? {})
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
   const aliasInputRef = useRef<HTMLInputElement>(null)
@@ -114,11 +126,17 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
     }
   }
 
+  function toggleSecondary(id: string, checked: boolean) {
+    setSecondaryIds((prev) =>
+      checked ? [...new Set([...prev, id])] : prev.filter((c) => c !== id),
+    )
+  }
+
   const form = useForm<ClientFormInput>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
       name: defaults?.name ?? '',
-      category_id: defaults?.category_id ?? '',
+      primary_category_id: defaults?.primary_category_id ?? '',
       phone: normalizeMxPhone(defaults?.phone),
       phone_is_whatsapp: defaults?.phone_is_whatsapp ?? false,
       address: defaults?.address ?? '',
@@ -136,7 +154,8 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
     setServerError(null)
     const fd = new FormData()
     fd.set('name', values.name)
-    fd.set('category_id', values.category_id)
+    fd.set('primary_category_id', values.primary_category_id)
+    fd.set('secondary_category_ids', JSON.stringify(secondaryIds))
     fd.set('phone', values.phone)
     fd.set('phone_is_whatsapp', String(values.phone_is_whatsapp))
     fd.set('address', values.address ?? '')
@@ -156,10 +175,34 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
     })
   }
 
+  const primaryId = useWatch({ control: form.control, name: 'primary_category_id' })
+  const primaryType = categories.find((c) => c.id === primaryId)?.type
+
   const categoriesByType = {
     food: categories.filter((c) => c.type === 'food'),
     business: categories.filter((c) => c.type === 'business'),
   }
+
+  const primarySearchTerm = primarySearch.trim().toLowerCase()
+  const filteredPrimaryByType = {
+    food: categoriesByType.food.filter((c) => c.name.toLowerCase().includes(primarySearchTerm)),
+    business: categoriesByType.business.filter((c) =>
+      c.name.toLowerCase().includes(primarySearchTerm),
+    ),
+  }
+
+  const search = categorySearch.trim().toLowerCase()
+  const filteredCategoriesByType = {
+    food:
+      primaryType && primaryType !== 'food'
+        ? []
+        : categoriesByType.food.filter((c) => c.name.toLowerCase().includes(search)),
+    business:
+      primaryType && primaryType !== 'business'
+        ? []
+        : categoriesByType.business.filter((c) => c.name.toLowerCase().includes(search)),
+  }
+  const selectedSecondary = categories.filter((c) => secondaryIds.includes(c.id))
 
   return (
     <Form {...form}>
@@ -180,14 +223,30 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
 
         <FormField
           control={form.control}
-          name="category_id"
+          name="primary_category_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Categoría</FormLabel>
+              <FormLabel>Categoría principal</FormLabel>
               <Select
                 value={field.value || undefined}
-                onValueChange={(v) => field.onChange(v ?? '')}
+                onValueChange={(v) => {
+                  field.onChange(v ?? '')
+                  const newType = categories.find((c) => c.id === v)?.type
+                  // La primaria nunca debe quedar también como secundaria,
+                  // y las secundarias deben ser del mismo tipo que la principal.
+                  setSecondaryIds((prev) =>
+                    prev.filter((id) => {
+                      if (id === v) return false
+                      const c = categories.find((cat) => cat.id === id)
+                      return c?.type === newType
+                    }),
+                  )
+                }}
                 disabled={isPending}
+                onOpenChangeComplete={(open) => {
+                  if (open) primarySearchInputRef.current?.focus()
+                  else setPrimarySearch('')
+                }}
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
@@ -197,32 +256,112 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {categoriesByType.food.length > 0 && (
+                  <div className="sticky top-0 z-10 bg-popover p-1">
+                    <Input
+                      ref={primarySearchInputRef}
+                      value={primarySearch}
+                      onChange={(e) => setPrimarySearch(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      placeholder="Buscar categoría..."
+                      className="h-8"
+                    />
+                  </div>
+                  {filteredPrimaryByType.food.length > 0 && (
                     <SelectGroup>
                       <SelectLabel>Comida y bebida</SelectLabel>
-                      {categoriesByType.food.map((c) => (
+                      {filteredPrimaryByType.food.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
                         </SelectItem>
                       ))}
                     </SelectGroup>
                   )}
-                  {categoriesByType.business.length > 0 && (
+                  {filteredPrimaryByType.business.length > 0 && (
                     <SelectGroup>
                       <SelectLabel>Comercios y servicios</SelectLabel>
-                      {categoriesByType.business.map((c) => (
+                      {filteredPrimaryByType.business.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
                         </SelectItem>
                       ))}
                     </SelectGroup>
                   )}
+                  {filteredPrimaryByType.food.length === 0 &&
+                    filteredPrimaryByType.business.length === 0 && (
+                      <p className="text-muted-foreground p-2 text-sm">
+                        Sin resultados para &quot;{primarySearch}&quot;
+                      </p>
+                    )}
                 </SelectContent>
               </Select>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none">
+            Categorías adicionales{' '}
+            <span className="text-muted-foreground font-normal">(opcional)</span>
+          </label>
+          {selectedSecondary.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {selectedSecondary.map((c) => (
+                <Badge key={c.id} variant="secondary" className="gap-1 pr-1">
+                  {c.name}
+                  <button
+                    type="button"
+                    onClick={() => toggleSecondary(c.id, false)}
+                    disabled={isPending}
+                    className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                    aria-label={`Quitar ${c.name}`}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+          <Input
+            value={categorySearch}
+            onChange={(e) => setCategorySearch(e.target.value)}
+            placeholder="Buscar categoría..."
+            disabled={isPending}
+          />
+          <div className="grid max-h-64 grid-cols-2 gap-x-4 gap-y-1.5 overflow-y-auto rounded-md border p-3">
+            {(['food', 'business'] as const).map((type) => {
+              const opts = filteredCategoriesByType[type].filter((c) => c.id !== primaryId)
+              if (opts.length === 0) return null
+              return (
+                <div key={type} className="space-y-1.5">
+                  <p className="text-muted-foreground text-xs font-medium">
+                    {type === 'food' ? 'Comida y bebida' : 'Comercios y servicios'}
+                  </p>
+                  {opts.map((c) => (
+                    <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={secondaryIds.includes(c.id)}
+                        onCheckedChange={(v) => toggleSecondary(c.id, v === true)}
+                        disabled={isPending}
+                      />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+              )
+            })}
+            {filteredCategoriesByType.food.length === 0 &&
+              filteredCategoriesByType.business.length === 0 && (
+                <p className="text-muted-foreground col-span-2 text-sm">
+                  Sin resultados para &quot;{categorySearch}&quot;
+                </p>
+              )}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            El negocio aparecerá también en estas categorías. La principal muestra el icono en la
+            tarjeta.
+          </p>
+        </div>
 
         <FormField
           control={form.control}

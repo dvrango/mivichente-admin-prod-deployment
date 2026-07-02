@@ -40,6 +40,26 @@ async function upsertHours(
   }
 }
 
+// business_categories guarda TODAS las categorías del negocio. La primaria
+// (is_primary = true) también se denormaliza en businesses.category_id (ver
+// createBusiness/updateBusiness). Delete-all-then-insert, igual que upsertHours.
+async function upsertBusinessCategories(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  businessId: string,
+  primaryId: string,
+  secondaryIds: string[],
+) {
+  await supabase.from('business_categories').delete().eq('business_id', businessId)
+  const rows = [
+    { business_id: businessId, category_id: primaryId, is_primary: true },
+    ...secondaryIds
+      .filter((id) => id !== primaryId)
+      .map((id) => ({ business_id: businessId, category_id: id, is_primary: false })),
+  ]
+  const { error } = await supabase.from('business_categories').insert(rows)
+  if (error) throw new Error(error.message)
+}
+
 function extFromMime(mime: string): string {
   if (mime === 'image/jpeg') return 'jpg'
   if (mime === 'image/png') return 'png'
@@ -64,7 +84,7 @@ export async function createBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { photo, ...data } = parsed.data
+  const { photo, primary_category_id, secondary_category_ids, ...data } = parsed.data
   const hours = parseHours(formData)
 
   const supabase = await createClient()
@@ -81,7 +101,7 @@ export async function createBusiness(
 
   const { data: inserted, error } = await supabase
     .from('businesses')
-    .insert({ ...data, photo_url, data_source: 'admin' })
+    .insert({ ...data, category_id: primary_category_id, photo_url, data_source: 'admin' })
     .select('id')
     .single()
 
@@ -94,9 +114,15 @@ export async function createBusiness(
   }
 
   try {
+    await upsertBusinessCategories(
+      supabase,
+      inserted.id,
+      primary_category_id,
+      secondary_category_ids,
+    )
     await upsertHours(supabase, inserted.id, hours)
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Error guardando horarios.' }
+    return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
 
   revalidatePath('/businesses')
@@ -110,7 +136,7 @@ export async function updateBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { photo, ...data } = parsed.data
+  const { photo, primary_category_id, secondary_category_ids, ...data } = parsed.data
 
   const supabase = await createClient()
 
@@ -137,7 +163,7 @@ export async function updateBusiness(
 
   const { error } = await supabase
     .from('businesses')
-    .update({ ...data, photo_url, data_source: 'admin' })
+    .update({ ...data, category_id: primary_category_id, photo_url, data_source: 'admin' })
     .eq('id', id)
 
   if (error) return { error: error.message }
@@ -147,9 +173,10 @@ export async function updateBusiness(
   }
 
   try {
+    await upsertBusinessCategories(supabase, id, primary_category_id, secondary_category_ids)
     await upsertHours(supabase, id, hours)
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Error guardando horarios.' }
+    return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
 
   revalidatePath('/businesses')
