@@ -1,0 +1,30 @@
+# Session: 2026-07-02
+**Date:** 2026-07-02
+**Started:** 12:42
+**Last Updated:** 12:42
+**Project:** admin
+**Branch:** master
+**Worktree:** /Users/dvran-air/Documents/development/dvranlabs/vichente-app-v2/admin
+
+---
+<!-- ECC:SUMMARY:START -->
+## Session Summary
+
+### Tasks
+- <command-message>code-review</command-message> <command-name>/code-review</command-name>
+- \`medium effort → 3+5 angles × 6 candidates → 1-vote verify → ≤8 findings\`  You are reviewing for **precision** at medium effort: every finding you surface should be one a maintainer would act on.  ## 
+
+### Tools Used
+Bash, Read
+
+### Stats
+- Total user messages: 2
+<!-- ECC:SUMMARY:END -->
+
+### Notes for Next Session
+-
+
+### Context to Load
+```
+[relevant files]
+```
