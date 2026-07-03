@@ -12,7 +12,7 @@ import { buildFilterUrl } from '@/lib/build-filter-url'
 export default async function BusinessesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; page?: string }>
+  searchParams: Promise<{ q?: string; category?: string; status?: string; page?: string }>
 }) {
   const raw = await searchParams
   const filters = businessFiltersSchema.parse(raw)
@@ -28,6 +28,7 @@ export default async function BusinessesPage({
     return buildFilterUrl('/businesses', {
       q: filters.q || null,
       category: filters.category || null,
+      status: filters.status !== 'all' ? filters.status : null,
       page: nextPage > 1 ? String(nextPage) : null,
     })
   }

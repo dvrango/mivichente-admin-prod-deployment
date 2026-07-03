@@ -82,9 +82,13 @@ export type BusinessFormInput = z.infer<typeof businessFormSchema>
 
 export const BUSINESSES_PAGE_SIZE = 20
 
+export const BUSINESS_STATUS_VALUES = ['all', 'active', 'inactive'] as const
+export type BusinessStatus = (typeof BUSINESS_STATUS_VALUES)[number]
+
 export const businessFiltersSchema = z.object({
   q: z.string().trim().optional().default(''),
   category: z.string().trim().optional().default(''),
+  status: z.enum(BUSINESS_STATUS_VALUES).optional().default('all'),
   page: z.coerce.number().int().min(1).optional().default(1),
 })
 

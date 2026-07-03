@@ -184,6 +184,27 @@ export async function updateBusiness(
   redirect('/businesses')
 }
 
+export async function deleteBusiness(id: string) {
+  const supabase = await createClient()
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('businesses')
+    .select('photo_url')
+    .eq('id', id)
+    .single()
+  if (fetchError) throw new Error(fetchError.message)
+
+  const { error } = await supabase.from('businesses').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+
+  if (existing.photo_url) {
+    const path = pathFromPublicUrl(existing.photo_url)
+    if (path) await supabase.storage.from(BUCKET).remove([path])
+  }
+
+  revalidatePath('/businesses')
+}
+
 export async function toggleBusinessActive(id: string, nextActive: boolean) {
   const supabase = await createClient()
   const { error } = await supabase.from('businesses').update({ is_active: nextActive }).eq('id', id)

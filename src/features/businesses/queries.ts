@@ -45,6 +45,10 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
       const idSet = new Set((bcRows ?? []).map((r) => r.business_id))
       rows = rows.filter((r) => idSet.has(r.id))
     }
+    if (filters.status !== 'all') {
+      const wantActive = filters.status === 'active'
+      rows = rows.filter((r) => r.is_active === wantActive)
+    }
     const total = rows.length
     const page = filters.page
     const pageCount = Math.max(1, Math.ceil(total / pageSize))
@@ -74,6 +78,7 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
     .range(from, to)
 
   if (categoryBusinessIds) query = query.in('id', categoryBusinessIds)
+  if (filters.status !== 'all') query = query.eq('is_active', filters.status === 'active')
 
   const { data, error, count } = await query
   if (error) throw error
