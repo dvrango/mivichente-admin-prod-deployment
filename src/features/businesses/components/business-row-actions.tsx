@@ -31,9 +31,21 @@ import {
   toggleBusinessVerified,
 } from '../actions'
 
-type Props = { id: string; isActive: boolean; isVerified: boolean; isFeatured: boolean }
+type Props = {
+  id: string
+  isActive: boolean
+  isVerified: boolean
+  isFeatured: boolean
+  canDelete?: boolean
+}
 
-export function BusinessRowActions({ id, isActive, isVerified, isFeatured }: Props) {
+export function BusinessRowActions({
+  id,
+  isActive,
+  isVerified,
+  isFeatured,
+  canDelete = false,
+}: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -91,10 +103,14 @@ export function BusinessRowActions({ id, isActive, isVerified, isFeatured }: Pro
             >
               {isFeatured ? 'Quitar recomendación' : 'Recomendar'}
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => setConfirmOpen(true)}>
-              Eliminar
-            </DropdownMenuItem>
+            {canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={() => setConfirmOpen(true)}>
+                  Eliminar
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>

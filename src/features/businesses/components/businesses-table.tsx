@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { formatDateShort } from '@/lib/date'
 import {
   Table,
   TableBody,
@@ -13,7 +14,13 @@ import { DATA_SOURCE_LABELS, type DataSource } from '../schema'
 import type { BusinessWithCategory } from '../types'
 import { BusinessRowActions } from './business-row-actions'
 
-export function BusinessesTable({ businesses }: { businesses: BusinessWithCategory[] }) {
+export function BusinessesTable({
+  businesses,
+  canDelete = false,
+}: {
+  businesses: BusinessWithCategory[]
+  canDelete?: boolean
+}) {
   return (
     <div className="rounded-md border">
       <Table>
@@ -30,12 +37,13 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
             <TableHead>Verificado</TableHead>
             <TableHead>Recomendado</TableHead>
             <TableHead>Origen</TableHead>
+            <TableHead>Actualizado por</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {businesses.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-muted-foreground py-8 text-center">
+              <TableCell colSpan={10} className="text-muted-foreground py-8 text-center">
                 Sin negocios todavía.
               </TableCell>
             </TableRow>
@@ -48,6 +56,7 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
                     isActive={b.is_active}
                     isVerified={b.is_verified}
                     isFeatured={b.is_featured}
+                    canDelete={canDelete}
                   />
                 </TableCell>
                 <TableCell>
@@ -96,6 +105,21 @@ export function BusinessesTable({ businesses }: { businesses: BusinessWithCatego
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">{DATA_SOURCE_LABELS[b.data_source as DataSource]}</Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-xs">
+                  {b.updated_by_profile?.email ? (
+                    <div className="flex flex-col">
+                      <span
+                        className="text-foreground max-w-40 truncate"
+                        title={b.updated_by_profile.email}
+                      >
+                        {b.updated_by_profile.email}
+                      </span>
+                      <span>{formatDateShort(b.updated_at)}</span>
+                    </div>
+                  ) : (
+                    '—'
+                  )}
                 </TableCell>
               </TableRow>
             ))
