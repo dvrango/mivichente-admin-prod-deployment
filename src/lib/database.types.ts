@@ -203,6 +203,7 @@ export type Database = {
           category_id: string | null
           colonia: string | null
           created_at: string
+          created_by: string | null
           data_source: string
           description: string | null
           facebook_url: string | null
@@ -221,6 +222,7 @@ export type Database = {
           photo_url: string | null
           schedule: string | null
           updated_at: string
+          updated_by: string | null
           verified_at: string | null
         }
         Insert: {
@@ -229,6 +231,7 @@ export type Database = {
           category_id?: string | null
           colonia?: string | null
           created_at?: string
+          created_by?: string | null
           data_source?: string
           description?: string | null
           facebook_url?: string | null
@@ -247,6 +250,7 @@ export type Database = {
           photo_url?: string | null
           schedule?: string | null
           updated_at?: string
+          updated_by?: string | null
           verified_at?: string | null
         }
         Update: {
@@ -255,6 +259,7 @@ export type Database = {
           category_id?: string | null
           colonia?: string | null
           created_at?: string
+          created_by?: string | null
           data_source?: string
           description?: string | null
           facebook_url?: string | null
@@ -273,6 +278,7 @@ export type Database = {
           photo_url?: string | null
           schedule?: string | null
           updated_at?: string
+          updated_by?: string | null
           verified_at?: string | null
         }
         Relationships: [
@@ -281,6 +287,20 @@ export type Database = {
             columns: ['category_id']
             isOneToOne: false
             referencedRelation: 'categories'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'businesses_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'businesses_updated_by_fkey'
+            columns: ['updated_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]
@@ -315,6 +335,30 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          municipio: string | null
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          municipio?: string | null
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          municipio?: string | null
+          role?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -328,6 +372,7 @@ export type Database = {
           category_id: string | null
           colonia: string | null
           created_at: string
+          created_by: string | null
           data_source: string
           description: string | null
           facebook_url: string | null
@@ -346,6 +391,7 @@ export type Database = {
           photo_url: string | null
           schedule: string | null
           updated_at: string
+          updated_by: string | null
           verified_at: string | null
         }[]
         SetofOptions: {
@@ -356,6 +402,7 @@ export type Database = {
         }
       }
       immutable_unaccent: { Args: { '': string }; Returns: string }
+      is_admin: { Args: never; Returns: boolean }
       search_businesses: {
         Args: { search_query: string }
         Returns: {
@@ -364,6 +411,7 @@ export type Database = {
           category_id: string | null
           colonia: string | null
           created_at: string
+          created_by: string | null
           data_source: string
           description: string | null
           facebook_url: string | null
@@ -382,6 +430,7 @@ export type Database = {
           photo_url: string | null
           schedule: string | null
           updated_at: string
+          updated_by: string | null
           verified_at: string | null
         }[]
         SetofOptions: {
@@ -394,6 +443,7 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { '': string }; Returns: string[] }
       unaccent: { Args: { '': string }; Returns: string }
+      user_municipio: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
