@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/shared/page-header'
 import { formatDateLong } from '@/lib/date'
+import { getCurrentProfile } from '@/features/auth/queries'
 import { updateBusiness, type BusinessFormState } from '@/features/businesses/actions'
 import { BusinessForm } from '@/features/businesses/components/business-form'
 import { ToggleActiveButton } from '@/features/businesses/components/toggle-active-button'
@@ -16,14 +17,18 @@ import {
 
 export default async function EditBusinessPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [business, categories, hours, categoryIds] = await Promise.all([
+  const [business, categories, hours, categoryIds, profile] = await Promise.all([
     getBusinessById(id),
     getActiveCategoryOptions(),
     getBusinessHours(id),
     getBusinessCategoryIds(id),
+    getCurrentProfile(),
   ])
 
   if (!business) notFound()
+
+  const lockedMunicipio =
+    profile?.role === 'reviewer' ? (profile.municipio ?? undefined) : undefined
 
   const action = updateBusiness.bind(null, id) as (
     prev: BusinessFormState,
@@ -51,10 +56,28 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
           </div>
         }
       />
+      <div className="text-muted-foreground space-y-0.5 text-xs">
+        <p>
+          Creado por{' '}
+          <span className="text-foreground font-medium">
+            {business.created_by_profile?.email ?? 'desconocido'}
+          </span>{' '}
+          el {formatDateLong(business.created_at)}
+        </p>
+        <p>
+          Última edición por{' '}
+          <span className="text-foreground font-medium">
+            {business.updated_by_profile?.email ?? 'desconocido'}
+          </span>{' '}
+          el {formatDateLong(business.updated_at)}
+        </p>
+      </div>
+
       <BusinessForm
         action={action}
         submitLabel="Guardar"
         categories={categories}
+        lockedMunicipio={lockedMunicipio}
         defaults={{
           name: business.name,
           primary_category_id: categoryIds.primaryId ?? business.category_id,

@@ -38,6 +38,8 @@ type Props = {
   action: (prev: BusinessFormState, formData: FormData) => Promise<BusinessFormState>
   submitLabel: string
   categories: CategoryOption[]
+  // Reviewer: municipio fijo a su asignado (el RLS rechaza otros municipios).
+  lockedMunicipio?: string
   defaults?: {
     name?: string
     primary_category_id?: string | null
@@ -67,7 +69,14 @@ const clientSchema = businessFormSchema.omit({
 })
 type ClientFormInput = Omit<BusinessFormInput, 'aliases' | 'offerings' | 'secondary_category_ids'>
 
-export function BusinessForm({ action, submitLabel, categories, defaults, defaultHours }: Props) {
+export function BusinessForm({
+  action,
+  submitLabel,
+  categories,
+  defaults,
+  defaultHours,
+  lockedMunicipio,
+}: Props) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(defaults?.photo_url ?? null)
@@ -141,7 +150,9 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
       phone_is_whatsapp: defaults?.phone_is_whatsapp ?? false,
       address: defaults?.address ?? '',
       maps_url: defaults?.maps_url ?? '',
-      municipio: (defaults?.municipio ?? 'Vicente Guerrero') as (typeof MUNICIPIOS)[number],
+      municipio: (lockedMunicipio ??
+        defaults?.municipio ??
+        'Vicente Guerrero') as (typeof MUNICIPIOS)[number],
       colonia: defaults?.colonia ?? '',
       description: defaults?.description ?? '',
       facebook_url: defaults?.facebook_url ?? '',
@@ -447,7 +458,7 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
                 <Select
                   value={field.value || undefined}
                   onValueChange={(v) => field.onChange(v)}
-                  disabled={isPending}
+                  disabled={isPending || !!lockedMunicipio}
                 >
                   <FormControl>
                     <SelectTrigger className="w-full">
@@ -462,6 +473,11 @@ export function BusinessForm({ action, submitLabel, categories, defaults, defaul
                     ))}
                   </SelectContent>
                 </Select>
+                {lockedMunicipio && (
+                  <p className="text-muted-foreground text-xs">
+                    Tu municipio asignado. No se puede cambiar.
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}

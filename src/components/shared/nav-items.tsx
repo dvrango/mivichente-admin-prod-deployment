@@ -3,18 +3,21 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { navGroups } from './nav-config'
+import type { Role } from '@/features/auth/queries'
+import { navGroupsForRole } from './nav-config'
 
 type Props = {
+  role: Role
   onNavigate?: () => void
 }
 
-export function NavItems({ onNavigate }: Props) {
+export function NavItems({ role, onNavigate }: Props) {
   const pathname = usePathname()
+  const groups = navGroupsForRole(role)
 
   return (
     <nav className="flex flex-1 flex-col gap-4 text-sm">
-      {navGroups.map((group, i) => (
+      {groups.map((group, i) => (
         <div key={group.label ?? i} className="flex flex-col gap-1">
           {group.label && (
             <div className="text-muted-foreground px-2 pt-2 pb-1 text-xs font-medium tracking-wide uppercase">

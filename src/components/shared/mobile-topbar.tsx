@@ -5,13 +5,15 @@ import { Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { signOut } from '@/features/auth/actions'
+import type { Role } from '@/features/auth/queries'
 import { NavItems } from './nav-items'
 
 type Props = {
   userEmail: string | null
+  role: Role
 }
 
-export function MobileTopbar({ userEmail }: Props) {
+export function MobileTopbar({ userEmail, role }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -37,7 +39,7 @@ export function MobileTopbar({ userEmail }: Props) {
                 }
               />
             </div>
-            <NavItems onNavigate={() => setOpen(false)} />
+            <NavItems role={role} onNavigate={() => setOpen(false)} />
             <div className="mt-6 space-y-2 border-t pt-4">
               <p className="text-muted-foreground truncate text-xs" title={userEmail ?? ''}>
                 {userEmail}
