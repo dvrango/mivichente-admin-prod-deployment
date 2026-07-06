@@ -23,6 +23,16 @@
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
+const MX_PHONE_DIGITS = 10;
+
+function normalizeMxPhone(value) {
+  const digits = (value ?? '').replace(/\D/g, '');
+  if (digits.length <= MX_PHONE_DIGITS) return digits;
+  if (digits.startsWith('521')) return digits.slice(3, 3 + MX_PHONE_DIGITS);
+  if (digits.startsWith('52')) return digits.slice(2, 2 + MX_PHONE_DIGITS);
+  return digits.slice(0, MX_PHONE_DIGITS);
+}
+
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 if (!API_KEY) {
   console.error('Falta GOOGLE_PLACES_API_KEY en env.');
@@ -123,7 +133,7 @@ async function toBusinessRow(place, photoLocalPath) {
   return {
     _place_id: place.id,
     name: place.displayName?.text ?? '',
-    phone: place.nationalPhoneNumber ?? '',
+    phone: normalizeMxPhone(place.nationalPhoneNumber),
     phone_is_whatsapp: false,
     address: place.formattedAddress ?? null,
     maps_url: place.googleMapsUri ?? null,
@@ -150,7 +160,7 @@ function validateBusiness(biz) {
   if (!biz.phone || !biz.phone.trim()) return 'sin telefono (columna NOT NULL en businesses)';
   if (!biz.address) return 'sin address';
   if (!isInTargetMunicipio(biz.address)) return `fuera de municipio target: "${biz.address}"`;
-  if (!/^\+?[\d\s()-]{7,}$/.test(biz.phone)) return `telefono con formato raro: "${biz.phone}"`;
+  if (biz.phone.length !== MX_PHONE_DIGITS) return `telefono no tiene 10 digitos: "${biz.phone}"`;
   return null;
 }
 
