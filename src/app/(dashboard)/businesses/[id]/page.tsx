@@ -15,8 +15,15 @@ import {
   getBusinessHours,
 } from '@/features/businesses/queries'
 
-export default async function EditBusinessPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditBusinessPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ returnTo?: string }>
+}) {
   const { id } = await params
+  const { returnTo } = await searchParams
   const [business, categories, hours, categoryIds, profile] = await Promise.all([
     getBusinessById(id),
     getActiveCategoryOptions(),
@@ -30,7 +37,10 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
   const lockedMunicipio =
     profile?.role === 'reviewer' ? (profile.municipio ?? undefined) : undefined
 
-  const action = updateBusiness.bind(null, id) as (
+  // Sólo se acepta un returnTo relativo dentro de /businesses (evita open redirect).
+  const safeReturnTo = returnTo?.startsWith('/businesses') ? returnTo : undefined
+
+  const action = updateBusiness.bind(null, id, safeReturnTo) as (
     prev: BusinessFormState,
     formData: FormData,
   ) => Promise<BusinessFormState>

@@ -13,7 +13,7 @@ export type BusinessWithCategory = Business & {
   updated_by_profile?: ActorProfile
 }
 
-export type CategoryOption = Pick<Category, 'id' | 'name' | 'type'>
+export type CategoryOption = Pick<Category, 'id' | 'name' | 'type' | 'aliases'>
 
 /** Categorías de un negocio para poblar el form de edición. */
 export type BusinessCategoryIds = {

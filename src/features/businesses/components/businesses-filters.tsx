@@ -1,20 +1,28 @@
 'use client'
 
+import { CategorySelect } from '@/components/shared/category-select'
 import { FilterReset, FilterSearch, FilterSegment, FilterSelect } from '@/components/shared/filters'
+import { useFilters } from '@/components/shared/filters/use-filters'
 import { MUNICIPIOS } from '../schema'
 import type { CategoryOption } from '../types'
 
 type Props = { categories: CategoryOption[]; showMunicipio?: boolean }
 
 export function BusinessesFilters({ categories, showMunicipio = false }: Props) {
+  const filters = useFilters()
+
   return (
     <div className="flex flex-wrap gap-2">
       <FilterSearch paramKey="q" placeholder="Buscar por nombre…" className="max-w-xs" />
-      <FilterSelect
-        paramKey="category"
-        placeholder="Todas las categorías"
-        options={categories.map((c) => ({ value: c.id, label: c.name }))}
-      />
+      <div className="w-56">
+        <CategorySelect
+          categories={categories}
+          value={filters.get('category') ?? undefined}
+          onValueChange={(v) => filters.set('category', v || null)}
+          placeholder="Todas las categorías"
+          disabled={filters.isPending}
+        />
+      </div>
       {showMunicipio && (
         <FilterSelect
           paramKey="municipio"

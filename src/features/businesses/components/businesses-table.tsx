@@ -17,9 +17,11 @@ import { BusinessRowActions } from './business-row-actions'
 export function BusinessesTable({
   businesses,
   canDelete = false,
+  returnTo,
 }: {
   businesses: BusinessWithCategory[]
   canDelete?: boolean
+  returnTo?: string
 }) {
   return (
     <div className="rounded-md border">
@@ -73,7 +75,10 @@ export function BusinessesTable({
                   )}
                 </TableCell>
                 <TableCell className="font-medium">
-                  <Link href={`/businesses/${b.id}`} className="hover:underline">
+                  <Link
+                    href={`/businesses/${b.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`}
+                    className="hover:underline"
+                  >
                     {b.name}
                   </Link>
                 </TableCell>

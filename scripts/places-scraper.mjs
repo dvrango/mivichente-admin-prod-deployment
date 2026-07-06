@@ -85,6 +85,7 @@ async function searchPlaces() {
     results.push(...(data.places ?? []));
     pageToken = data.nextPageToken;
     page += 1;
+    console.log(`  página ${page}: ${data.places?.length ?? 0} resultado(s) (acum ${results.length})`);
 
     // Google requiere esperar antes de que el nextPageToken sea válido.
     if (pageToken && page < maxPages) {
@@ -134,10 +135,21 @@ async function toBusinessRow(place, photoLocalPath) {
   };
 }
 
+function isInTargetMunicipio(address) {
+  if (!address) return false;
+  const addr = address.toLowerCase();
+  return (
+    addr.includes('villa unión') ||
+    addr.includes('villa union') ||
+    addr.includes('vicente guerrero')
+  );
+}
+
 function validateBusiness(biz) {
   if (!biz.name || !biz.name.trim()) return 'sin nombre';
   if (!biz.phone || !biz.phone.trim()) return 'sin telefono (columna NOT NULL en businesses)';
   if (!biz.address) return 'sin address';
+  if (!isInTargetMunicipio(biz.address)) return `fuera de municipio target: "${biz.address}"`;
   if (!/^\+?[\d\s()-]{7,}$/.test(biz.phone)) return `telefono con formato raro: "${biz.phone}"`;
   return null;
 }
@@ -240,7 +252,10 @@ async function main() {
   const hoursByPlaceId = {};
   const photosByPlaceId = {};
 
+  let idx = 0;
   for (const place of places) {
+    idx += 1;
+    console.log(`  [${idx}/${places.length}] ${place.displayName?.text ?? place.id}`);
     let localPhotoPath = null;
     const firstPhoto = place.photos?.[0];
     if (firstPhoto) {
@@ -257,6 +272,14 @@ async function main() {
     businesses.push(await toBusinessRow(place, localPhotoPath));
     hoursByPlaceId[place.id] = toBusinessHours(place);
   }
+
+  const inMunicipio = businesses.filter((biz) => {
+    if (isInTargetMunicipio(biz.address)) return true;
+    console.error(`  ✗ "${biz.name}" fuera de municipio target: "${biz.address}"`);
+    return false;
+  });
+  businesses.length = 0;
+  businesses.push(...inMunicipio);
 
   if (push) {
     console.log('Insertando directo en Supabase...');

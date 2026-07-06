@@ -150,6 +150,7 @@ export async function createBusiness(
 
 export async function updateBusiness(
   id: string,
+  returnTo: string | undefined,
   _prev: BusinessFormState,
   formData: FormData,
 ): Promise<BusinessFormState> {
@@ -207,7 +208,7 @@ export async function updateBusiness(
 
   revalidatePath('/businesses')
   revalidatePath(`/businesses/${id}`)
-  redirect('/businesses')
+  redirect(returnTo || '/businesses')
 }
 
 export async function deleteBusiness(id: string) {

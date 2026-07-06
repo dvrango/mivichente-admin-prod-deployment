@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { CategorySelect } from '@/components/shared/category-select'
 import { PhoneInput } from '@/components/shared/phone-input'
 import { normalizeMxPhone } from '@/lib/validation/phone'
 import {
@@ -22,9 +23,7 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -86,8 +85,6 @@ export function BusinessForm({
   const [offeringInput, setOfferingInput] = useState('')
   const [secondaryIds, setSecondaryIds] = useState<string[]>(defaults?.secondary_category_ids ?? [])
   const [categorySearch, setCategorySearch] = useState('')
-  const [primarySearch, setPrimarySearch] = useState('')
-  const primarySearchInputRef = useRef<HTMLInputElement>(null)
   const [hours, setHours] = useState<WeeklyHours>(defaultHours ?? {})
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
   const aliasInputRef = useRef<HTMLInputElement>(null)
@@ -194,24 +191,17 @@ export function BusinessForm({
     business: categories.filter((c) => c.type === 'business'),
   }
 
-  const primarySearchTerm = primarySearch.trim().toLowerCase()
-  const filteredPrimaryByType = {
-    food: categoriesByType.food.filter((c) => c.name.toLowerCase().includes(primarySearchTerm)),
-    business: categoriesByType.business.filter((c) =>
-      c.name.toLowerCase().includes(primarySearchTerm),
-    ),
-  }
-
   const search = categorySearch.trim().toLowerCase()
+  function matchesSearch(c: CategoryOption) {
+    if (c.name.toLowerCase().includes(search)) return true
+    return c.aliases?.some((a) => a.toLowerCase().includes(search)) ?? false
+  }
   const filteredCategoriesByType = {
-    food:
-      primaryType && primaryType !== 'food'
-        ? []
-        : categoriesByType.food.filter((c) => c.name.toLowerCase().includes(search)),
+    food: primaryType && primaryType !== 'food' ? [] : categoriesByType.food.filter(matchesSearch),
     business:
       primaryType && primaryType !== 'business'
         ? []
-        : categoriesByType.business.filter((c) => c.name.toLowerCase().includes(search)),
+        : categoriesByType.business.filter(matchesSearch),
   }
   const selectedSecondary = categories.filter((c) => secondaryIds.includes(c.id))
 
@@ -238,73 +228,26 @@ export function BusinessForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Categoría principal</FormLabel>
-              <Select
-                value={field.value || undefined}
-                onValueChange={(v) => {
-                  field.onChange(v ?? '')
-                  const newType = categories.find((c) => c.id === v)?.type
-                  // La primaria nunca debe quedar también como secundaria,
-                  // y las secundarias deben ser del mismo tipo que la principal.
-                  setSecondaryIds((prev) =>
-                    prev.filter((id) => {
-                      if (id === v) return false
-                      const c = categories.find((cat) => cat.id === id)
-                      return c?.type === newType
-                    }),
-                  )
-                }}
-                disabled={isPending}
-                onOpenChangeComplete={(open) => {
-                  if (open) primarySearchInputRef.current?.focus()
-                  else setPrimarySearch('')
-                }}
-              >
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona una categoría">
-                      {categories.find((c) => c.id === field.value)?.name}
-                    </SelectValue>
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <div className="sticky top-0 z-10 bg-popover p-1">
-                    <Input
-                      ref={primarySearchInputRef}
-                      value={primarySearch}
-                      onChange={(e) => setPrimarySearch(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      placeholder="Buscar categoría..."
-                      className="h-8"
-                    />
-                  </div>
-                  {filteredPrimaryByType.food.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Comida y bebida</SelectLabel>
-                      {filteredPrimaryByType.food.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  {filteredPrimaryByType.business.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Comercios y servicios</SelectLabel>
-                      {filteredPrimaryByType.business.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  {filteredPrimaryByType.food.length === 0 &&
-                    filteredPrimaryByType.business.length === 0 && (
-                      <p className="text-muted-foreground p-2 text-sm">
-                        Sin resultados para &quot;{primarySearch}&quot;
-                      </p>
-                    )}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <CategorySelect
+                  categories={categories}
+                  value={field.value}
+                  onValueChange={(v) => {
+                    field.onChange(v ?? '')
+                    const newType = categories.find((c) => c.id === v)?.type
+                    // La primaria nunca debe quedar también como secundaria,
+                    // y las secundarias deben ser del mismo tipo que la principal.
+                    setSecondaryIds((prev) =>
+                      prev.filter((id) => {
+                        if (id === v) return false
+                        const c = categories.find((cat) => cat.id === id)
+                        return c?.type === newType
+                      }),
+                    )
+                  }}
+                  disabled={isPending}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

@@ -130,7 +130,7 @@ export async function getActiveCategoryOptions(): Promise<CategoryOption[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('categories')
-    .select('id, name, type')
+    .select('id, name, type, aliases')
     .eq('is_active', true)
     .order('name')
   if (error) throw error
@@ -139,7 +139,10 @@ export async function getActiveCategoryOptions(): Promise<CategoryOption[]> {
 
 export async function getAllCategoryOptions(): Promise<CategoryOption[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from('categories').select('id, name, type').order('name')
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, name, type, aliases')
+    .order('name')
   if (error) throw error
   return data ?? []
 }

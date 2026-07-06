@@ -43,6 +43,9 @@ export default async function BusinessesPage({
     })
   }
 
+  // Se anexa a los links de edición para volver a la lista con los mismos filtros aplicados.
+  const returnTo = buildHref(page)
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -59,7 +62,7 @@ export default async function BusinessesPage({
         <BusinessesFilters categories={categories} showMunicipio={isAdmin} />
       </Suspense>
 
-      <BusinessesTable businesses={rows} canDelete={isAdmin} />
+      <BusinessesTable businesses={rows} canDelete={isAdmin} returnTo={returnTo} />
 
       <BusinessesPagination page={page} pageCount={pageCount} buildHref={buildHref} />
     </div>
