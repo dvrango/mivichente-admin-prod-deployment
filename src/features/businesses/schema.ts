@@ -96,6 +96,17 @@ export const businessFiltersSchema = z.object({
 
 export type BusinessFilters = z.infer<typeof businessFiltersSchema>
 
+// Cambio de categoría primaria en lote desde la lista de negocios.
+export const bulkCategorySchema = z.object({
+  businessIds: z.array(z.string().uuid()).min(1, 'Selecciona al menos un negocio.'),
+  categoryId: z.string().uuid('Categoría inválida.'),
+})
+
+export type BulkCategoryInput = z.infer<typeof bulkCategorySchema>
+
+// Acciones bulk que sólo necesitan la lista de ids (activar, recomendar, eliminar).
+export const bulkIdsSchema = z.array(z.string().uuid()).min(1, 'Selecciona al menos un negocio.')
+
 function parseJsonArray(formData: FormData, key: string): string[] {
   const raw = formData.get(key)
   if (typeof raw !== 'string' || !raw.trim()) return []

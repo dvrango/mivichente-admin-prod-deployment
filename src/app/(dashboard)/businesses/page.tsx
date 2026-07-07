@@ -62,7 +62,12 @@ export default async function BusinessesPage({
         <BusinessesFilters categories={categories} showMunicipio={isAdmin} />
       </Suspense>
 
-      <BusinessesTable businesses={rows} canDelete={isAdmin} returnTo={returnTo} />
+      <BusinessesTable
+        businesses={rows}
+        categories={categories}
+        canDelete={isAdmin}
+        returnTo={returnTo}
+      />
 
       <BusinessesPagination page={page} pageCount={pageCount} buildHref={buildHref} />
     </div>

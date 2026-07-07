@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/features/auth/queries'
-import { parseBusinessForm } from './schema'
+import { bulkCategorySchema, bulkIdsSchema, parseBusinessForm } from './schema'
 import type { WeeklyHours } from './types'
 
 export type BusinessFormState = { error: string | null }
@@ -261,6 +261,114 @@ export async function toggleBusinessFeatured(id: string, nextFeatured: boolean) 
 
   revalidatePath('/businesses')
   revalidatePath(`/businesses/${id}`)
+}
+
+export type BulkCategoryResult = { error: string | null; updated: number }
+
+// Cambia la categoría PRIMARIA de varios negocios a la vez. La primaria vieja se
+// reemplaza (se elimina); las secundarias distintas a la nueva se conservan. El
+// caller decide qué ids manda: la UI ya separó compatibles/incompatibles por tipo.
+export async function bulkSetPrimaryCategory(
+  businessIds: string[],
+  categoryId: string,
+): Promise<BulkCategoryResult> {
+  const parsed = bulkCategorySchema.safeParse({ businessIds, categoryId })
+  if (!parsed.success) return { error: firstIssue(parsed.error), updated: 0 }
+  const { businessIds: ids, categoryId: newId } = parsed.data
+
+  const supabase = await createClient()
+  const actorId = await currentUserId(supabase)
+
+  // business_categories NO tiene policy UPDATE en RLS (sólo insert/delete scopeadas
+  // por municipio del negocio padre). Por eso, igual que upsertBusinessCategories,
+  // esto va con delete+insert — nunca UPDATE ni upsert-onConflict.
+
+  // 1. Denormalización en businesses.category_id (el badge de la card/lista).
+  const { error: bizError } = await supabase
+    .from('businesses')
+    .update({ category_id: newId, updated_by: actorId })
+    .in('id', ids)
+  if (bizError) return { error: bizError.message, updated: 0 }
+
+  // 2. Quitar la primaria anterior de cada negocio y cualquier fila previa de la
+  //    nueva categoría (evita duplicado y dos primarias). Las demás secundarias
+  //    se conservan.
+  const { error: delError } = await supabase
+    .from('business_categories')
+    .delete()
+    .in('business_id', ids)
+    .or(`is_primary.eq.true,category_id.eq.${newId}`)
+  if (delError) return { error: delError.message, updated: 0 }
+
+  // 3. Insertar la nueva categoría como primaria de cada negocio.
+  const { error: insError } = await supabase
+    .from('business_categories')
+    .insert(ids.map((business_id) => ({ business_id, category_id: newId, is_primary: true })))
+  if (insError) return { error: insError.message, updated: 0 }
+
+  revalidatePath('/businesses')
+  return { error: null, updated: ids.length }
+}
+
+export type BulkResult = { error: string | null; updated: number }
+
+export async function bulkSetActive(ids: string[], active: boolean): Promise<BulkResult> {
+  const parsed = bulkIdsSchema.safeParse(ids)
+  if (!parsed.success) return { error: firstIssue(parsed.error), updated: 0 }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({ is_active: active, updated_by: await currentUserId(supabase) })
+    .in('id', parsed.data)
+  if (error) return { error: error.message, updated: 0 }
+
+  revalidatePath('/businesses')
+  return { error: null, updated: parsed.data.length }
+}
+
+export async function bulkSetFeatured(ids: string[], featured: boolean): Promise<BulkResult> {
+  const parsed = bulkIdsSchema.safeParse(ids)
+  if (!parsed.success) return { error: firstIssue(parsed.error), updated: 0 }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({ is_featured: featured, updated_by: await currentUserId(supabase) })
+    .in('id', parsed.data)
+  if (error) return { error: error.message, updated: 0 }
+
+  revalidatePath('/businesses')
+  return { error: null, updated: parsed.data.length }
+}
+
+export async function bulkDeleteBusinesses(ids: string[]): Promise<BulkResult> {
+  // Mismo guard que deleteBusiness: sin él un reviewer afectaría 0 filas por RLS
+  // pero igual borraría las fotos del storage.
+  const profile = await getCurrentProfile()
+  if (profile?.role !== 'admin') return { error: 'No autorizado.', updated: 0 }
+
+  const parsed = bulkIdsSchema.safeParse(ids)
+  if (!parsed.success) return { error: firstIssue(parsed.error), updated: 0 }
+
+  const supabase = await createClient()
+
+  const { data: rows, error: fetchError } = await supabase
+    .from('businesses')
+    .select('photo_url')
+    .in('id', parsed.data)
+  if (fetchError) return { error: fetchError.message, updated: 0 }
+
+  const { error } = await supabase.from('businesses').delete().in('id', parsed.data)
+  if (error) return { error: error.message, updated: 0 }
+
+  const paths = (rows ?? [])
+    .map((r) => (r.photo_url ? pathFromPublicUrl(r.photo_url) : null))
+    .filter((p): p is string => p !== null)
+  if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths)
+
+  revalidatePath('/businesses')
+  return { error: null, updated: parsed.data.length }
 }
 
 export async function toggleBusinessVerified(id: string, nextVerified: boolean) {
