@@ -4,6 +4,7 @@
 // Uso:
 //   node scripts/places-scraper.mjs --query "Taquerias" --location "Vicente Guerrero, Durango"
 //   node scripts/places-scraper.mjs --query "Hamburguesas" --location "Vicente Guerrero, Durango" --push
+//   node scripts/places-scraper.mjs --query "Taquerias" --location "Vicente Guerrero, Durango" --category-id "uuid-de-categoria" --push
 //
 // Env requerido:
 //   GOOGLE_PLACES_API_KEY
@@ -16,6 +17,7 @@
 //   --municipio  valor pa columna businesses.municipio (default "Vicente Guerrero")
 //   --max-pages  máximo de páginas a paginar, 20 resultados c/u (default 3, tope Google)
 //   --out        carpeta de salida (default ./scripts/output)
+//   --category-id  UUID de categoría a asignar a los negocios insertados (opcional)
 //   --push       si se pasa, sube fotos a Storage e inserta directo en Supabase
 //
 // Sin --push: guarda JSON con las filas listas + descarga fotos localmente.
@@ -53,6 +55,7 @@ const maxPages = Number(args['max-pages'] ?? 3);
 const outDir = args.out ?? path.join(process.cwd(), 'scripts', 'output');
 const photosDir = path.join(outDir, 'photos');
 const push = Boolean(args.push);
+const categoryId = args['category-id'] ?? null;
 
 const FIELD_MASK = [
   'places.id',
@@ -138,6 +141,7 @@ async function toBusinessRow(place, photoLocalPath) {
     address: place.formattedAddress ?? null,
     maps_url: place.googleMapsUri ?? null,
     photo_url: photoLocalPath ?? null,
+    category_id: categoryId,
     municipio,
     data_source: 'scraping',
     is_active: false,
@@ -151,7 +155,8 @@ function isInTargetMunicipio(address) {
   return (
     addr.includes('villa unión') ||
     addr.includes('villa union') ||
-    addr.includes('vicente guerrero')
+    addr.includes('vicente guerrero') ||
+    addr.includes('nombre de dios')
   );
 }
 
@@ -233,6 +238,9 @@ async function main() {
     console.log(`Cargando "${args['from-file']}"...`);
     const raw = JSON.parse(await readFile(args['from-file'], 'utf-8'));
     const businesses = raw.businesses;
+    if (categoryId) {
+      for (const biz of businesses) biz.category_id = categoryId;
+    }
     const hoursByPlaceId = raw.business_hours_by_place_id ?? {};
     const photosByPlaceId = {};
     for (const biz of businesses) {
