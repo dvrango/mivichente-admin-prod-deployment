@@ -44,3 +44,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude session tracker
+.claude/session-data/
+
+# scraper output
+scripts/output/
