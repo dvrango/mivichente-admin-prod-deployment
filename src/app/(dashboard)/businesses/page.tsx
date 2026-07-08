@@ -5,8 +5,13 @@ import { buttonVariants } from '@/components/ui/button'
 import { getCurrentProfile } from '@/features/auth/queries'
 import { BusinessesFilters } from '@/features/businesses/components/businesses-filters'
 import { BusinessesPagination } from '@/features/businesses/components/businesses-pagination'
+import { BusinessesStats } from '@/features/businesses/components/businesses-stats'
 import { BusinessesTable } from '@/features/businesses/components/businesses-table'
-import { getAllCategoryOptions, getBusinesses } from '@/features/businesses/queries'
+import {
+  getAllCategoryOptions,
+  getBusinesses,
+  getBusinessStats,
+} from '@/features/businesses/queries'
 import { businessFiltersSchema } from '@/features/businesses/schema'
 import { buildFilterUrl } from '@/lib/build-filter-url'
 
@@ -17,6 +22,8 @@ export default async function BusinessesPage({
     q?: string
     category?: string
     status?: string
+    review?: string
+    verified?: string
     municipio?: string
     page?: string
   }>
@@ -24,10 +31,11 @@ export default async function BusinessesPage({
   const raw = await searchParams
   const filters = businessFiltersSchema.parse(raw)
 
-  const [profile, businessesPage, categories] = await Promise.all([
+  const [profile, businessesPage, categories, stats] = await Promise.all([
     getCurrentProfile(),
     getBusinesses(filters),
     getAllCategoryOptions(),
+    getBusinessStats(filters.municipio || undefined),
   ])
 
   const isAdmin = profile?.role === 'admin'
@@ -38,6 +46,8 @@ export default async function BusinessesPage({
       q: filters.q || null,
       category: filters.category || null,
       status: filters.status !== 'all' ? filters.status : null,
+      review: filters.review !== 'all' ? filters.review : null,
+      verified: filters.verified !== 'all' ? filters.verified : null,
       municipio: filters.municipio || null,
       page: nextPage > 1 ? String(nextPage) : null,
     })
@@ -56,6 +66,12 @@ export default async function BusinessesPage({
             Nuevo negocio
           </Link>
         }
+      />
+
+      <BusinessesStats
+        stats={stats}
+        filters={filters}
+        zoneLabel={filters.municipio || profile?.municipio || undefined}
       />
 
       <Suspense>

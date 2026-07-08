@@ -52,6 +52,13 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
       const wantActive = filters.status === 'active'
       rows = rows.filter((r) => r.is_active === wantActive)
     }
+    if (filters.review !== 'all') {
+      const wantPending = filters.review === 'pending'
+      rows = rows.filter((r) => (r.data_source === 'scraping') === wantPending)
+    }
+    if (filters.verified === 'yes') {
+      rows = rows.filter((r) => r.is_verified)
+    }
     // Igual que el filtro de categoría de arriba: se aplica sobre el ≤50 que
     // devuelve search_businesses (ordenado por similitud), no sobre toda la
     // tabla. Con búsqueda activa un negocio del municipio X que quede fuera del
@@ -91,6 +98,13 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
 
   if (categoryBusinessIds) query = query.in('id', categoryBusinessIds)
   if (filters.status !== 'all') query = query.eq('is_active', filters.status === 'active')
+  if (filters.review !== 'all') {
+    query =
+      filters.review === 'pending'
+        ? query.eq('data_source', 'scraping')
+        : query.neq('data_source', 'scraping')
+  }
+  if (filters.verified === 'yes') query = query.eq('is_verified', true)
   if (filters.municipio) query = query.eq('municipio', filters.municipio)
 
   const { data, error, count } = await query
@@ -102,6 +116,51 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
     page: filters.page,
     pageSize,
     pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  }
+}
+
+export type BusinessStats = {
+  total: number
+  pending: number // sin revisar (data_source='scraping')
+  reviewed: number // revisados (total - pending)
+  active: number
+  inactive: number
+  verified: number
+}
+
+// Contadores de progreso de curación. RLS acota al reviewer a su municipio;
+// el admin pasa `municipio` para ver una zona (o todo si va vacío). Cada count
+// es HEAD-only (no trae filas). Se comparte el mismo filtro de municipio que la
+// lista para que el tablero cuadre con lo que el usuario está viendo.
+export async function getBusinessStats(municipio?: string): Promise<BusinessStats> {
+  const supabase = await createClient()
+  const base = () => {
+    let q = supabase.from('businesses').select('id', { count: 'exact', head: true })
+    if (municipio) q = q.eq('municipio', municipio)
+    return q
+  }
+
+  const [total, pending, active, verified] = await Promise.all([
+    base(),
+    base().eq('data_source', 'scraping'),
+    base().eq('is_active', true),
+    base().eq('is_verified', true),
+  ])
+
+  for (const r of [total, pending, active, verified]) {
+    if (r.error) throw r.error
+  }
+
+  const totalCount = total.count ?? 0
+  const pendingCount = pending.count ?? 0
+  const activeCount = active.count ?? 0
+  return {
+    total: totalCount,
+    pending: pendingCount,
+    reviewed: totalCount - pendingCount,
+    active: activeCount,
+    inactive: totalCount - activeCount,
+    verified: verified.count ?? 0,
   }
 }
 

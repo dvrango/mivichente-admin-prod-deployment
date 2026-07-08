@@ -38,7 +38,15 @@ export function BusinessesFilters({ categories, showMunicipio = false }: Props) 
           { value: 'inactive', label: 'Inactivos' },
         ]}
       />
-      <FilterReset keys={['q', 'category', 'municipio', 'status']} />
+      <FilterSegment
+        paramKey="review"
+        options={[
+          { value: null, label: 'Revisión: todos' },
+          { value: 'pending', label: 'Sin revisar' },
+          { value: 'reviewed', label: 'Revisados' },
+        ]}
+      />
+      <FilterReset keys={['q', 'category', 'municipio', 'status', 'review', 'verified']} />
     </div>
   )
 }
