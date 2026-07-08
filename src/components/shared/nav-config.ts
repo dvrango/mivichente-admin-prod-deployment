@@ -1,4 +1,4 @@
-import { Store, Tags, ClipboardList, type LucideIcon } from 'lucide-react'
+import { Store, Tags, ClipboardList, Search, type LucideIcon } from 'lucide-react'
 
 export type NavItem = {
   label: string
@@ -23,6 +23,12 @@ export const navGroups: NavGroup[] = [
   {
     label: 'Solicitudes',
     items: [{ label: 'Solicitudes', href: '/registrations', icon: ClipboardList, adminOnly: true }],
+  },
+  {
+    label: 'Herramientas',
+    items: [
+      { label: 'Simulador de búsqueda', href: '/search-preview', icon: Search, adminOnly: true },
+    ],
   },
 ]
 

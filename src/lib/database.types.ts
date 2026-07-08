@@ -442,6 +442,17 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { '': string }; Returns: string[] }
+      suggest_categories: {
+        Args: { search_query: string }
+        Returns: {
+          id: string
+          name: string
+          icon: string | null
+          type: string
+          aliases: string[]
+          business_count: number
+        }[]
+      }
       unaccent: { Args: { '': string }; Returns: string }
       user_municipio: { Args: never; Returns: string }
     }
