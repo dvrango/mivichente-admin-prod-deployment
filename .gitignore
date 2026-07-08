@@ -50,3 +50,6 @@ next-env.d.ts
 
 # scraper output
 scripts/output/
+
+# scratch de pruebas del scraper (ver tarea 5vlktcioa)
+scripts/test-manifest.json

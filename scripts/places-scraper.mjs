@@ -15,9 +15,12 @@
 //   --query      texto de búsqueda, ej "Taquerias" (requerido)
 //   --location   lugar donde buscar, ej "Vicente Guerrero, Durango" (requerido)
 //   --municipio  valor pa columna businesses.municipio (default "Vicente Guerrero")
-//   --max-pages  máximo de páginas a paginar, 20 resultados c/u (default 3, tope Google)
+//   --max-pages  máximo de páginas a paginar, 20 resultados c/u (default 1, tope Google 3)
 //   --out        carpeta de salida (default ./scripts/output)
+//   --out-file   ruta exacta del JSON de salida (override de --out, sin --push)
 //   --category-id  UUID de categoría a asignar a los negocios insertados (opcional)
+//   --limit      tope de negocios a insertar (solo con --push; pa pruebas)
+//   --created-by profile id del admin pa created_by/updated_by (si no, quedan NULL = "desconocido")
 //   --push       si se pasa, sube fotos a Storage e inserta directo en Supabase
 //
 // Sin --push: guarda JSON con las filas listas + descarga fotos localmente.
@@ -51,11 +54,13 @@ if (!args['from-file'] && (!args.query || !args.location)) {
 }
 
 const municipio = args.municipio ?? 'Vicente Guerrero';
-const maxPages = Number(args['max-pages'] ?? 3);
+const maxPages = Number(args['max-pages'] ?? 1);
 const outDir = args.out ?? path.join(process.cwd(), 'scripts', 'output');
 const photosDir = path.join(outDir, 'photos');
 const push = Boolean(args.push);
 const categoryId = args['category-id'] ?? null;
+const createdBy = args['created-by'] ?? null; // profile id del admin (created_by/updated_by)
+const limit = args.limit ? Number(args.limit) : null; // tope de negocios a insertar (test)
 
 const FIELD_MASK = [
   'places.id',
@@ -176,7 +181,8 @@ async function pushToSupabase(businesses, hoursByPlaceId, photosByPlaceId) {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  for (const biz of businesses) {
+  const toInsert = limit ? businesses.slice(0, limit) : businesses;
+  for (const biz of toInsert) {
     const validationError = validateBusiness(biz);
     if (validationError) {
       console.error(`  ✗ "${biz.name || biz._place_id}" saltado: ${validationError}`);
@@ -210,6 +216,10 @@ async function pushToSupabase(businesses, hoursByPlaceId, photosByPlaceId) {
 
     const { _place_id, ...row } = biz;
     row.photo_url = photoUrl;
+    if (createdBy) {
+      row.created_by = createdBy;
+      row.updated_by = createdBy;
+    }
 
     const { data: inserted, error } = await supabase
       .from('businesses')
@@ -220,6 +230,18 @@ async function pushToSupabase(businesses, hoursByPlaceId, photosByPlaceId) {
     if (error) {
       console.error(`  ! insert falló pa "${biz.name}": ${error.message}`);
       continue;
+    }
+
+    // La categoría vive en business_categories (fuente de verdad: filtro de lista
+    // y form de edición leen de ahí). businesses.category_id ya quedó denormalizado
+    // en el insert de arriba, pero sin esta fila el negocio no aparece al filtrar.
+    if (biz.category_id) {
+      const { error: catErr } = await supabase.from('business_categories').insert({
+        business_id: inserted.id,
+        category_id: biz.category_id,
+        is_primary: true,
+      });
+      if (catErr) console.error(`  ! categoría falló pa "${biz.name}": ${catErr.message}`);
     }
 
     const hours = hoursByPlaceId[_place_id] ?? [];
@@ -303,10 +325,11 @@ async function main() {
     console.log('Insertando directo en Supabase...');
     await pushToSupabase(businesses, hoursByPlaceId, photosByPlaceId);
   } else {
-    const outFile = path.join(
-      outDir,
-      `${args.query.toLowerCase().replace(/\s+/g, '-')}.json`,
-    );
+    // --out-file permite al runner (scrape-seed.mjs) dar un nombre único por
+    // query+ubicación; sin él dos ubicaciones con la misma query se pisan.
+    const outFile =
+      args['out-file'] ??
+      path.join(outDir, `${args.query.toLowerCase().replace(/\s+/g, '-')}.json`);
     await writeFile(
       outFile,
       JSON.stringify({ businesses, business_hours_by_place_id: hoursByPlaceId }, null, 2),

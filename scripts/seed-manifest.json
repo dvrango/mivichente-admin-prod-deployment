@@ -1,0 +1,30 @@
+{
+  "locations": ["Villa Unión, Durango", "Nombre de Dios, Durango"],
+  "jobs": [
+    { "category": "Taqueria" },
+    { "category": "Hamburguesas" },
+    { "category": "Comida Mexicana" },
+    { "category": "Antojitos" },
+    { "category": "Snacks" },
+    { "category": "Bares" },
+    { "category": "Barberia" },
+    { "category": "Belleza" },
+    { "category": "Tatuajes" },
+    { "category": "Fitness" },
+    { "category": "Dentistas" },
+    { "category": "Medico" },
+    { "category": "Educación" },
+    { "category": "Iglesia" },
+    { "category": "Alojamiento" },
+    { "category": "Gasolinera" },
+    { "category": "Taller Mecanico" },
+    { "category": "Herrería" },
+    { "category": "Carpintero" },
+    { "category": "Construccion" },
+    { "category": "Limpieza" },
+    { "category": "Fiestas y Eventos" },
+    { "category": "Musica" },
+    { "category": "Transporte" },
+    { "category": "Servicios Públicos" }
+  ]
+}
