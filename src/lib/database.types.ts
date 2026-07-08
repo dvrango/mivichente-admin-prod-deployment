@@ -445,12 +445,12 @@ export type Database = {
       suggest_categories: {
         Args: { search_query: string }
         Returns: {
-          id: string
-          name: string
-          icon: string | null
-          type: string
           aliases: string[]
           business_count: number
+          icon: string
+          id: string
+          name: string
+          type: string
         }[]
       }
       unaccent: { Args: { '': string }; Returns: string }
