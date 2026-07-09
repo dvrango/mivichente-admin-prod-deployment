@@ -1,9 +1,20 @@
 'use client'
 
-import { useRef, useState, useTransition, type KeyboardEvent } from 'react'
+import { useMemo, useRef, useState, useTransition, type KeyboardEvent } from 'react'
+import Link from 'next/link'
 import { X } from 'lucide-react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -21,13 +32,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { normalizeText } from '@/lib/normalize'
 import type { CategoryFormState } from '../actions'
+import type { CategoryTerm } from '../queries'
 import { categoryFormSchema, type CategoryFormInput } from '../schema'
 import type { CategoryType } from '../types'
 
 type Props = {
   action: (prev: CategoryFormState, formData: FormData) => Promise<CategoryFormState>
   submitLabel: string
+  // Todas las categorías existentes, para avisar de duplicados por nombre o alias.
+  existing?: CategoryTerm[]
+  // Id de la categoría en edición: se excluye para no chocar consigo misma.
+  currentId?: string
   defaults?: {
     name?: string
     icon?: string | null
@@ -44,12 +61,43 @@ const TYPE_ITEMS = [
 const clientSchema = categoryFormSchema.omit({ aliases: true })
 type ClientFormInput = Omit<CategoryFormInput, 'aliases'>
 
-export function CategoryForm({ action, submitLabel, defaults }: Props) {
+// De dónde salió el término en ESTE formulario y con qué colisiona en otra
+// categoría existente.
+type Conflict = {
+  input: string
+  from: 'name' | 'alias'
+  matchedId: string
+  matchedCategory: string
+  matchedAs: 'name' | 'alias'
+}
+
+export function CategoryForm({ action, submitLabel, existing = [], currentId, defaults }: Props) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const [aliases, setAliases] = useState<string[]>(defaults?.aliases ?? [])
   const [aliasInput, setAliasInput] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingValues, setPendingValues] = useState<ClientFormInput | null>(null)
   const aliasInputRef = useRef<HTMLInputElement>(null)
+
+  // Índice normalizado término → categoría que lo usa. Los nombres ganan sobre
+  // los aliases cuando el mismo término aparece en ambos.
+  const termIndex = useMemo(() => {
+    const index = new Map<string, { id: string; category: string; as: 'name' | 'alias' }>()
+    for (const cat of existing) {
+      if (cat.id === currentId) continue
+      const nameKey = normalizeText(cat.name)
+      if (nameKey) index.set(nameKey, { id: cat.id, category: cat.name, as: 'name' })
+    }
+    for (const cat of existing) {
+      if (cat.id === currentId) continue
+      for (const alias of cat.aliases) {
+        const key = normalizeText(alias)
+        if (key && !index.has(key)) index.set(key, { id: cat.id, category: cat.name, as: 'alias' })
+      }
+    }
+    return index
+  }, [existing, currentId])
 
   function addAlias(value: string) {
     const trimmed = value.trim()
@@ -81,7 +129,38 @@ export function CategoryForm({ action, submitLabel, defaults }: Props) {
     },
   })
 
-  function onSubmit(values: ClientFormInput) {
+  const watchedName = useWatch({ control: form.control, name: 'name' })
+
+  // Colisiones vivas: el nombre y cada alias contra el índice de categorías.
+  const conflicts = useMemo<Conflict[]>(() => {
+    const found: Conflict[] = []
+    const nameKey = normalizeText(watchedName ?? '')
+    const nameHit = nameKey ? termIndex.get(nameKey) : undefined
+    if (nameHit) {
+      found.push({
+        input: watchedName.trim(),
+        from: 'name',
+        matchedId: nameHit.id,
+        matchedCategory: nameHit.category,
+        matchedAs: nameHit.as,
+      })
+    }
+    for (const alias of aliases) {
+      const hit = termIndex.get(normalizeText(alias))
+      if (hit) {
+        found.push({
+          input: alias,
+          from: 'alias',
+          matchedId: hit.id,
+          matchedCategory: hit.category,
+          matchedAs: hit.as,
+        })
+      }
+    }
+    return found
+  }, [watchedName, aliases, termIndex])
+
+  function doSubmit(values: ClientFormInput) {
     setServerError(null)
     const fd = new FormData()
     fd.set('name', values.name)
@@ -92,6 +171,43 @@ export function CategoryForm({ action, submitLabel, defaults }: Props) {
       const result = await action({ error: null }, fd)
       if (result?.error) setServerError(result.error)
     })
+  }
+
+  function onSubmit(values: ClientFormInput) {
+    if (conflicts.length > 0) {
+      setPendingValues(values)
+      setConfirmOpen(true)
+      return
+    }
+    doSubmit(values)
+  }
+
+  function confirmSubmit() {
+    setConfirmOpen(false)
+    if (pendingValues) doSubmit(pendingValues)
+    setPendingValues(null)
+  }
+
+  function renderConflict(c: Conflict) {
+    const origin = c.from === 'name' ? 'El nombre' : `El alias «${c.input}»`
+    // El término colisiona por su forma normalizada (sin acentos/mayúsculas), así
+    // que la búsqueda ya lo encuentra vía la categoría existente —sea por nombre
+    // o por alias—. No sirve agregarlo como alias; conviene usar esa categoría.
+    const matchedAs = c.matchedAs === 'name' ? 'el nombre de' : 'un alias de'
+    const matchedLink = (
+      <Link
+        href={`/categories/${c.matchedId}`}
+        className="font-medium underline underline-offset-2"
+      >
+        «{c.matchedCategory}»
+      </Link>
+    )
+    return (
+      <>
+        {origin} ya coincide con {matchedAs} {matchedLink}, que ya cubre este término en la
+        búsqueda. Usa esa categoría en vez de crear una nueva.
+      </>
+    )
   }
 
   return (
@@ -192,6 +308,19 @@ export function CategoryForm({ action, submitLabel, defaults }: Props) {
             que la búsqueda encuentre negocios de esta categoría.
           </p>
         </div>
+        {conflicts.length > 0 ? (
+          <div
+            className="rounded-md border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+            role="alert"
+          >
+            <p className="font-medium">Puede que esta categoría ya exista</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              {conflicts.map((c) => (
+                <li key={`${c.from}:${c.input}`}>{renderConflict(c)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {serverError ? (
           <p className="text-destructive text-sm" role="alert">
             {serverError}
@@ -203,6 +332,29 @@ export function CategoryForm({ action, submitLabel, defaults }: Props) {
           </Button>
         </div>
       </form>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Crear de todos modos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ya hay categorías que cubren estos términos en la búsqueda. Considera usarlas en vez
+              de crear una nueva.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="list-disc space-y-0.5 pl-4 text-sm text-muted-foreground">
+            {conflicts.map((c) => (
+              <li key={`confirm:${c.from}:${c.input}`}>{renderConflict(c)}</li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Revisar</AlertDialogCancel>
+            <AlertDialogAction disabled={isPending} onClick={confirmSubmit}>
+              Crear de todos modos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Form>
   )
 }

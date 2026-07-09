@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import type { Business } from '@/features/businesses/types'
 import { getCompleteness, type CompletenessLevel } from '@/features/businesses/completeness'
+import { normalizeText } from '@/lib/normalize'
 
 type CategorySuggestion = {
   id: string
@@ -31,15 +32,6 @@ type Results = {
 
 // Mismos municipios que el selector de mobile (municipio.dart).
 const MUNICIPIOS = ['Vicente Guerrero', 'Villa Unión', 'Nombre de Dios'] as const
-
-// Espeja el lower(unaccent(...)) de la RPC y el normalizeText de mobile.
-function normalizeText(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
 
 // Offerings que matchean el query (pero no el nombre): explica por qué el
 // negocio apareció, igual que la card de mobile.
