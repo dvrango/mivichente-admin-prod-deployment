@@ -33,6 +33,13 @@ npm run db:types:prod     # regenerar tipos desde Supabase remoto
 npm run db:reset:local    # resetear DB local desde cero (destructivo)
 ```
 
+> **REGLA DE BASE DE DATOS (no la rompas):** el asistente **solo toca la DB
+> local** (`db:migrate:local`, psql a `100.96.221.80`). **Producción la aplica
+> el usuario**, nunca el asistente. Prohibido usar `mcp__supabase__apply_migration`,
+> `db:push`, o cualquier write contra la DB cloud/linked. Flujo: escribir la
+> migración → aplicar a local → validar → avisar al usuario para que él haga
+> `npm run db:push`. `mcp__supabase__execute_sql` solo para lecturas.
+
 ## Estructura (feature-based)
 
 ```
