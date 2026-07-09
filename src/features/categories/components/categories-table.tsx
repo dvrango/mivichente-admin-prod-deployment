@@ -21,6 +21,7 @@ export function CategoriesTable({ categories }: { categories: Category[] }) {
           <TableRow>
             <TableHead className="w-16">Icono</TableHead>
             <TableHead>Nombre</TableHead>
+            <TableHead>Aliases</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="w-48 text-right">Acciones</TableHead>
@@ -29,7 +30,7 @@ export function CategoriesTable({ categories }: { categories: Category[] }) {
         <TableBody>
           {categories.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+              <TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
                 Sin categorías todavía.
               </TableCell>
             </TableRow>
@@ -38,6 +39,19 @@ export function CategoriesTable({ categories }: { categories: Category[] }) {
               <TableRow key={cat.id}>
                 <TableCell className="text-xl">{cat.icon ?? '—'}</TableCell>
                 <TableCell className="font-medium">{cat.name}</TableCell>
+                <TableCell>
+                  {cat.aliases && cat.aliases.length > 0 ? (
+                    <div className="flex max-w-xs flex-wrap gap-1">
+                      {cat.aliases.map((alias) => (
+                        <Badge key={alias} variant="secondary" className="font-normal">
+                          {alias}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell>{CATEGORY_TYPE_LABELS[cat.type]}</TableCell>
                 <TableCell>
                   <Badge variant={cat.is_active ? 'default' : 'secondary'}>

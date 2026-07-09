@@ -16,15 +16,17 @@ export type CategoryFormInput = z.infer<typeof categoryFormSchema>
 
 export const categoryFiltersSchema = z.object({
   type: z.enum(CATEGORY_TYPES).nullable().default(null),
+  q: z.string().trim().default(''),
 })
 
 export type CategoryFilters = z.infer<typeof categoryFiltersSchema>
 
-export function parseCategoryFilters(raw: { type?: string }): CategoryFilters {
+export function parseCategoryFilters(raw: { type?: string; q?: string }): CategoryFilters {
   const parsed = categoryFiltersSchema.safeParse({
     type: raw.type && (CATEGORY_TYPES as readonly string[]).includes(raw.type) ? raw.type : null,
+    q: raw.q ?? '',
   })
-  return parsed.success ? parsed.data : { type: null }
+  return parsed.success ? parsed.data : { type: null, q: '' }
 }
 
 function parseJsonArray(formData: FormData, key: string): string[] {

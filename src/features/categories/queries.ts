@@ -1,5 +1,6 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import { normalizeText } from '@/lib/normalize'
 import type { CategoryFilters } from './schema'
 import type { Category } from './types'
 
@@ -10,7 +11,18 @@ export async function getCategories(filters: CategoryFilters): Promise<Category[
 
   const { data, error } = await query
   if (error) throw error
-  return data ?? []
+  const categories = data ?? []
+
+  // Búsqueda por nombre o alias, normalizada (sin acentos/mayúsculas). El
+  // catálogo es pequeño, así que filtrar en memoria es suficiente y evita armar
+  // un OR sobre el array de aliases en Postgres.
+  const term = normalizeText(filters.q)
+  if (!term) return categories
+  return categories.filter(
+    (c) =>
+      normalizeText(c.name).includes(term) ||
+      (c.aliases ?? []).some((a) => normalizeText(a).includes(term)),
+  )
 }
 
 export type CategoryTerm = { id: string; name: string; aliases: string[] }

@@ -10,7 +10,7 @@ import { parseCategoryFilters } from '@/features/categories/schema'
 export default async function CategoriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>
+  searchParams: Promise<{ type?: string; q?: string }>
 }) {
   const raw = await searchParams
   const filters = parseCategoryFilters(raw)
