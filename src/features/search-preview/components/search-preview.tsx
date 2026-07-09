@@ -32,6 +32,24 @@ type Results = {
 // Mismos municipios que el selector de mobile (municipio.dart).
 const MUNICIPIOS = ['Vicente Guerrero', 'Villa Unión', 'Nombre de Dios'] as const
 
+// Espeja el lower(unaccent(...)) de la RPC y el normalizeText de mobile.
+function normalizeText(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+// Offerings que matchean el query (pero no el nombre): explica por qué el
+// negocio apareció, igual que la card de mobile.
+function matchedOfferings(business: Business, query: string): string[] {
+  const term = normalizeText(query)
+  if (term.length < 2) return []
+  if (normalizeText(business.name).includes(term)) return []
+  return (business.offerings ?? []).filter((o) => normalizeText(o).includes(term))
+}
+
 const BORDER_BY_LEVEL: Record<CompletenessLevel, string> = {
   green: 'border-l-emerald-500',
   yellow: 'border-l-amber-500',
@@ -206,6 +224,7 @@ export function SearchPreview() {
                     <ol className="divide-border divide-y rounded-md border">
                       {results.businesses.map((b, i) => {
                         const c = getCompleteness(b)
+                        const offers = matchedOfferings(b, query)
                         return (
                           <li key={b.id}>
                             <Link
@@ -215,14 +234,29 @@ export function SearchPreview() {
                                   ? `Falta: ${c.missing.join(', ')}`
                                   : 'Perfil completo'
                               }
-                              className={`hover:bg-accent flex items-center gap-2 border-l-4 px-3 py-2 text-sm transition-colors ${BORDER_BY_LEVEL[c.level]}`}
+                              className={`hover:bg-accent flex flex-col gap-1 border-l-4 px-3 py-2 text-sm transition-colors ${BORDER_BY_LEVEL[c.level]}`}
                             >
-                              <span className="text-muted-foreground w-5 shrink-0 tabular-nums">
-                                {i + 1}
-                              </span>
-                              <span className="min-w-0 flex-1 truncate font-medium">{b.name}</span>
-                              {b.is_featured && <Badge variant="secondary">Destacado</Badge>}
-                              {b.is_verified && <Badge variant="outline">Verificado</Badge>}
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground w-5 shrink-0 tabular-nums">
+                                  {i + 1}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate font-medium">
+                                  {b.name}
+                                </span>
+                                {b.is_featured && <Badge variant="secondary">Destacado</Badge>}
+                                {b.is_verified && <Badge variant="outline">Verificado</Badge>}
+                              </div>
+                              {offers.length > 0 && (
+                                <p className="text-muted-foreground pl-7 text-xs">
+                                  Ofrece{' '}
+                                  {offers.map((o, j) => (
+                                    <span key={o}>
+                                      <span className="text-foreground font-semibold">{o}</span>
+                                      {j < offers.length - 1 && ', '}
+                                    </span>
+                                  ))}
+                                </p>
+                              )}
                             </Link>
                           </li>
                         )
