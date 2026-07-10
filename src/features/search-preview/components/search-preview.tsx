@@ -44,8 +44,8 @@ function matchedOfferings(business: Business, query: string): string[] {
 
 const BORDER_BY_LEVEL: Record<CompletenessLevel, string> = {
   green: 'border-l-emerald-500',
-  yellow: 'border-l-amber-500',
-  red: 'border-l-red-500',
+  yellow: 'border-l-yellow-400',
+  red: 'border-l-red-600',
 }
 
 // Espeja prioritizeByMunicipio de mobile: prioriza (no filtra) los negocios del
@@ -149,10 +149,10 @@ export function SearchPreview({ defaultMunicipio }: { defaultMunicipio?: string 
           <span className="size-2.5 rounded-full bg-emerald-500" /> Completo
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-amber-500" /> A medias
+          <span className="size-2.5 rounded-full bg-yellow-400" /> A medias
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-red-500" /> Casi vacío
+          <span className="size-2.5 rounded-full bg-red-600" /> Casi vacío
         </span>
       </div>
 
