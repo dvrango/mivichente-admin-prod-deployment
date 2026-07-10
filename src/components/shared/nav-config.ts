@@ -26,9 +26,7 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: 'Herramientas',
-    items: [
-      { label: 'Simulador de búsqueda', href: '/search-preview', icon: Search, adminOnly: true },
-    ],
+    items: [{ label: 'Simulador de búsqueda', href: '/search-preview', icon: Search }],
   },
 ]
 
