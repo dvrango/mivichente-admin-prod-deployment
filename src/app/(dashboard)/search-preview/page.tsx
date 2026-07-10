@@ -1,11 +1,13 @@
 import { PageHeader } from '@/components/shared/page-header'
 import { SearchPreview } from '@/features/search-preview/components/search-preview'
+import { getCurrentProfile } from '@/features/auth/queries'
 
-export default function SearchPreviewPage() {
+export default async function SearchPreviewPage() {
+  const profile = await getCurrentProfile()
   return (
     <div className="space-y-6">
       <PageHeader title="Simulador de búsqueda" />
-      <SearchPreview />
+      <SearchPreview defaultMunicipio={profile?.municipio ?? undefined} />
     </div>
   )
 }

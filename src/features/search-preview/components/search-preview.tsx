@@ -64,10 +64,14 @@ function prioritizeByMunicipio(businesses: Business[], municipio: string): Busin
 // Espeja la búsqueda de la app mobile: mismos RPC (search_businesses +
 // suggest_categories), mismo orden que ve el usuario. Sirve para depurar por
 // qué un negocio aparece o no ante un término dado (aliases, categoría, etc).
-export function SearchPreview() {
+export function SearchPreview({ defaultMunicipio }: { defaultMunicipio?: string }) {
   const supabase = createClient()
   const [query, setQuery] = useState('')
-  const [municipio, setMunicipio] = useState<string>('Vicente Guerrero')
+  const [municipio, setMunicipio] = useState<string>(
+    defaultMunicipio && (MUNICIPIOS as readonly string[]).includes(defaultMunicipio)
+      ? defaultMunicipio
+      : 'Vicente Guerrero',
+  )
   const [rawResults, setRawResults] = useState<Results | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
