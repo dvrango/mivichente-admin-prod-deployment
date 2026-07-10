@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useTransition, useRef, KeyboardEvent } from 'react'
+import { useEffect, useState, useTransition, useRef, KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { CategorySelect } from '@/components/shared/category-select'
 import { PhoneInput } from '@/components/shared/phone-input'
 import { normalizeMxPhone } from '@/lib/validation/phone'
+import { slugify } from '@/lib/slug'
 import {
   Form,
   FormControl,
@@ -41,6 +42,7 @@ type Props = {
   lockedMunicipio?: string
   defaults?: {
     name?: string
+    slug?: string | null
     primary_category_id?: string | null
     secondary_category_ids?: string[] | null
     phone?: string
@@ -89,6 +91,9 @@ export function BusinessForm({
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
   const aliasInputRef = useRef<HTMLInputElement>(null)
   const offeringInputRef = useRef<HTMLInputElement>(null)
+  // Al crear, el slug se deriva del nombre en vivo hasta que el admin lo edita a
+  // mano. Al editar ya hay un slug asignado (circula en links) → no se sobreescribe.
+  const [slugTouched, setSlugTouched] = useState(!!defaults?.slug)
 
   function addAlias(value: string) {
     const trimmed = value.trim()
@@ -142,6 +147,7 @@ export function BusinessForm({
     resolver: zodResolver(clientSchema),
     defaultValues: {
       name: defaults?.name ?? '',
+      slug: defaults?.slug ?? '',
       primary_category_id: defaults?.primary_category_id ?? '',
       phone: normalizeMxPhone(defaults?.phone),
       phone_is_whatsapp: defaults?.phone_is_whatsapp ?? false,
@@ -158,10 +164,16 @@ export function BusinessForm({
     },
   })
 
+  const watchedName = useWatch({ control: form.control, name: 'name' })
+  useEffect(() => {
+    if (!slugTouched) form.setValue('slug', slugify(watchedName ?? ''))
+  }, [watchedName, slugTouched, form])
+
   function onSubmit(values: ClientFormInput) {
     setServerError(null)
     const fd = new FormData()
     fd.set('name', values.name)
+    fd.set('slug', values.slug ?? '')
     fd.set('primary_category_id', values.primary_category_id)
     fd.set('secondary_category_ids', JSON.stringify(secondaryIds))
     fd.set('phone', values.phone)
@@ -217,6 +229,40 @@ export function BusinessForm({
               <FormControl>
                 <Input disabled={isPending} {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="slug"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                URL del negocio{' '}
+                <span className="text-muted-foreground font-normal">(link para compartir)</span>
+              </FormLabel>
+              <FormControl>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground text-sm">vichente.com/</span>
+                  <Input
+                    disabled={isPending}
+                    placeholder="el-tunner"
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) => {
+                      setSlugTouched(true)
+                      // Normalización ligera mientras escribe (conserva guion final para
+                      // seguir tecleando). El slugify() final ocurre al enviar (schema).
+                      field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))
+                    }}
+                  />
+                </div>
+              </FormControl>
+              <p className="text-muted-foreground text-xs">
+                Se genera solo del nombre. Puedes personalizarlo: minúsculas y guiones.
+              </p>
               <FormMessage />
             </FormItem>
           )}

@@ -95,7 +95,7 @@ export async function createBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { photo, primary_category_id, secondary_category_ids, ...data } = parsed.data
+  const { photo, primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
   const hours = parseHours(formData)
 
   const supabase = await createClient()
@@ -115,6 +115,8 @@ export async function createBusiness(
     .from('businesses')
     .insert({
       ...data,
+      // slug vacío → se omite para que el trigger de la DB lo autogenere del nombre.
+      ...(slug ? { slug } : {}),
       category_id: primary_category_id,
       photo_url,
       data_source: 'admin',
@@ -156,7 +158,7 @@ export async function updateBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { photo, primary_category_id, secondary_category_ids, ...data } = parsed.data
+  const { photo, primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
 
   const supabase = await createClient()
 
@@ -186,6 +188,9 @@ export async function updateBusiness(
     .from('businesses')
     .update({
       ...data,
+      // slug vacío → se omite para NO tocar el slug existente (que ya circula
+      // en links compartidos). Sólo se actualiza si el admin escribió uno.
+      ...(slug ? { slug } : {}),
       category_id: primary_category_id,
       photo_url,
       data_source: 'admin',

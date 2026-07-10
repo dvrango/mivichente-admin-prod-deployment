@@ -90,6 +90,7 @@ export default async function EditBusinessPage({
         lockedMunicipio={lockedMunicipio}
         defaults={{
           name: business.name,
+          slug: business.slug,
           primary_category_id: categoryIds.primaryId ?? business.category_id,
           secondary_category_ids: categoryIds.secondaryIds,
           phone: business.phone,

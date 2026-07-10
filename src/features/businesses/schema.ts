@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { mxPhoneSchema } from '@/lib/validation/phone'
+import { SLUG_PATTERN, isReservedSlug, slugify } from '@/lib/slug'
 
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024
 export const PHOTO_ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const
@@ -36,6 +37,15 @@ const photoSchema = z
 
 export const businessFormSchema = z.object({
   name: z.string().trim().min(1, 'El nombre es requerido.'),
+  // URL root-level tipo IG. Vacío = la DB lo autogenera del nombre (trigger).
+  // Si se escribe, se normaliza y se valida contra formato + blocklist; la
+  // unicidad final la garantiza la DB (índice único + trigger con sufijo).
+  slug: z
+    .string()
+    .trim()
+    .transform((v) => slugify(v))
+    .refine((v) => v === '' || SLUG_PATTERN.test(v), 'Slug inválido.')
+    .refine((v) => !isReservedSlug(v), 'Ese slug está reservado, elige otro.'),
   // Categoría primaria (denormalizada en businesses.category_id — la card
   // muestra este badge). Las secundarias viven sólo en business_categories.
   primary_category_id: z.string().uuid('La categoría principal es requerida.'),
@@ -132,6 +142,7 @@ export function parseBusinessForm(formData: FormData) {
   const primary = formData.get('primary_category_id')
   const raw = {
     name: formData.get('name'),
+    slug: formData.get('slug') ?? '',
     primary_category_id: primary,
     // Nunca dejar la primaria dentro de las secundarias (evita fila duplicada).
     secondary_category_ids: secondaryRaw.filter((c) => c !== primary),
