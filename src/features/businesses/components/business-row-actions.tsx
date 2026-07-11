@@ -37,6 +37,9 @@ type Props = {
   isVerified: boolean
   isFeatured: boolean
   canDelete?: boolean
+  // Negocio de otro municipio visto por un reviewer: el RLS de escritura lo
+  // rechaza, así que aquí ni se ofrecen los toggles/delete (solo "Ver").
+  readOnly?: boolean
 }
 
 export function BusinessRowActions({
@@ -45,6 +48,7 @@ export function BusinessRowActions({
   isVerified,
   isFeatured,
   canDelete = false,
+  readOnly = false,
 }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -72,38 +76,44 @@ export function BusinessRowActions({
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuGroup>
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem render={<Link href={`/businesses/${id}`} />}>Editar</DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                startTransition(async () => {
-                  await toggleBusinessActive(id, !isActive)
-                  router.refresh()
-                })
-              }
-            >
-              {isActive ? 'Desactivar' : 'Activar'}
+            <DropdownMenuItem render={<Link href={`/businesses/${id}`} />}>
+              {readOnly ? 'Ver' : 'Editar'}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                startTransition(async () => {
-                  await toggleBusinessVerified(id, !isVerified)
-                  router.refresh()
-                })
-              }
-            >
-              {isVerified ? 'Quitar verificación' : 'Verificar'}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                startTransition(async () => {
-                  await toggleBusinessFeatured(id, !isFeatured)
-                  router.refresh()
-                })
-              }
-            >
-              {isFeatured ? 'Quitar recomendación' : 'Recomendar'}
-            </DropdownMenuItem>
-            {canDelete && (
+            {!readOnly && (
+              <>
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(async () => {
+                      await toggleBusinessActive(id, !isActive)
+                      router.refresh()
+                    })
+                  }
+                >
+                  {isActive ? 'Desactivar' : 'Activar'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(async () => {
+                      await toggleBusinessVerified(id, !isVerified)
+                      router.refresh()
+                    })
+                  }
+                >
+                  {isVerified ? 'Quitar verificación' : 'Verificar'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(async () => {
+                      await toggleBusinessFeatured(id, !isFeatured)
+                      router.refresh()
+                    })
+                  }
+                >
+                  {isFeatured ? 'Quitar recomendación' : 'Recomendar'}
+                </DropdownMenuItem>
+              </>
+            )}
+            {canDelete && !readOnly && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onClick={() => setConfirmOpen(true)}>

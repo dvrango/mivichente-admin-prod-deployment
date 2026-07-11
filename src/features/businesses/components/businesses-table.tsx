@@ -24,11 +24,15 @@ export function BusinessesTable({
   categories,
   canDelete = false,
   returnTo,
+  reviewerMunicipio,
 }: {
   businesses: BusinessWithCategory[]
   categories: CategoryOption[]
   canDelete?: boolean
   returnTo?: string
+  // Reviewer viendo negocios de otro municipio (RLS ampliado en la lista):
+  // solo puede ver, no accionar. undefined para admin (sin restricción).
+  reviewerMunicipio?: string
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
@@ -122,6 +126,7 @@ export function BusinessesTable({
                       isVerified={b.is_verified}
                       isFeatured={b.is_featured}
                       canDelete={canDelete}
+                      readOnly={!!reviewerMunicipio && b.municipio !== reviewerMunicipio}
                     />
                   </TableCell>
                   <TableCell>

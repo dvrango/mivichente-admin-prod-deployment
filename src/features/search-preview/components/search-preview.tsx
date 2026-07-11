@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { createAnonClient } from '@/lib/supabase/anon-client'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -65,7 +65,7 @@ function prioritizeByMunicipio(businesses: Business[], municipio: string): Busin
 // suggest_categories), mismo orden que ve el usuario. Sirve para depurar por
 // qué un negocio aparece o no ante un término dado (aliases, categoría, etc).
 export function SearchPreview({ defaultMunicipio }: { defaultMunicipio?: string }) {
-  const supabase = createClient()
+  const supabase = createAnonClient()
   const [query, setQuery] = useState('')
   const [municipio, setMunicipio] = useState<string>(
     defaultMunicipio && (MUNICIPIOS as readonly string[]).includes(defaultMunicipio)

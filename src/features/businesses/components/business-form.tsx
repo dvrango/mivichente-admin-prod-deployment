@@ -40,6 +40,10 @@ type Props = {
   categories: CategoryOption[]
   // Reviewer: municipio fijo a su asignado (el RLS rechaza otros municipios).
   lockedMunicipio?: string
+  // Negocio de otro municipio visto por un reviewer: se ve pero no se edita
+  // (el RLS de UPDATE ya lo bloquea; esto evita que la UI prometa algo que
+  // el submit va a rechazar).
+  readOnly?: boolean
   defaults?: {
     name?: string
     slug?: string | null
@@ -77,6 +81,7 @@ export function BusinessForm({
   defaults,
   defaultHours,
   lockedMunicipio,
+  readOnly = false,
 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
@@ -220,317 +225,164 @@ export function BusinessForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-2xl space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nombre</FormLabel>
-              <FormControl>
-                <Input disabled={isPending} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="slug"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>
-                URL del negocio{' '}
-                <span className="text-muted-foreground font-normal">(link para compartir)</span>
-              </FormLabel>
-              <FormControl>
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground text-sm">vichente.com/</span>
-                  <Input
-                    disabled={isPending}
-                    placeholder="el-tunner"
-                    {...field}
-                    value={field.value ?? ''}
-                    onChange={(e) => {
-                      setSlugTouched(true)
-                      // Normalización ligera mientras escribe (conserva guion final para
-                      // seguir tecleando). El slugify() final ocurre al enviar (schema).
-                      field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))
-                    }}
-                  />
-                </div>
-              </FormControl>
-              <p className="text-muted-foreground text-xs">
-                Se genera solo del nombre. Puedes personalizarlo: minúsculas y guiones.
-              </p>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="primary_category_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Categoría principal</FormLabel>
-              <FormControl>
-                <CategorySelect
-                  categories={categories}
-                  value={field.value}
-                  onValueChange={(v) => {
-                    field.onChange(v ?? '')
-                    const newType = categories.find((c) => c.id === v)?.type
-                    // La primaria nunca debe quedar también como secundaria,
-                    // y las secundarias deben ser del mismo tipo que la principal.
-                    setSecondaryIds((prev) =>
-                      prev.filter((id) => {
-                        if (id === v) return false
-                        const c = categories.find((cat) => cat.id === id)
-                        return c?.type === newType
-                      }),
-                    )
-                  }}
-                  disabled={isPending}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium leading-none">
-            Categorías adicionales{' '}
-            <span className="text-muted-foreground font-normal">(opcional)</span>
-          </label>
-          {selectedSecondary.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {selectedSecondary.map((c) => (
-                <Badge key={c.id} variant="secondary" className="gap-1 pr-1">
-                  {c.name}
-                  <button
-                    type="button"
-                    onClick={() => toggleSecondary(c.id, false)}
-                    disabled={isPending}
-                    className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                    aria-label={`Quitar ${c.name}`}
-                  >
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
-          <Input
-            value={categorySearch}
-            onChange={(e) => setCategorySearch(e.target.value)}
-            placeholder="Buscar categoría..."
-            disabled={isPending}
-          />
-          <div className="grid max-h-64 grid-cols-2 gap-x-4 gap-y-1.5 overflow-y-auto rounded-md border p-3">
-            {(['food', 'business'] as const).map((type) => {
-              const opts = filteredCategoriesByType[type].filter((c) => c.id !== primaryId)
-              if (opts.length === 0) return null
-              return (
-                <div key={type} className="space-y-1.5">
-                  <p className="text-muted-foreground text-xs font-medium">
-                    {type === 'food' ? 'Comida y bebida' : 'Comercios y servicios'}
-                  </p>
-                  {opts.map((c) => (
-                    <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={secondaryIds.includes(c.id)}
-                        onCheckedChange={(v) => toggleSecondary(c.id, v === true)}
-                        disabled={isPending}
-                      />
-                      {c.name}
-                    </label>
-                  ))}
-                </div>
-              )
-            })}
-            {filteredCategoriesByType.food.length === 0 &&
-              filteredCategoriesByType.business.length === 0 && (
-                <p className="text-muted-foreground col-span-2 text-sm">
-                  Sin resultados para &quot;{categorySearch}&quot;
-                </p>
-              )}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            El negocio aparecerá también en estas categorías. La principal muestra el icono en la
-            tarjeta.
-          </p>
-        </div>
-
-        <FormField
-          control={form.control}
-          name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Teléfono</FormLabel>
-              <FormControl>
-                <PhoneInput
-                  name={field.name}
-                  ref={field.ref}
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChange={field.onChange}
-                  disabled={isPending}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="phone_is_whatsapp"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center gap-2">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  disabled={isPending}
-                  id="phone_is_whatsapp"
-                />
-              </FormControl>
-              <FormLabel htmlFor="phone_is_whatsapp" className="!mt-0 cursor-pointer">
-                El teléfono tiene WhatsApp
-              </FormLabel>
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="address"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Dirección</FormLabel>
-              <FormControl>
-                <Textarea rows={2} disabled={isPending} {...field} value={field.value ?? ''} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="maps_url"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>URL de Google Maps</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="https://maps.app.goo.gl/..."
-                  disabled={isPending}
-                  {...field}
-                  value={field.value ?? ''}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
+        <fieldset disabled={readOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
           <FormField
             control={form.control}
-            name="municipio"
+            name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Municipio</FormLabel>
-                <Select
-                  value={field.value || undefined}
-                  onValueChange={(v) => field.onChange(v)}
-                  disabled={isPending || !!lockedMunicipio}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecciona municipio" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {MUNICIPIOS.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
+                <FormLabel>Nombre</FormLabel>
+                <FormControl>
+                  <Input disabled={isPending} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="slug"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  URL del negocio{' '}
+                  <span className="text-muted-foreground font-normal">(link para compartir)</span>
+                </FormLabel>
+                <FormControl>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground text-sm">vichente.com/</span>
+                    <Input
+                      disabled={isPending}
+                      placeholder="el-tunner"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        setSlugTouched(true)
+                        // Normalización ligera mientras escribe (conserva guion final para
+                        // seguir tecleando). El slugify() final ocurre al enviar (schema).
+                        field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))
+                      }}
+                    />
+                  </div>
+                </FormControl>
+                <p className="text-muted-foreground text-xs">
+                  Se genera solo del nombre. Puedes personalizarlo: minúsculas y guiones.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="primary_category_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Categoría principal</FormLabel>
+                <FormControl>
+                  <CategorySelect
+                    categories={categories}
+                    value={field.value}
+                    onValueChange={(v) => {
+                      field.onChange(v ?? '')
+                      const newType = categories.find((c) => c.id === v)?.type
+                      // La primaria nunca debe quedar también como secundaria,
+                      // y las secundarias deben ser del mismo tipo que la principal.
+                      setSecondaryIds((prev) =>
+                        prev.filter((id) => {
+                          if (id === v) return false
+                          const c = categories.find((cat) => cat.id === id)
+                          return c?.type === newType
+                        }),
+                      )
+                    }}
+                    disabled={isPending}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none">
+              Categorías adicionales{' '}
+              <span className="text-muted-foreground font-normal">(opcional)</span>
+            </label>
+            {selectedSecondary.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedSecondary.map((c) => (
+                  <Badge key={c.id} variant="secondary" className="gap-1 pr-1">
+                    {c.name}
+                    <button
+                      type="button"
+                      onClick={() => toggleSecondary(c.id, false)}
+                      disabled={isPending}
+                      className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                      aria-label={`Quitar ${c.name}`}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <Input
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+              placeholder="Buscar categoría..."
+              disabled={isPending}
+            />
+            <div className="grid max-h-64 grid-cols-2 gap-x-4 gap-y-1.5 overflow-y-auto rounded-md border p-3">
+              {(['food', 'business'] as const).map((type) => {
+                const opts = filteredCategoriesByType[type].filter((c) => c.id !== primaryId)
+                if (opts.length === 0) return null
+                return (
+                  <div key={type} className="space-y-1.5">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      {type === 'food' ? 'Comida y bebida' : 'Comercios y servicios'}
+                    </p>
+                    {opts.map((c) => (
+                      <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={secondaryIds.includes(c.id)}
+                          onCheckedChange={(v) => toggleSecondary(c.id, v === true)}
+                          disabled={isPending}
+                        />
+                        {c.name}
+                      </label>
                     ))}
-                  </SelectContent>
-                </Select>
-                {lockedMunicipio && (
-                  <p className="text-muted-foreground text-xs">
-                    Tu municipio asignado. No se puede cambiar.
+                  </div>
+                )
+              })}
+              {filteredCategoriesByType.food.length === 0 &&
+                filteredCategoriesByType.business.length === 0 && (
+                  <p className="text-muted-foreground col-span-2 text-sm">
+                    Sin resultados para &quot;{categorySearch}&quot;
                   </p>
                 )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            </div>
+            <p className="text-muted-foreground text-xs">
+              El negocio aparecerá también en estas categorías. La principal muestra el icono en la
+              tarjeta.
+            </p>
+          </div>
 
           <FormField
             control={form.control}
-            name="colonia"
+            name="phone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>
-                  Colonia <span className="text-muted-foreground font-normal">(opcional)</span>
-                </FormLabel>
+                <FormLabel>Teléfono</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Ej. Centro, La Joya…"
+                  <PhoneInput
+                    name={field.name}
+                    ref={field.ref}
+                    value={field.value}
+                    onBlur={field.onBlur}
+                    onChange={field.onChange}
                     disabled={isPending}
-                    {...field}
-                    value={field.value ?? ''}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>
-                Descripción <span className="text-muted-foreground font-normal">(opcional)</span>
-              </FormLabel>
-              <FormControl>
-                <Textarea
-                  rows={3}
-                  placeholder="Describe brevemente el negocio…"
-                  disabled={isPending}
-                  {...field}
-                  value={field.value ?? ''}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="facebook_url"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Facebook <span className="text-muted-foreground font-normal">(opcional)</span>
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="https://facebook.com/…"
-                    disabled={isPending}
-                    {...field}
-                    value={field.value ?? ''}
                   />
                 </FormControl>
                 <FormMessage />
@@ -540,15 +392,47 @@ export function BusinessForm({
 
           <FormField
             control={form.control}
-            name="instagram_url"
+            name="phone_is_whatsapp"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center gap-2">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={isPending}
+                    id="phone_is_whatsapp"
+                  />
+                </FormControl>
+                <FormLabel htmlFor="phone_is_whatsapp" className="!mt-0 cursor-pointer">
+                  El teléfono tiene WhatsApp
+                </FormLabel>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="address"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>
-                  Instagram <span className="text-muted-foreground font-normal">(opcional)</span>
-                </FormLabel>
+                <FormLabel>Dirección</FormLabel>
+                <FormControl>
+                  <Textarea rows={2} disabled={isPending} {...field} value={field.value ?? ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="maps_url"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>URL de Google Maps</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="https://instagram.com/…"
+                    placeholder="https://maps.app.goo.gl/..."
                     disabled={isPending}
                     {...field}
                     value={field.value ?? ''}
@@ -558,165 +442,294 @@ export function BusinessForm({
               </FormItem>
             )}
           />
-        </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium leading-none">
-            Oferta <span className="text-muted-foreground font-normal">(qué vende / ofrece)</span>
-          </label>
-          <div
-            className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
-            onClick={() => offeringInputRef.current?.focus()}
-          >
-            {offerings.map((offering) => (
-              <span
-                key={offering}
-                className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
-              >
-                {offering}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeOffering(offering)
-                  }}
-                  disabled={isPending}
-                  className="hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <input
-              ref={offeringInputRef}
-              value={offeringInput}
-              onChange={(e) => setOfferingInput(e.target.value)}
-              onKeyDown={onOfferingKeyDown}
-              onBlur={() => addOffering(offeringInput)}
-              disabled={isPending}
-              placeholder={offerings.length === 0 ? 'Ej. tacos, burritos, agua fresca…' : ''}
-              className="min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="municipio"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Municipio</FormLabel>
+                  <Select
+                    value={field.value || undefined}
+                    onValueChange={(v) => field.onChange(v)}
+                    disabled={isPending || !!lockedMunicipio}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecciona municipio" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {MUNICIPIOS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {lockedMunicipio && (
+                    <p className="text-muted-foreground text-xs">
+                      Tu municipio asignado. No se puede cambiar.
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="colonia"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Colonia <span className="text-muted-foreground font-normal">(opcional)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Ej. Centro, La Joya…"
+                      disabled={isPending}
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
-          <p className="text-muted-foreground text-xs">
-            Productos o servicios. Ayudan a encontrar el negocio por lo que ofrece.
-          </p>
-        </div>
 
-        {showHours ? (
-          <BusinessHoursEditor
-            value={hours}
-            onChange={setHours}
-            onRemove={() => setShowHours(false)}
-            disabled={isPending}
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Descripción <span className="text-muted-foreground font-normal">(opcional)</span>
+                </FormLabel>
+                <FormControl>
+                  <Textarea
+                    rows={3}
+                    placeholder="Describe brevemente el negocio…"
+                    disabled={isPending}
+                    {...field}
+                    value={field.value ?? ''}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        ) : (
-          <div>
-            <p className="text-muted-foreground mb-2 text-sm font-medium">Horarios</p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={() => setShowHours(true)}
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="facebook_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Facebook <span className="text-muted-foreground font-normal">(opcional)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://facebook.com/…"
+                      disabled={isPending}
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="instagram_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Instagram <span className="text-muted-foreground font-normal">(opcional)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://instagram.com/…"
+                      disabled={isPending}
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none">
+              Oferta <span className="text-muted-foreground font-normal">(qué vende / ofrece)</span>
+            </label>
+            <div
+              className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
+              onClick={() => offeringInputRef.current?.focus()}
             >
-              + Agregar horarios
+              {offerings.map((offering) => (
+                <span
+                  key={offering}
+                  className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
+                >
+                  {offering}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeOffering(offering)
+                    }}
+                    disabled={isPending}
+                    className="hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                ref={offeringInputRef}
+                value={offeringInput}
+                onChange={(e) => setOfferingInput(e.target.value)}
+                onKeyDown={onOfferingKeyDown}
+                onBlur={() => addOffering(offeringInput)}
+                disabled={isPending}
+                placeholder={offerings.length === 0 ? 'Ej. tacos, burritos, agua fresca…' : ''}
+                className="min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Productos o servicios. Ayudan a encontrar el negocio por lo que ofrece.
+            </p>
+          </div>
+
+          {showHours ? (
+            <BusinessHoursEditor
+              value={hours}
+              onChange={setHours}
+              onRemove={() => setShowHours(false)}
+              disabled={isPending}
+            />
+          ) : (
+            <div>
+              <p className="text-muted-foreground mb-2 text-sm font-medium">Horarios</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={() => setShowHours(true)}
+              >
+                + Agregar horarios
+              </Button>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none">
+              Aliases <span className="text-muted-foreground font-normal">(nombres populares)</span>
+            </label>
+            <div
+              className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
+              onClick={() => aliasInputRef.current?.focus()}
+            >
+              {aliases.map((alias) => (
+                <span
+                  key={alias}
+                  className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
+                >
+                  {alias}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeAlias(alias)
+                    }}
+                    disabled={isPending}
+                    className="hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                ref={aliasInputRef}
+                value={aliasInput}
+                onChange={(e) => setAliasInput(e.target.value)}
+                onKeyDown={onAliasKeyDown}
+                onBlur={() => addAlias(aliasInput)}
+                disabled={isPending}
+                placeholder={aliases.length === 0 ? 'Escribe y presiona Enter o coma…' : ''}
+                className="min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Nombres como los conoce la gente. Ayudan a que la búsqueda los encuentre.
+            </p>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="photo"
+            render={({ field: { onChange, ref, name, onBlur, disabled } }) => (
+              <FormItem>
+                <FormLabel>Foto (JPG, PNG, WEBP — máx 5 MB)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={isPending || disabled}
+                    name={name}
+                    ref={ref}
+                    onBlur={onBlur}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null
+                      onChange(file)
+                      setPreviewUrl(
+                        file ? URL.createObjectURL(file) : (defaults?.photo_url ?? null),
+                      )
+                    }}
+                  />
+                </FormControl>
+                {previewUrl ? (
+                  <div className="mt-2">
+                    <Image
+                      src={previewUrl}
+                      alt="Vista previa"
+                      width={240}
+                      height={160}
+                      className="h-40 w-60 rounded-md border object-cover"
+                      unoptimized
+                    />
+                  </div>
+                ) : null}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {serverError ? (
+            <p className="text-destructive text-sm" role="alert">
+              {serverError}
+            </p>
+          ) : null}
+        </fieldset>
+
+        {readOnly ? (
+          <p className="text-muted-foreground text-sm">Solo lectura — negocio de otro municipio.</p>
+        ) : (
+          <div className="flex gap-2">
+            <Button type="submit" disabled={isPending}>
+              {isPending ? 'Guardando…' : submitLabel}
             </Button>
           </div>
         )}
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium leading-none">
-            Aliases <span className="text-muted-foreground font-normal">(nombres populares)</span>
-          </label>
-          <div
-            className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
-            onClick={() => aliasInputRef.current?.focus()}
-          >
-            {aliases.map((alias) => (
-              <span
-                key={alias}
-                className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
-              >
-                {alias}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeAlias(alias)
-                  }}
-                  disabled={isPending}
-                  className="hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <input
-              ref={aliasInputRef}
-              value={aliasInput}
-              onChange={(e) => setAliasInput(e.target.value)}
-              onKeyDown={onAliasKeyDown}
-              onBlur={() => addAlias(aliasInput)}
-              disabled={isPending}
-              placeholder={aliases.length === 0 ? 'Escribe y presiona Enter o coma…' : ''}
-              className="min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-            />
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Nombres como los conoce la gente. Ayudan a que la búsqueda los encuentre.
-          </p>
-        </div>
-
-        <FormField
-          control={form.control}
-          name="photo"
-          render={({ field: { onChange, ref, name, onBlur, disabled } }) => (
-            <FormItem>
-              <FormLabel>Foto (JPG, PNG, WEBP — máx 5 MB)</FormLabel>
-              <FormControl>
-                <Input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  disabled={isPending || disabled}
-                  name={name}
-                  ref={ref}
-                  onBlur={onBlur}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null
-                    onChange(file)
-                    setPreviewUrl(file ? URL.createObjectURL(file) : (defaults?.photo_url ?? null))
-                  }}
-                />
-              </FormControl>
-              {previewUrl ? (
-                <div className="mt-2">
-                  <Image
-                    src={previewUrl}
-                    alt="Vista previa"
-                    width={240}
-                    height={160}
-                    className="h-40 w-60 rounded-md border object-cover"
-                    unoptimized
-                  />
-                </div>
-              ) : null}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {serverError ? (
-          <p className="text-destructive text-sm" role="alert">
-            {serverError}
-          </p>
-        ) : null}
-
-        <div className="flex gap-2">
-          <Button type="submit" disabled={isPending}>
-            {isPending ? 'Guardando…' : submitLabel}
-          </Button>
-        </div>
       </form>
     </Form>
   )

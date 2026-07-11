@@ -37,6 +37,11 @@ export default async function EditBusinessPage({
   const lockedMunicipio =
     profile?.role === 'reviewer' ? (profile.municipio ?? undefined) : undefined
 
+  // Reviewer ahora ve negocios de cualquier municipio (RLS ampliado), pero
+  // solo puede escribir en el suyo — el UPDATE de RLS sigue exigiendo match.
+  // Sin este gate el formulario se ve editable y falla en el submit.
+  const readOnly = !!lockedMunicipio && business.municipio !== lockedMunicipio
+
   // Sólo se acepta un returnTo relativo dentro de /businesses (evita open redirect).
   const safeReturnTo = returnTo?.startsWith('/businesses') ? returnTo : undefined
 
@@ -59,11 +64,15 @@ export default async function EditBusinessPage({
           ) : undefined
         }
         actions={
-          <div className="flex gap-2">
-            <ToggleVerifiedButton id={business.id} isVerified={business.is_verified} />
-            <ToggleFeaturedButton id={business.id} isFeatured={business.is_featured} />
-            <ToggleActiveButton id={business.id} isActive={business.is_active} />
-          </div>
+          readOnly ? (
+            <Badge variant="outline">Solo lectura · {business.municipio}</Badge>
+          ) : (
+            <div className="flex gap-2">
+              <ToggleVerifiedButton id={business.id} isVerified={business.is_verified} />
+              <ToggleFeaturedButton id={business.id} isFeatured={business.is_featured} />
+              <ToggleActiveButton id={business.id} isActive={business.is_active} />
+            </div>
+          )
         }
       />
       <div className="text-muted-foreground space-y-0.5 text-xs">
@@ -88,6 +97,7 @@ export default async function EditBusinessPage({
         submitLabel="Guardar"
         categories={categories}
         lockedMunicipio={lockedMunicipio}
+        readOnly={readOnly}
         defaults={{
           name: business.name,
           slug: business.slug,

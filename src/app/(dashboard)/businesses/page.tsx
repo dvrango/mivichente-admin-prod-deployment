@@ -75,7 +75,9 @@ export default async function BusinessesPage({
       />
 
       <Suspense>
-        <BusinessesFilters categories={categories} showMunicipio={isAdmin} />
+        {/* Reviewer ve todos los municipios ahora (RLS ampliado en la lista);
+        necesita el filtro tanto como el admin para no ver un mix de 3 municipios. */}
+        <BusinessesFilters categories={categories} showMunicipio />
       </Suspense>
 
       <BusinessesTable
@@ -83,6 +85,7 @@ export default async function BusinessesPage({
         categories={categories}
         canDelete={isAdmin}
         returnTo={returnTo}
+        reviewerMunicipio={!isAdmin ? (profile?.municipio ?? undefined) : undefined}
       />
 
       <BusinessesPagination page={page} pageCount={pageCount} buildHref={buildHref} />
