@@ -65,7 +65,11 @@ function prioritizeByMunicipio(businesses: Business[], municipio: string): Busin
 // suggest_categories), mismo orden que ve el usuario. Sirve para depurar por
 // qué un negocio aparece o no ante un término dado (aliases, categoría, etc).
 export function SearchPreview({ defaultMunicipio }: { defaultMunicipio?: string }) {
-  const supabase = createAnonClient()
+  // useMemo, no createAnonClient() a secas: a diferencia de createBrowserClient
+  // (que cachea singleton), esto crea cliente nuevo cada llamada. Sin memo la
+  // referencia cambia en cada render, useCallback `run` se recrea, el useEffect
+  // de abajo se re-dispara en loop -> parpadeo constante.
+  const supabase = useMemo(() => createAnonClient(), [])
   const [query, setQuery] = useState('')
   const [municipio, setMunicipio] = useState<string>(
     defaultMunicipio && (MUNICIPIOS as readonly string[]).includes(defaultMunicipio)
