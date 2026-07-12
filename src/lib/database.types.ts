@@ -1760,6 +1760,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      business_term_score: {
+        Args: {
+          b: Database['public']['Tables']['businesses']['Row']
+          term: string
+        }
+        Returns: number
+      }
       businesses_open_now: {
         Args: never
         Returns: {
