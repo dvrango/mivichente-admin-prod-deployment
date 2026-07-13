@@ -1523,42 +1523,58 @@ export type Database = {
       }
       business_registrations: {
         Row: {
+          business_id: string | null
           business_name: string
           contact_name: string
           contact_phone: string | null
           created_at: string
-          description: string
+          description: string | null
+          giro: string | null
           id: string
           municipio: string
           notes: string | null
+          offerings: string[]
           phone: string
           status: string
         }
         Insert: {
+          business_id?: string | null
           business_name: string
           contact_name: string
           contact_phone?: string | null
           created_at?: string
-          description: string
+          description?: string | null
+          giro?: string | null
           id?: string
           municipio: string
           notes?: string | null
+          offerings?: string[]
           phone: string
           status?: string
         }
         Update: {
+          business_id?: string | null
           business_name?: string
           contact_name?: string
           contact_phone?: string | null
           created_at?: string
-          description?: string
+          description?: string | null
+          giro?: string | null
           id?: string
           municipio?: string
           notes?: string | null
+          offerings?: string[]
           phone?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'business_registrations_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
       }
       business_reports: {
         Row: {

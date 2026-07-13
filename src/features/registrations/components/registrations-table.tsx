@@ -31,7 +31,7 @@ export function RegistrationsTable({ registrations }: { registrations: BusinessR
               <span className="sr-only">Acciones</span>
             </TableHead>
             <TableHead>Negocio</TableHead>
-            <TableHead>Qué hace</TableHead>
+            <TableHead>Qué vende</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>Contacto</TableHead>
             <TableHead>Municipio</TableHead>
@@ -52,9 +52,38 @@ export function RegistrationsTable({ registrations }: { registrations: BusinessR
                 <TableCell>
                   <RegistrationRowActions registration={r} />
                 </TableCell>
-                <TableCell className="font-medium">{r.business_name}</TableCell>
-                <TableCell className="text-muted-foreground max-w-48 truncate">
-                  {r.description}
+                <TableCell className="font-medium">
+                  {r.business_name}
+                  {/* Sin esto, un alta y un "completar lo que ya existe" se ven igual
+                      en la cola, y el que revisa acaba duplicando negocios. */}
+                  {r.business_id && (
+                    <Badge variant="secondary" className="ml-2 align-middle">
+                      Ya existe
+                    </Badge>
+                  )}
+                  {r.description && (
+                    <div className="text-muted-foreground mt-1 max-w-48 truncate text-xs font-normal">
+                      {r.description}
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className="max-w-64">
+                  {r.giro && (
+                    <div className="text-muted-foreground mb-1 text-xs uppercase">
+                      {r.giro === 'comida' ? 'Comida' : 'Comercial'}
+                    </div>
+                  )}
+                  {r.offerings.length === 0 ? (
+                    <span className="text-muted-foreground text-sm">—</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {r.offerings.map((o) => (
+                        <Badge key={o} variant="outline" className="font-normal">
+                          {o}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>{r.phone}</TableCell>
                 <TableCell>
