@@ -268,6 +268,19 @@ export async function toggleBusinessFeatured(id: string, nextFeatured: boolean) 
   revalidatePath(`/businesses/${id}`)
 }
 
+export async function toggleBusinessDelivery(id: string, nextHasDelivery: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({ has_delivery: nextHasDelivery, updated_by: await currentUserId(supabase) })
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/businesses')
+  revalidatePath(`/businesses/${id}`)
+}
+
 export type BulkCategoryResult = { error: string | null; updated: number }
 
 // Cambia la categoría PRIMARIA de varios negocios a la vez. La primaria vieja se

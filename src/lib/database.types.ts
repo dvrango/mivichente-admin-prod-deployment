@@ -1612,6 +1612,7 @@ export type Database = {
           data_source: string
           description: string | null
           facebook_url: string | null
+          has_delivery: boolean
           id: string
           instagram_url: string | null
           is_active: boolean
@@ -1641,6 +1642,7 @@ export type Database = {
           data_source?: string
           description?: string | null
           facebook_url?: string | null
+          has_delivery?: boolean
           id?: string
           instagram_url?: string | null
           is_active?: boolean
@@ -1670,6 +1672,7 @@ export type Database = {
           data_source?: string
           description?: string | null
           facebook_url?: string | null
+          has_delivery?: boolean
           id?: string
           instagram_url?: string | null
           is_active?: boolean
@@ -1795,6 +1798,7 @@ export type Database = {
           data_source: string
           description: string | null
           facebook_url: string | null
+          has_delivery: boolean
           id: string
           instagram_url: string | null
           is_active: boolean
@@ -1836,6 +1840,7 @@ export type Database = {
           data_source: string
           description: string | null
           facebook_url: string | null
+          has_delivery: boolean
           id: string
           instagram_url: string | null
           is_active: boolean
@@ -1926,7 +1931,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_06_28: {
+      messages_2026_07_14: {
         Row: {
           event: string | null
           extension: string
@@ -1959,7 +1964,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_06_29: {
+      messages_2026_07_15: {
         Row: {
           event: string | null
           extension: string
@@ -1992,7 +1997,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_06_30: {
+      messages_2026_07_16: {
         Row: {
           event: string | null
           extension: string
@@ -2025,7 +2030,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_07_01: {
+      messages_2026_07_17: {
         Row: {
           event: string | null
           extension: string
@@ -2058,73 +2063,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_07_02: {
-        Row: {
-          event: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          event?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          event?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      messages_2026_07_03: {
-        Row: {
-          event: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          event?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          event?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      messages_2026_07_04: {
+      messages_2026_07_18: {
         Row: {
           event: string | null
           extension: string

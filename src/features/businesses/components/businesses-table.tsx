@@ -98,6 +98,7 @@ export function BusinessesTable({
               <TableHead>Estado</TableHead>
               <TableHead>Verificado</TableHead>
               <TableHead>Recomendado</TableHead>
+              <TableHead>Envío</TableHead>
               <TableHead>Origen</TableHead>
               <TableHead>Actualizado por</TableHead>
             </TableRow>
@@ -105,7 +106,7 @@ export function BusinessesTable({
           <TableBody>
             {businesses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={12} className="text-muted-foreground py-8 text-center">
                   Sin negocios todavía.
                 </TableCell>
               </TableRow>
@@ -172,6 +173,13 @@ export function BusinessesTable({
                       <Badge className="bg-amber-500 text-white hover:bg-amber-600">
                         Recomendado
                       </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {b.has_delivery ? (
+                      <Badge className="bg-purple-500 text-white hover:bg-purple-600">Envío</Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}

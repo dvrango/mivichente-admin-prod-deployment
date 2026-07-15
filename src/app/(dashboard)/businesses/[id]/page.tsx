@@ -6,6 +6,7 @@ import { getCurrentProfile } from '@/features/auth/queries'
 import { updateBusiness, type BusinessFormState } from '@/features/businesses/actions'
 import { BusinessForm } from '@/features/businesses/components/business-form'
 import { ToggleActiveButton } from '@/features/businesses/components/toggle-active-button'
+import { ToggleDeliveryButton } from '@/features/businesses/components/toggle-delivery-button'
 import { ToggleFeaturedButton } from '@/features/businesses/components/toggle-featured-button'
 import { ToggleVerifiedButton } from '@/features/businesses/components/toggle-verified-button'
 import {
@@ -70,6 +71,7 @@ export default async function EditBusinessPage({
             <div className="flex gap-2">
               <ToggleVerifiedButton id={business.id} isVerified={business.is_verified} />
               <ToggleFeaturedButton id={business.id} isFeatured={business.is_featured} />
+              <ToggleDeliveryButton id={business.id} hasDelivery={business.has_delivery} />
               <ToggleActiveButton id={business.id} isActive={business.is_active} />
             </div>
           )
