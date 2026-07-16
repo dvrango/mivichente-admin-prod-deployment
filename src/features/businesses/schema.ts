@@ -27,11 +27,11 @@ export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
   admin: 'Admin',
 }
 
-const photoSchema = z
-  .custom<File | null>((v) => v === null || v instanceof File, 'Foto inválida')
-  .refine((f) => !f || f.size <= PHOTO_MAX_BYTES, 'La foto excede 5 MB.')
+export const photoFileSchema = z
+  .custom<File>((v) => v instanceof File, 'Foto inválida')
+  .refine((f) => f.size <= PHOTO_MAX_BYTES, 'La foto excede 5 MB.')
   .refine(
-    (f) => !f || (PHOTO_ALLOWED_MIME as readonly string[]).includes(f.type),
+    (f) => (PHOTO_ALLOWED_MIME as readonly string[]).includes(f.type),
     'Formato inválido. Usa JPG, PNG o WEBP.',
   )
 
@@ -83,7 +83,6 @@ export const businessFormSchema = z.object({
     .transform(() => null)
     .or(z.string().trim().url('URL de Instagram inválida.'))
     .nullable(),
-  photo: photoSchema,
   aliases: z.array(z.string().trim().min(1)),
   offerings: z.array(z.string().trim().min(1)),
 })
@@ -114,6 +113,29 @@ export const servicesSchema = z.array(serviceSchema, { message: 'Servicios invá
 
 /** Servicios ya validados y convertidos (price numérico o null), listos para la DB. */
 export type ServiceValues = z.infer<typeof servicesSchema>
+
+// Galería (business_photos). Viaja como JSON con el orden final; cada entrada
+// es o una foto ya guardada (`url`) o una nueva por subir (`newIndex`, que
+// apunta al File `photo_new_{i}` del FormData). El orden del array es el
+// order_index, y la primera es la portada (se denormaliza en photo_url).
+export const galleryPhotoSchema = z
+  .object({
+    url: z.string().trim().min(1).optional(),
+    newIndex: z.number().int().min(0).optional(),
+    caption: z
+      .string()
+      .trim()
+      .transform((v) => v || null),
+  })
+  .refine(
+    (p) => (p.url !== undefined) !== (p.newIndex !== undefined),
+    'Cada foto debe ser una existente o una nueva, no ambas.',
+  )
+
+export const gallerySchema = z.array(galleryPhotoSchema, { message: 'Fotos inválidas.' })
+
+/** Galería validada: mezcla de fotos ya guardadas y punteros a archivos nuevos. */
+export type GalleryValues = z.infer<typeof gallerySchema>
 
 export const BUSINESSES_PAGE_SIZE = 20
 
@@ -180,10 +202,6 @@ export function parseBusinessForm(formData: FormData) {
     description: formData.get('description') ?? '',
     facebook_url: formData.get('facebook_url') ?? '',
     instagram_url: formData.get('instagram_url') ?? '',
-    photo: (() => {
-      const p = formData.get('photo')
-      return p instanceof File && p.size > 0 ? p : null
-    })(),
     aliases: parseJsonArray(formData, 'aliases'),
     offerings: parseJsonArray(formData, 'offerings'),
   }

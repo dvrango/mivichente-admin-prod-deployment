@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { useEffect, useState, useTransition, useRef, KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
@@ -31,7 +30,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { BusinessFormState } from '../actions'
 import { businessFormSchema, MUNICIPIOS, type BusinessFormInput } from '../schema'
-import type { CategoryOption, ServiceInput, WeeklyHours } from '../types'
+import type { CategoryOption, PhotoInput, ServiceInput, WeeklyHours } from '../types'
+import { BusinessGalleryEditor } from './business-gallery-editor'
 import { BusinessHoursEditor } from './business-hours-editor'
 import { BusinessServicesEditor } from './business-services-editor'
 
@@ -65,6 +65,7 @@ type Props = {
   }
   defaultHours?: WeeklyHours
   defaultServices?: ServiceInput[]
+  defaultPhotos?: PhotoInput[]
 }
 
 // secondary_category_ids se maneja como estado local (igual que aliases/offerings),
@@ -83,12 +84,13 @@ export function BusinessForm({
   defaults,
   defaultHours,
   defaultServices,
+  defaultPhotos,
   lockedMunicipio,
   readOnly = false,
 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(defaults?.photo_url ?? null)
+  const [photos, setPhotos] = useState<PhotoInput[]>(defaultPhotos ?? [])
   const [aliases, setAliases] = useState<string[]>(defaults?.aliases ?? [])
   const [aliasInput, setAliasInput] = useState('')
   const [offerings, setOfferings] = useState<string[]>(defaults?.offerings ?? [])
@@ -170,7 +172,6 @@ export function BusinessForm({
       description: defaults?.description ?? '',
       facebook_url: defaults?.facebook_url ?? '',
       instagram_url: defaults?.instagram_url ?? '',
-      photo: null,
     },
   })
 
@@ -201,7 +202,17 @@ export function BusinessForm({
     // Filas en blanco (el admin agregó una y no la llenó) no se mandan: el
     // schema las rechazaría por nombre vacío y el guardado fallaría entero.
     fd.set('services', JSON.stringify(services.filter((s) => s.name.trim() !== '')))
-    if (values.photo) fd.set('photo', values.photo)
+    // La galería viaja como metadata en orden; los archivos nuevos van aparte
+    // y se referencian por índice (el server los busca como photo_new_{i}).
+    let newIndex = 0
+    const gallery = photos.map((p) => {
+      if (p.file) {
+        fd.set(`photo_new_${newIndex}`, p.file)
+        return { newIndex: newIndex++, caption: p.caption }
+      }
+      return { url: p.url, caption: p.caption }
+    })
+    fd.set('gallery', JSON.stringify(gallery))
     startTransition(async () => {
       const result = await action({ error: null }, fd)
       if (result?.error) setServerError(result.error)
@@ -707,45 +718,7 @@ export function BusinessForm({
             </p>
           </div>
 
-          <FormField
-            control={form.control}
-            name="photo"
-            render={({ field: { onChange, ref, name, onBlur, disabled } }) => (
-              <FormItem>
-                <FormLabel>Foto (JPG, PNG, WEBP — máx 5 MB)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={isPending || disabled}
-                    name={name}
-                    ref={ref}
-                    onBlur={onBlur}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null
-                      onChange(file)
-                      setPreviewUrl(
-                        file ? URL.createObjectURL(file) : (defaults?.photo_url ?? null),
-                      )
-                    }}
-                  />
-                </FormControl>
-                {previewUrl ? (
-                  <div className="mt-2">
-                    <Image
-                      src={previewUrl}
-                      alt="Vista previa"
-                      width={240}
-                      height={160}
-                      className="h-40 w-60 rounded-md border object-cover"
-                      unoptimized
-                    />
-                  </div>
-                ) : null}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <BusinessGalleryEditor value={photos} onChange={setPhotos} disabled={isPending} />
 
           {serverError ? (
             <p className="text-destructive text-sm" role="alert">

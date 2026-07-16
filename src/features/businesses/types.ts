@@ -30,3 +30,16 @@ export type WeeklyHours = Partial<Record<number, DayHours>>
  * a numeric/null al guardar. El orden del array es el order_index.
  */
 export type ServiceInput = { name: string; price: string; description: string }
+
+/**
+ * Foto de la galería en el form. `url` = ya guardada en storage; `file` = nueva,
+ * pendiente de subir (exactamente una de las dos). `previewUrl` es lo que se
+ * pinta (la URL pública o un object URL local). El orden del array es el
+ * order_index, y la primera es la portada.
+ */
+export type PhotoInput = {
+  url: string | null
+  file: File | null
+  previewUrl: string
+  caption: string
+}

@@ -7,8 +7,11 @@ import { getCurrentProfile } from '@/features/auth/queries'
 import {
   bulkCategorySchema,
   bulkIdsSchema,
+  gallerySchema,
   parseBusinessForm,
+  photoFileSchema,
   servicesSchema,
+  type GalleryValues,
   type ServiceValues,
 } from './schema'
 import type { WeeklyHours } from './types'
@@ -118,6 +121,103 @@ function firstIssue(err: import('zod').ZodError): string {
   return err.issues[0]?.message ?? 'Datos inválidos.'
 }
 
+function parseGallery(formData: FormData) {
+  const raw = formData.get('gallery')
+  if (typeof raw !== 'string' || !raw.trim()) return gallerySchema.safeParse([])
+  let json: unknown = null
+  try {
+    json = JSON.parse(raw)
+  } catch {
+    // json queda null -> el schema falla con "Fotos inválidas."
+  }
+  return gallerySchema.safeParse(json)
+}
+
+type ResolvedPhoto = { url: string; caption: string | null }
+
+/**
+ * Sube los archivos nuevos de la galería y devuelve la lista final ya en orden.
+ * `uploadedPaths` son los paths recién subidos, para poder limpiarlos si algo
+ * falla después (mismo criterio que ya se usaba con la foto única).
+ */
+async function uploadGallery(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gallery: GalleryValues,
+  formData: FormData,
+): Promise<{ photos: ResolvedPhoto[]; uploadedPaths: string[]; error: string | null }> {
+  const photos: ResolvedPhoto[] = []
+  const uploadedPaths: string[] = []
+
+  for (const entry of gallery) {
+    if (entry.url !== undefined) {
+      photos.push({ url: entry.url, caption: entry.caption })
+      continue
+    }
+    const file = formData.get(`photo_new_${entry.newIndex}`)
+    const parsedFile = photoFileSchema.safeParse(file)
+    if (!parsedFile.success) {
+      return { photos, uploadedPaths, error: firstIssue(parsedFile.error) }
+    }
+    const path = `${crypto.randomUUID()}.${extFromMime(parsedFile.data.type)}`
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, parsedFile.data, { contentType: parsedFile.data.type, upsert: false })
+    if (uploadError) {
+      return { photos, uploadedPaths, error: `Error subiendo foto: ${uploadError.message}` }
+    }
+    uploadedPaths.push(path)
+    photos.push({
+      url: supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
+      caption: entry.caption,
+    })
+  }
+
+  return { photos, uploadedPaths, error: null }
+}
+
+async function removePaths(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  urlsOrPaths: string[],
+) {
+  const paths = urlsOrPaths
+    .map((u) => (u.startsWith('http') ? pathFromPublicUrl(u) : u))
+    .filter((p): p is string => p !== null)
+  if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths)
+}
+
+// Delete-all-then-insert, igual que hours/services. order_index = posición en
+// el array; la primera foto es la portada y se denormaliza en photo_url.
+async function upsertPhotos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  businessId: string,
+  photos: ResolvedPhoto[],
+) {
+  await supabase.from('business_photos').delete().eq('business_id', businessId)
+  const rows = photos.map((p, i) => ({
+    business_id: businessId,
+    url: p.url,
+    caption: p.caption,
+    order_index: i,
+  }))
+  if (rows.length > 0) {
+    const { error } = await supabase.from('business_photos').insert(rows)
+    if (error) throw new Error(error.message)
+  }
+}
+
+/** Todas las fotos del negocio en storage — hay que leerlas antes de borrarlo
+ *  (business_photos cae por cascade y se perderían los paths a limpiar). */
+async function photoUrlsOf(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  businessIds: string[],
+): Promise<string[]> {
+  const { data } = await supabase
+    .from('business_photos')
+    .select('url')
+    .in('business_id', businessIds)
+  return (data ?? []).map((r) => r.url)
+}
+
 // uid del usuario actual, para sellar created_by/updated_by.
 async function currentUserId(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -134,21 +234,23 @@ export async function createBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { photo, primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
+  const { primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
   const hours = parseHours(formData)
   const services = parseServices(formData)
   if (!services.success) return { error: firstIssue(services.error) }
+  const gallery = parseGallery(formData)
+  if (!gallery.success) return { error: firstIssue(gallery.error) }
 
   const supabase = await createClient()
 
-  let photo_url: string | null = null
-  if (photo) {
-    const path = `${crypto.randomUUID()}.${extFromMime(photo.type)}`
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, photo, { contentType: photo.type, upsert: false })
-    if (uploadError) return { error: `Error subiendo foto: ${uploadError.message}` }
-    photo_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+  const {
+    photos,
+    uploadedPaths,
+    error: uploadError,
+  } = await uploadGallery(supabase, gallery.data, formData)
+  if (uploadError) {
+    await removePaths(supabase, uploadedPaths)
+    return { error: uploadError }
   }
 
   const actorId = await currentUserId(supabase)
@@ -159,7 +261,8 @@ export async function createBusiness(
       // slug vacío → se omite para que el trigger de la DB lo autogenere del nombre.
       ...(slug ? { slug } : {}),
       category_id: primary_category_id,
-      photo_url,
+      // La portada es la primera foto de la galería (ver business_photos).
+      photo_url: photos[0]?.url ?? null,
       data_source: 'admin',
       created_by: actorId,
       updated_by: actorId,
@@ -168,10 +271,7 @@ export async function createBusiness(
     .single()
 
   if (error) {
-    if (photo_url) {
-      const p = pathFromPublicUrl(photo_url)
-      if (p) await supabase.storage.from(BUCKET).remove([p])
-    }
+    await removePaths(supabase, uploadedPaths)
     return { error: error.message }
   }
 
@@ -184,6 +284,7 @@ export async function createBusiness(
     )
     await upsertHours(supabase, inserted.id, hours)
     await upsertServices(supabase, inserted.id, services.data)
+    await upsertPhotos(supabase, inserted.id, photos)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
@@ -200,31 +301,28 @@ export async function updateBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { photo, primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
-  // Se valida antes de subir la foto: si los servicios traen error se corta
-  // aquí y no queda un archivo huérfano en el bucket.
+  const { primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
+  // Se valida antes de subir nada: si servicios o galería traen error se corta
+  // aquí y no quedan archivos huérfanos en el bucket.
   const services = parseServices(formData)
   if (!services.success) return { error: firstIssue(services.error) }
+  const gallery = parseGallery(formData)
+  if (!gallery.success) return { error: firstIssue(gallery.error) }
 
   const supabase = await createClient()
 
-  const { data: existing, error: fetchError } = await supabase
-    .from('businesses')
-    .select('photo_url')
-    .eq('id', id)
-    .single()
-  if (fetchError) return { error: fetchError.message }
+  // Las fotos que ya tenía: las que no sobrevivan en la galería nueva se
+  // borran del storage al final.
+  const previousUrls = await photoUrlsOf(supabase, [id])
 
-  let photo_url: string | null = existing.photo_url
-  let oldPathToDelete: string | null = null
-  if (photo) {
-    const path = `${crypto.randomUUID()}.${extFromMime(photo.type)}`
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, photo, { contentType: photo.type, upsert: false })
-    if (uploadError) return { error: `Error subiendo foto: ${uploadError.message}` }
-    photo_url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
-    if (existing.photo_url) oldPathToDelete = pathFromPublicUrl(existing.photo_url)
+  const {
+    photos,
+    uploadedPaths,
+    error: uploadError,
+  } = await uploadGallery(supabase, gallery.data, formData)
+  if (uploadError) {
+    await removePaths(supabase, uploadedPaths)
+    return { error: uploadError }
   }
 
   const hours = parseHours(formData)
@@ -238,25 +336,34 @@ export async function updateBusiness(
       // en links compartidos). Sólo se actualiza si el admin escribió uno.
       ...(slug ? { slug } : {}),
       category_id: primary_category_id,
-      photo_url,
+      // La portada es la primera foto de la galería (ver business_photos).
+      photo_url: photos[0]?.url ?? null,
       data_source: 'admin',
       updated_by: actorId,
     })
     .eq('id', id)
 
-  if (error) return { error: error.message }
-
-  if (oldPathToDelete) {
-    await supabase.storage.from(BUCKET).remove([oldPathToDelete])
+  if (error) {
+    await removePaths(supabase, uploadedPaths)
+    return { error: error.message }
   }
 
   try {
     await upsertBusinessCategories(supabase, id, primary_category_id, secondary_category_ids)
     await upsertHours(supabase, id, hours)
     await upsertServices(supabase, id, services.data)
+    await upsertPhotos(supabase, id, photos)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
+
+  // Recién ahora que la galería quedó guardada: limpiar del storage las fotos
+  // que el admin quitó.
+  const keptUrls = new Set(photos.map((p) => p.url))
+  await removePaths(
+    supabase,
+    previousUrls.filter((u) => !keptUrls.has(u)),
+  )
 
   revalidatePath('/businesses')
   revalidatePath(`/businesses/${id}`)
@@ -271,20 +378,14 @@ export async function deleteBusiness(id: string) {
 
   const supabase = await createClient()
 
-  const { data: existing, error: fetchError } = await supabase
-    .from('businesses')
-    .select('photo_url')
-    .eq('id', id)
-    .single()
-  if (fetchError) throw new Error(fetchError.message)
+  // Se leen antes del delete: business_photos cae por cascade y se perderían
+  // los paths que hay que limpiar del storage.
+  const urls = await photoUrlsOf(supabase, [id])
 
   const { error } = await supabase.from('businesses').delete().eq('id', id)
   if (error) throw new Error(error.message)
 
-  if (existing.photo_url) {
-    const path = pathFromPublicUrl(existing.photo_url)
-    if (path) await supabase.storage.from(BUCKET).remove([path])
-  }
+  await removePaths(supabase, urls)
 
   revalidatePath('/businesses')
 }
@@ -418,19 +519,13 @@ export async function bulkDeleteBusinesses(ids: string[]): Promise<BulkResult> {
 
   const supabase = await createClient()
 
-  const { data: rows, error: fetchError } = await supabase
-    .from('businesses')
-    .select('photo_url')
-    .in('id', parsed.data)
-  if (fetchError) return { error: fetchError.message, updated: 0 }
+  // Se leen antes del delete: business_photos cae por cascade (ver deleteBusiness).
+  const urls = await photoUrlsOf(supabase, parsed.data)
 
   const { error } = await supabase.from('businesses').delete().in('id', parsed.data)
   if (error) return { error: error.message, updated: 0 }
 
-  const paths = (rows ?? [])
-    .map((r) => (r.photo_url ? pathFromPublicUrl(r.photo_url) : null))
-    .filter((p): p is string => p !== null)
-  if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths)
+  await removePaths(supabase, urls)
 
   revalidatePath('/businesses')
   return { error: null, updated: parsed.data.length }
