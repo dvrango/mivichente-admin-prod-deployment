@@ -90,6 +90,31 @@ export const businessFormSchema = z.object({
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>
 
+// Servicios del negocio (business_services). Se validan aparte del form
+// principal — igual que los horarios — porque viajan en un campo JSON del
+// FormData en vez de campos planos.
+export const serviceSchema = z.object({
+  name: z.string().trim().min(1, 'Cada servicio necesita un nombre.'),
+  // Vacío = sin precio público (ej. "cotiza tu evento") → null en la DB.
+  price: z
+    .string()
+    .trim()
+    .refine(
+      (v) => v === '' || (v !== '' && Number.isFinite(Number(v)) && Number(v) >= 0),
+      'Precio inválido.',
+    )
+    .transform((v) => (v === '' ? null : Number(v))),
+  description: z
+    .string()
+    .trim()
+    .transform((v) => v || null),
+})
+
+export const servicesSchema = z.array(serviceSchema, { message: 'Servicios inválidos.' })
+
+/** Servicios ya validados y convertidos (price numérico o null), listos para la DB. */
+export type ServiceValues = z.infer<typeof servicesSchema>
+
 export const BUSINESSES_PAGE_SIZE = 20
 
 export const BUSINESS_STATUS_VALUES = ['all', 'active', 'inactive'] as const

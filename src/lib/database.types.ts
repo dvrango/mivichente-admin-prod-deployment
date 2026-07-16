@@ -1601,6 +1601,43 @@ export type Database = {
           },
         ]
       }
+      business_services: {
+        Row: {
+          business_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          order_index: number
+          price: number | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          price?: number | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_services_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       businesses: {
         Row: {
           address: string | null

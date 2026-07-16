@@ -4,7 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/features/auth/queries'
-import { bulkCategorySchema, bulkIdsSchema, parseBusinessForm } from './schema'
+import {
+  bulkCategorySchema,
+  bulkIdsSchema,
+  parseBusinessForm,
+  servicesSchema,
+  type ServiceValues,
+} from './schema'
 import type { WeeklyHours } from './types'
 
 export type BusinessFormState = { error: string | null }
@@ -37,6 +43,39 @@ async function upsertHours(
     }))
   if (rows.length > 0) {
     const { error } = await supabase.from('business_hours').insert(rows)
+    if (error) throw new Error(error.message)
+  }
+}
+
+function parseServices(formData: FormData) {
+  const raw = formData.get('services')
+  if (typeof raw !== 'string' || !raw.trim()) return servicesSchema.safeParse([])
+  let json: unknown = null
+  try {
+    json = JSON.parse(raw)
+  } catch {
+    // json queda null -> el schema falla con "Servicios inválidos."
+  }
+  return servicesSchema.safeParse(json)
+}
+
+// Delete-all-then-insert, igual que upsertHours. order_index = posición en el
+// array que mandó el form, así el admin controla el orden de despliegue.
+async function upsertServices(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  businessId: string,
+  services: ServiceValues,
+) {
+  await supabase.from('business_services').delete().eq('business_id', businessId)
+  const rows = services.map((s, i) => ({
+    business_id: businessId,
+    name: s.name,
+    price: s.price,
+    description: s.description,
+    order_index: i,
+  }))
+  if (rows.length > 0) {
+    const { error } = await supabase.from('business_services').insert(rows)
     if (error) throw new Error(error.message)
   }
 }
@@ -97,6 +136,8 @@ export async function createBusiness(
   if (!parsed.success) return { error: firstIssue(parsed.error) }
   const { photo, primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
   const hours = parseHours(formData)
+  const services = parseServices(formData)
+  if (!services.success) return { error: firstIssue(services.error) }
 
   const supabase = await createClient()
 
@@ -142,6 +183,7 @@ export async function createBusiness(
       secondary_category_ids,
     )
     await upsertHours(supabase, inserted.id, hours)
+    await upsertServices(supabase, inserted.id, services.data)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
@@ -159,6 +201,10 @@ export async function updateBusiness(
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
   const { photo, primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
+  // Se valida antes de subir la foto: si los servicios traen error se corta
+  // aquí y no queda un archivo huérfano en el bucket.
+  const services = parseServices(formData)
+  if (!services.success) return { error: firstIssue(services.error) }
 
   const supabase = await createClient()
 
@@ -207,6 +253,7 @@ export async function updateBusiness(
   try {
     await upsertBusinessCategories(supabase, id, primary_category_id, secondary_category_ids)
     await upsertHours(supabase, id, hours)
+    await upsertServices(supabase, id, services.data)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }

@@ -14,6 +14,7 @@ import {
   getBusinessById,
   getBusinessCategoryIds,
   getBusinessHours,
+  getBusinessServices,
 } from '@/features/businesses/queries'
 
 export default async function EditBusinessPage({
@@ -25,10 +26,11 @@ export default async function EditBusinessPage({
 }) {
   const { id } = await params
   const { returnTo } = await searchParams
-  const [business, categories, hours, categoryIds, profile] = await Promise.all([
+  const [business, categories, hours, services, categoryIds, profile] = await Promise.all([
     getBusinessById(id),
     getActiveCategoryOptions(),
     getBusinessHours(id),
+    getBusinessServices(id),
     getBusinessCategoryIds(id),
     getCurrentProfile(),
   ])
@@ -119,6 +121,7 @@ export default async function EditBusinessPage({
           offerings: business.offerings,
         }}
         defaultHours={hours}
+        defaultServices={services}
       />
     </div>
   )

@@ -7,6 +7,7 @@ import type {
   BusinessCategoryIds,
   BusinessWithCategory,
   CategoryOption,
+  ServiceInput,
   WeeklyHours,
 } from './types'
 
@@ -218,6 +219,22 @@ export async function getBusinessCategoryIds(businessId: string): Promise<Busine
     primaryId: rows.find((r) => r.is_primary)?.category_id ?? null,
     secondaryIds: rows.filter((r) => !r.is_primary).map((r) => r.category_id),
   }
+}
+
+export async function getBusinessServices(businessId: string): Promise<ServiceInput[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('business_services')
+    .select('name, price, description')
+    .eq('business_id', businessId)
+    .order('order_index')
+    .order('name')
+  if (error) throw error
+  return (data ?? []).map((r) => ({
+    name: r.name,
+    price: r.price === null ? '' : String(r.price),
+    description: r.description ?? '',
+  }))
 }
 
 export async function getBusinessHours(businessId: string): Promise<WeeklyHours> {

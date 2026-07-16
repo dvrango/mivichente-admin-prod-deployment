@@ -23,3 +23,10 @@ export type BusinessCategoryIds = {
 
 export type DayHours = { opens_at: string; closes_at: string }
 export type WeeklyHours = Partial<Record<number, DayHours>>
+
+/**
+ * Servicio de un negocio tal como lo maneja el form. Todo string porque viaja
+ * en un campo JSON del FormData y se teclea en inputs; el schema lo convierte
+ * a numeric/null al guardar. El orden del array es el order_index.
+ */
+export type ServiceInput = { name: string; price: string; description: string }

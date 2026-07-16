@@ -31,8 +31,9 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { BusinessFormState } from '../actions'
 import { businessFormSchema, MUNICIPIOS, type BusinessFormInput } from '../schema'
-import type { CategoryOption, WeeklyHours } from '../types'
+import type { CategoryOption, ServiceInput, WeeklyHours } from '../types'
 import { BusinessHoursEditor } from './business-hours-editor'
+import { BusinessServicesEditor } from './business-services-editor'
 
 type Props = {
   action: (prev: BusinessFormState, formData: FormData) => Promise<BusinessFormState>
@@ -63,6 +64,7 @@ type Props = {
     offerings?: string[] | null
   }
   defaultHours?: WeeklyHours
+  defaultServices?: ServiceInput[]
 }
 
 // secondary_category_ids se maneja como estado local (igual que aliases/offerings),
@@ -80,6 +82,7 @@ export function BusinessForm({
   categories,
   defaults,
   defaultHours,
+  defaultServices,
   lockedMunicipio,
   readOnly = false,
 }: Props) {
@@ -94,6 +97,8 @@ export function BusinessForm({
   const [categorySearch, setCategorySearch] = useState('')
   const [hours, setHours] = useState<WeeklyHours>(defaultHours ?? {})
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
+  const [services, setServices] = useState<ServiceInput[]>(defaultServices ?? [])
+  const [showServices, setShowServices] = useState(() => (defaultServices ?? []).length > 0)
   const aliasInputRef = useRef<HTMLInputElement>(null)
   const offeringInputRef = useRef<HTMLInputElement>(null)
   // Al crear, el slug se deriva del nombre en vivo hasta que el admin lo edita a
@@ -193,6 +198,9 @@ export function BusinessForm({
     fd.set('aliases', JSON.stringify(aliases))
     fd.set('offerings', JSON.stringify(offerings))
     fd.set('hours', JSON.stringify(hours))
+    // Filas en blanco (el admin agregó una y no la llenó) no se mandan: el
+    // schema las rechazaría por nombre vacío y el guardado fallaría entero.
+    fd.set('services', JSON.stringify(services.filter((s) => s.name.trim() !== '')))
     if (values.photo) fd.set('photo', values.photo)
     startTransition(async () => {
       const result = await action({ error: null }, fd)
@@ -627,6 +635,31 @@ export function BusinessForm({
                 onClick={() => setShowHours(true)}
               >
                 + Agregar horarios
+              </Button>
+            </div>
+          )}
+
+          {showServices ? (
+            <BusinessServicesEditor
+              value={services}
+              onChange={setServices}
+              onRemove={() => setShowServices(false)}
+              disabled={isPending}
+            />
+          ) : (
+            <div>
+              <p className="text-muted-foreground mb-2 text-sm font-medium">Servicios</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={() => {
+                  setShowServices(true)
+                  setServices([{ name: '', price: '', description: '' }])
+                }}
+              >
+                + Agregar servicios
               </Button>
             </div>
           )}
