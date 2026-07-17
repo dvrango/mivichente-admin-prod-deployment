@@ -69,14 +69,20 @@ type Props = {
   defaultPhotos?: PhotoInput[]
 }
 
-// secondary_category_ids se maneja como estado local (igual que aliases/offerings),
-// no vía react-hook-form; por eso se omite del schema del cliente.
+// Estos campos NO los maneja react-hook-form: aliases/offerings/secondary_category_ids
+// son estado local, y services_label se deriva del tipo de categoría en el submit.
+// Se omiten del schema del cliente — si no, el resolver los exigiría (services_label
+// quedaría undefined) y bloquearía el submit en silencio (sin error ni request).
 const clientSchema = businessFormSchema.omit({
   aliases: true,
   offerings: true,
   secondary_category_ids: true,
+  services_label: true,
 })
-type ClientFormInput = Omit<BusinessFormInput, 'aliases' | 'offerings' | 'secondary_category_ids'>
+type ClientFormInput = Omit<
+  BusinessFormInput,
+  'aliases' | 'offerings' | 'secondary_category_ids' | 'services_label'
+>
 
 export function BusinessForm({
   action,
