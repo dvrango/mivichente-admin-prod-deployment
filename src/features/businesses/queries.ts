@@ -242,7 +242,7 @@ export async function getBusinessServices(businessId: string): Promise<ServiceIn
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('business_services')
-    .select('name, price, description')
+    .select('name, price, description, image_url')
     .eq('business_id', businessId)
     .order('order_index')
     .order('name')
@@ -251,6 +251,9 @@ export async function getBusinessServices(businessId: string): Promise<ServiceIn
     name: r.name,
     price: r.price === null ? '' : String(r.price),
     description: r.description ?? '',
+    imageUrl: r.image_url,
+    imageFile: null,
+    imagePreviewUrl: r.image_url,
   }))
 }
 

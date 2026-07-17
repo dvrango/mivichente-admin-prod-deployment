@@ -25,11 +25,24 @@ export type DayHours = { opens_at: string; closes_at: string }
 export type WeeklyHours = Partial<Record<number, DayHours>>
 
 /**
- * Servicio de un negocio tal como lo maneja el form. Todo string porque viaja
- * en un campo JSON del FormData y se teclea en inputs; el schema lo convierte
- * a numeric/null al guardar. El orden del array es el order_index.
+ * Servicio de un negocio tal como lo maneja el form. name/price/description son
+ * string porque viajan en un campo JSON del FormData y se teclean en inputs; el
+ * schema convierte price a numeric/null al guardar. El orden del array es el
+ * order_index.
+ *
+ * La foto sigue el mismo esquema que la galería: `imageUrl` = ya guardada en
+ * storage; `imageFile` = nueva pendiente de subir; `imagePreviewUrl` es lo que
+ * se pinta (URL pública u object URL local). Sin foto = las tres en null (los
+ * servicios intangibles no llevan foto; los platillos de un menú sí).
  */
-export type ServiceInput = { name: string; price: string; description: string }
+export type ServiceInput = {
+  name: string
+  price: string
+  description: string
+  imageUrl: string | null
+  imageFile: File | null
+  imagePreviewUrl: string | null
+}
 
 /**
  * Foto de la galería en el form. `url` = ya guardada en storage; `file` = nueva,

@@ -73,6 +73,13 @@ export const businessFormSchema = z.object({
     .trim()
     .transform((v) => v || null)
     .nullable(),
+  // Título de la sección de servicios en el perfil ("Menú" para comida,
+  // default "Servicios"). Vacío → null (el cliente cae a "Servicios").
+  services_label: z
+    .string()
+    .trim()
+    .transform((v) => v || null)
+    .nullable(),
   facebook_url: z
     .literal('')
     .transform(() => null)
@@ -92,22 +99,32 @@ export type BusinessFormInput = z.infer<typeof businessFormSchema>
 // Servicios del negocio (business_services). Se validan aparte del form
 // principal — igual que los horarios — porque viajan en un campo JSON del
 // FormData en vez de campos planos.
-export const serviceSchema = z.object({
-  name: z.string().trim().min(1, 'Cada servicio necesita un nombre.'),
-  // Vacío = sin precio público (ej. "cotiza tu evento") → null en la DB.
-  price: z
-    .string()
-    .trim()
-    .refine(
-      (v) => v === '' || (v !== '' && Number.isFinite(Number(v)) && Number(v) >= 0),
-      'Precio inválido.',
-    )
-    .transform((v) => (v === '' ? null : Number(v))),
-  description: z
-    .string()
-    .trim()
-    .transform((v) => v || null),
-})
+export const serviceSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Cada servicio necesita un nombre.'),
+    // Vacío = sin precio público (ej. "cotiza tu evento") → null en la DB.
+    price: z
+      .string()
+      .trim()
+      .refine(
+        (v) => v === '' || (v !== '' && Number.isFinite(Number(v)) && Number(v) >= 0),
+        'Precio inválido.',
+      )
+      .transform((v) => (v === '' ? null : Number(v))),
+    description: z
+      .string()
+      .trim()
+      .transform((v) => v || null),
+    // Foto del servicio/platillo, mismo patrón que la galería: `image_url` = ya
+    // guardada; `imageNewIndex` = archivo nuevo (`service_photo_new_{i}` del
+    // FormData). Ambas opcionales — un servicio puede no tener foto.
+    image_url: z.string().trim().min(1).optional(),
+    imageNewIndex: z.number().int().min(0).optional(),
+  })
+  .refine(
+    (s) => !(s.image_url !== undefined && s.imageNewIndex !== undefined),
+    'Cada servicio tiene una sola foto.',
+  )
 
 export const servicesSchema = z.array(serviceSchema, { message: 'Servicios inválidos.' })
 
@@ -200,6 +217,7 @@ export function parseBusinessForm(formData: FormData) {
     municipio: formData.get('municipio') ?? 'Vicente Guerrero',
     colonia: formData.get('colonia') ?? '',
     description: formData.get('description') ?? '',
+    services_label: formData.get('services_label') ?? '',
     facebook_url: formData.get('facebook_url') ?? '',
     instagram_url: formData.get('instagram_url') ?? '',
     aliases: parseJsonArray(formData, 'aliases'),

@@ -57,6 +57,7 @@ type Props = {
     municipio?: string | null
     colonia?: string | null
     description?: string | null
+    services_label?: string | null
     facebook_url?: string | null
     instagram_url?: string | null
     photo_url?: string | null
@@ -101,6 +102,7 @@ export function BusinessForm({
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
   const [services, setServices] = useState<ServiceInput[]>(defaultServices ?? [])
   const [showServices, setShowServices] = useState(() => (defaultServices ?? []).length > 0)
+  const [servicesLabel, setServicesLabel] = useState(defaults?.services_label ?? '')
   const aliasInputRef = useRef<HTMLInputElement>(null)
   const offeringInputRef = useRef<HTMLInputElement>(null)
   // Al crear, el slug se deriva del nombre en vivo hasta que el admin lo edita a
@@ -199,9 +201,25 @@ export function BusinessForm({
     fd.set('aliases', JSON.stringify(aliases))
     fd.set('offerings', JSON.stringify(offerings))
     fd.set('hours', JSON.stringify(hours))
+    fd.set('services_label', servicesLabel)
     // Filas en blanco (el admin agregó una y no la llenó) no se mandan: el
     // schema las rechazaría por nombre vacío y el guardado fallaría entero.
-    fd.set('services', JSON.stringify(services.filter((s) => s.name.trim() !== '')))
+    // La foto de cada servicio viaja como la galería: los archivos nuevos van
+    // aparte (service_photo_new_{k}) referenciados por índice; las ya guardadas
+    // como image_url.
+    let serviceImgIndex = 0
+    const servicesPayload = services
+      .filter((s) => s.name.trim() !== '')
+      .map((s) => {
+        const base = { name: s.name, price: s.price, description: s.description }
+        if (s.imageFile) {
+          fd.set(`service_photo_new_${serviceImgIndex}`, s.imageFile)
+          return { ...base, imageNewIndex: serviceImgIndex++ }
+        }
+        if (s.imageUrl) return { ...base, image_url: s.imageUrl }
+        return base
+      })
+    fd.set('services', JSON.stringify(servicesPayload))
     // La galería viaja como metadata en orden; los archivos nuevos van aparte
     // y se referencian por índice (el server los busca como photo_new_{i}).
     let newIndex = 0
@@ -651,12 +669,34 @@ export function BusinessForm({
           )}
 
           {showServices ? (
-            <BusinessServicesEditor
-              value={services}
-              onChange={setServices}
-              onRemove={() => setShowServices(false)}
-              disabled={isPending}
-            />
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label htmlFor="services_label" className="text-sm font-medium leading-none">
+                  Título de la sección{' '}
+                  <span className="text-muted-foreground font-normal">(opcional)</span>
+                </label>
+                <Input
+                  id="services_label"
+                  value={servicesLabel}
+                  onChange={(e) => setServicesLabel(e.target.value)}
+                  placeholder="Servicios"
+                  disabled={isPending}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Cómo se llama esta sección en el perfil. Para negocios de comida usa
+                  &quot;Menú&quot;. Vacío = &quot;Servicios&quot;.
+                </p>
+              </div>
+              <BusinessServicesEditor
+                value={services}
+                onChange={setServices}
+                onRemove={() => {
+                  setShowServices(false)
+                  setServicesLabel('')
+                }}
+                disabled={isPending}
+              />
+            </div>
           ) : (
             <div>
               <p className="text-muted-foreground mb-2 text-sm font-medium">Servicios</p>
@@ -667,7 +707,16 @@ export function BusinessForm({
                 disabled={isPending}
                 onClick={() => {
                   setShowServices(true)
-                  setServices([{ name: '', price: '', description: '' }])
+                  setServices([
+                    {
+                      name: '',
+                      price: '',
+                      description: '',
+                      imageUrl: null,
+                      imageFile: null,
+                      imagePreviewUrl: null,
+                    },
+                  ])
                 }}
               >
                 + Agregar servicios

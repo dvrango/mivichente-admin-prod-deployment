@@ -118,6 +118,7 @@ export default async function EditBusinessPage({
           photo_url: business.photo_url,
           aliases: business.aliases,
           description: business.description,
+          services_label: business.services_label,
           facebook_url: business.facebook_url,
           instagram_url: business.instagram_url,
           offerings: business.offerings,

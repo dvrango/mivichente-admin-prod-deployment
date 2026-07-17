@@ -1641,6 +1641,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           name: string
           order_index: number
           price: number | null
@@ -1650,6 +1651,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name: string
           order_index?: number
           price?: number | null
@@ -1659,6 +1661,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           order_index?: number
           price?: number | null
@@ -1698,6 +1701,7 @@ export type Database = {
           phone_is_whatsapp: boolean
           photo_url: string | null
           schedule: string | null
+          services_label: string | null
           slug: string
           updated_at: string
           updated_by: string | null
@@ -1728,6 +1732,7 @@ export type Database = {
           phone_is_whatsapp?: boolean
           photo_url?: string | null
           schedule?: string | null
+          services_label?: string | null
           slug?: string
           updated_at?: string
           updated_by?: string | null
@@ -1758,6 +1763,7 @@ export type Database = {
           phone_is_whatsapp?: boolean
           photo_url?: string | null
           schedule?: string | null
+          services_label?: string | null
           slug?: string
           updated_at?: string
           updated_by?: string | null
@@ -1884,6 +1890,7 @@ export type Database = {
           phone_is_whatsapp: boolean
           photo_url: string | null
           schedule: string | null
+          services_label: string | null
           slug: string
           updated_at: string
           updated_by: string | null
@@ -1926,6 +1933,7 @@ export type Database = {
           phone_is_whatsapp: boolean
           photo_url: string | null
           schedule: string | null
+          services_label: string | null
           slug: string
           updated_at: string
           updated_by: string | null

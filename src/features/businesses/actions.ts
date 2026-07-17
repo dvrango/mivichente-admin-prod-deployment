@@ -62,12 +62,65 @@ function parseServices(formData: FormData) {
   return servicesSchema.safeParse(json)
 }
 
+type ResolvedService = {
+  name: string
+  price: number | null
+  description: string | null
+  image_url: string | null
+}
+
+/**
+ * Sube las fotos nuevas de los servicios y devuelve la lista ya resuelta (cada
+ * servicio con su image_url final o null). Mismo patrón que uploadGallery: los
+ * archivos nuevos viajan como `service_photo_new_{i}` y se limpian
+ * (`uploadedPaths`) si algo falla después. Comparten bucket con la galería.
+ */
+async function uploadServiceImages(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  services: ServiceValues,
+  formData: FormData,
+): Promise<{ services: ResolvedService[]; uploadedPaths: string[]; error: string | null }> {
+  const resolved: ResolvedService[] = []
+  const uploadedPaths: string[] = []
+
+  for (const s of services) {
+    const base = { name: s.name, price: s.price, description: s.description }
+    if (s.imageNewIndex === undefined) {
+      resolved.push({ ...base, image_url: s.image_url ?? null })
+      continue
+    }
+    const file = formData.get(`service_photo_new_${s.imageNewIndex}`)
+    const parsedFile = photoFileSchema.safeParse(file)
+    if (!parsedFile.success) {
+      return { services: resolved, uploadedPaths, error: firstIssue(parsedFile.error) }
+    }
+    const path = `${crypto.randomUUID()}.${extFromMime(parsedFile.data.type)}`
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, parsedFile.data, { contentType: parsedFile.data.type, upsert: false })
+    if (uploadError) {
+      return {
+        services: resolved,
+        uploadedPaths,
+        error: `Error subiendo foto del servicio: ${uploadError.message}`,
+      }
+    }
+    uploadedPaths.push(path)
+    resolved.push({
+      ...base,
+      image_url: supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
+    })
+  }
+
+  return { services: resolved, uploadedPaths, error: null }
+}
+
 // Delete-all-then-insert, igual que upsertHours. order_index = posición en el
 // array que mandó el form, así el admin controla el orden de despliegue.
 async function upsertServices(
   supabase: Awaited<ReturnType<typeof createClient>>,
   businessId: string,
-  services: ServiceValues,
+  services: ResolvedService[],
 ) {
   await supabase.from('business_services').delete().eq('business_id', businessId)
   const rows = services.map((s, i) => ({
@@ -75,6 +128,7 @@ async function upsertServices(
     name: s.name,
     price: s.price,
     description: s.description,
+    image_url: s.image_url,
     order_index: i,
   }))
   if (rows.length > 0) {
@@ -205,8 +259,7 @@ async function upsertPhotos(
   }
 }
 
-/** Todas las fotos del negocio en storage — hay que leerlas antes de borrarlo
- *  (business_photos cae por cascade y se perderían los paths a limpiar). */
+/** Fotos de la galería de esos negocios (business_photos). */
 async function photoUrlsOf(
   supabase: Awaited<ReturnType<typeof createClient>>,
   businessIds: string[],
@@ -216,6 +269,34 @@ async function photoUrlsOf(
     .select('url')
     .in('business_id', businessIds)
   return (data ?? []).map((r) => r.url)
+}
+
+/** Fotos de los servicios de esos negocios (business_services.image_url, las
+ *  que la tengan). Mismo bucket que la galería. */
+async function serviceImageUrlsOf(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  businessIds: string[],
+): Promise<string[]> {
+  const { data } = await supabase
+    .from('business_services')
+    .select('image_url')
+    .in('business_id', businessIds)
+    .not('image_url', 'is', null)
+  return (data ?? []).map((r) => r.image_url as string)
+}
+
+/** Todos los archivos del negocio en storage (galería + fotos de servicios) —
+ *  hay que leerlos antes de borrarlo, porque ambas tablas caen por cascade y se
+ *  perderían los paths a limpiar. */
+async function allStorageUrlsOf(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  businessIds: string[],
+): Promise<string[]> {
+  const [photos, serviceImages] = await Promise.all([
+    photoUrlsOf(supabase, businessIds),
+    serviceImageUrlsOf(supabase, businessIds),
+  ])
+  return [...photos, ...serviceImages]
 }
 
 // uid del usuario actual, para sellar created_by/updated_by.
@@ -253,6 +334,16 @@ export async function createBusiness(
     return { error: uploadError }
   }
 
+  const {
+    services: resolvedServices,
+    uploadedPaths: serviceUploadedPaths,
+    error: serviceUploadError,
+  } = await uploadServiceImages(supabase, services.data, formData)
+  if (serviceUploadError) {
+    await removePaths(supabase, [...uploadedPaths, ...serviceUploadedPaths])
+    return { error: serviceUploadError }
+  }
+
   const actorId = await currentUserId(supabase)
   const { data: inserted, error } = await supabase
     .from('businesses')
@@ -271,7 +362,7 @@ export async function createBusiness(
     .single()
 
   if (error) {
-    await removePaths(supabase, uploadedPaths)
+    await removePaths(supabase, [...uploadedPaths, ...serviceUploadedPaths])
     return { error: error.message }
   }
 
@@ -283,7 +374,7 @@ export async function createBusiness(
       secondary_category_ids,
     )
     await upsertHours(supabase, inserted.id, hours)
-    await upsertServices(supabase, inserted.id, services.data)
+    await upsertServices(supabase, inserted.id, resolvedServices)
     await upsertPhotos(supabase, inserted.id, photos)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
@@ -311,9 +402,9 @@ export async function updateBusiness(
 
   const supabase = await createClient()
 
-  // Las fotos que ya tenía: las que no sobrevivan en la galería nueva se
-  // borran del storage al final.
-  const previousUrls = await photoUrlsOf(supabase, [id])
+  // Los archivos que ya tenía (galería + fotos de servicios): los que no
+  // sobrevivan al guardado se borran del storage al final.
+  const previousUrls = await allStorageUrlsOf(supabase, [id])
 
   const {
     photos,
@@ -323,6 +414,16 @@ export async function updateBusiness(
   if (uploadError) {
     await removePaths(supabase, uploadedPaths)
     return { error: uploadError }
+  }
+
+  const {
+    services: resolvedServices,
+    uploadedPaths: serviceUploadedPaths,
+    error: serviceUploadError,
+  } = await uploadServiceImages(supabase, services.data, formData)
+  if (serviceUploadError) {
+    await removePaths(supabase, [...uploadedPaths, ...serviceUploadedPaths])
+    return { error: serviceUploadError }
   }
 
   const hours = parseHours(formData)
@@ -344,22 +445,25 @@ export async function updateBusiness(
     .eq('id', id)
 
   if (error) {
-    await removePaths(supabase, uploadedPaths)
+    await removePaths(supabase, [...uploadedPaths, ...serviceUploadedPaths])
     return { error: error.message }
   }
 
   try {
     await upsertBusinessCategories(supabase, id, primary_category_id, secondary_category_ids)
     await upsertHours(supabase, id, hours)
-    await upsertServices(supabase, id, services.data)
+    await upsertServices(supabase, id, resolvedServices)
     await upsertPhotos(supabase, id, photos)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
 
-  // Recién ahora que la galería quedó guardada: limpiar del storage las fotos
-  // que el admin quitó.
-  const keptUrls = new Set(photos.map((p) => p.url))
+  // Recién ahora que todo quedó guardado: limpiar del storage los archivos que
+  // el admin quitó — tanto fotos de galería como fotos de servicios.
+  const keptUrls = new Set([
+    ...photos.map((p) => p.url),
+    ...resolvedServices.map((s) => s.image_url).filter((u): u is string => u !== null),
+  ])
   await removePaths(
     supabase,
     previousUrls.filter((u) => !keptUrls.has(u)),
@@ -378,9 +482,9 @@ export async function deleteBusiness(id: string) {
 
   const supabase = await createClient()
 
-  // Se leen antes del delete: business_photos cae por cascade y se perderían
-  // los paths que hay que limpiar del storage.
-  const urls = await photoUrlsOf(supabase, [id])
+  // Se leen antes del delete: business_photos y business_services caen por
+  // cascade y se perderían los paths que hay que limpiar del storage.
+  const urls = await allStorageUrlsOf(supabase, [id])
 
   const { error } = await supabase.from('businesses').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -519,8 +623,9 @@ export async function bulkDeleteBusinesses(ids: string[]): Promise<BulkResult> {
 
   const supabase = await createClient()
 
-  // Se leen antes del delete: business_photos cae por cascade (ver deleteBusiness).
-  const urls = await photoUrlsOf(supabase, parsed.data)
+  // Se leen antes del delete: business_photos y business_services caen por
+  // cascade (ver deleteBusiness).
+  const urls = await allStorageUrlsOf(supabase, parsed.data)
 
   const { error } = await supabase.from('businesses').delete().in('id', parsed.data)
   if (error) return { error: error.message, updated: 0 }
