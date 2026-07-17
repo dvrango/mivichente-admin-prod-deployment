@@ -102,7 +102,6 @@ export function BusinessForm({
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
   const [services, setServices] = useState<ServiceInput[]>(defaultServices ?? [])
   const [showServices, setShowServices] = useState(() => (defaultServices ?? []).length > 0)
-  const [servicesLabel, setServicesLabel] = useState(defaults?.services_label ?? '')
   const aliasInputRef = useRef<HTMLInputElement>(null)
   const offeringInputRef = useRef<HTMLInputElement>(null)
   // Al crear, el slug se deriva del nombre en vivo hasta que el admin lo edita a
@@ -201,7 +200,10 @@ export function BusinessForm({
     fd.set('aliases', JSON.stringify(aliases))
     fd.set('offerings', JSON.stringify(offerings))
     fd.set('hours', JSON.stringify(hours))
-    fd.set('services_label', servicesLabel)
+    // El título de la sección se deriva del tipo de la categoría principal (no
+    // hay input): comida → "Menú", el resto → "Servicios".
+    const submitType = categories.find((c) => c.id === values.primary_category_id)?.type
+    fd.set('services_label', submitType === 'food' ? 'Menú' : 'Servicios')
     // Filas en blanco (el admin agregó una y no la llenó) no se mandan: el
     // schema las rechazaría por nombre vacío y el guardado fallaría entero.
     // La foto de cada servicio viaja como la galería: los archivos nuevos van
@@ -239,6 +241,10 @@ export function BusinessForm({
 
   const primaryId = useWatch({ control: form.control, name: 'primary_category_id' })
   const primaryType = categories.find((c) => c.id === primaryId)?.type
+  // El título de la sección se deriva del tipo de la categoría principal, no se
+  // teclea: comida → "Menú", el resto → "Servicios". Así el admin no repite un
+  // dato que ya definió arriba al elegir la categoría.
+  const servicesSectionLabel = primaryType === 'food' ? 'Menú' : 'Servicios'
 
   const categoriesByType = {
     food: categories.filter((c) => c.type === 'food'),
@@ -669,37 +675,18 @@ export function BusinessForm({
           )}
 
           {showServices ? (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label htmlFor="services_label" className="text-sm font-medium leading-none">
-                  Título de la sección{' '}
-                  <span className="text-muted-foreground font-normal">(opcional)</span>
-                </label>
-                <Input
-                  id="services_label"
-                  value={servicesLabel}
-                  onChange={(e) => setServicesLabel(e.target.value)}
-                  placeholder="Servicios"
-                  disabled={isPending}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Cómo se llama esta sección en el perfil. Para negocios de comida usa
-                  &quot;Menú&quot;. Vacío = &quot;Servicios&quot;.
-                </p>
-              </div>
-              <BusinessServicesEditor
-                value={services}
-                onChange={setServices}
-                onRemove={() => {
-                  setShowServices(false)
-                  setServicesLabel('')
-                }}
-                disabled={isPending}
-              />
-            </div>
+            <BusinessServicesEditor
+              value={services}
+              onChange={setServices}
+              onRemove={() => setShowServices(false)}
+              label={servicesSectionLabel}
+              disabled={isPending}
+            />
           ) : (
             <div>
-              <p className="text-muted-foreground mb-2 text-sm font-medium">Servicios</p>
+              <p className="text-muted-foreground mb-2 text-sm font-medium">
+                {servicesSectionLabel}
+              </p>
               <Button
                 type="button"
                 variant="outline"
@@ -719,7 +706,7 @@ export function BusinessForm({
                   ])
                 }}
               >
-                + Agregar servicios
+                {primaryType === 'food' ? '+ Agregar platillos' : '+ Agregar servicios'}
               </Button>
             </div>
           )}

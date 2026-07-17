@@ -13,6 +13,9 @@ type Props = {
   value: ServiceInput[]
   onChange: (services: ServiceInput[]) => void
   onRemove?: () => void
+  // Título de la sección, derivado del tipo de categoría por el form padre
+  // ("Menú" para comida, "Servicios" para el resto).
+  label?: string
   disabled?: boolean
 }
 
@@ -25,7 +28,14 @@ const EMPTY_SERVICE: ServiceInput = {
   imagePreviewUrl: null,
 }
 
-export function BusinessServicesEditor({ value, onChange, onRemove, disabled }: Props) {
+export function BusinessServicesEditor({
+  value,
+  onChange,
+  onRemove,
+  label = 'Servicios',
+  disabled,
+}: Props) {
+  const isFood = label === 'Menú'
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Índice de la fila cuya foto se está eligiendo (un solo <input> compartido).
   const targetIndex = useRef<number | null>(null)
@@ -89,7 +99,7 @@ export function BusinessServicesEditor({ value, onChange, onRemove, disabled }: 
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium leading-none">
-          Servicios <span className="text-muted-foreground font-normal">(con precio)</span>
+          {label} <span className="text-muted-foreground font-normal">(con precio)</span>
         </label>
         {value.length > 0 && (
           <Button
@@ -147,7 +157,7 @@ export function BusinessServicesEditor({ value, onChange, onRemove, disabled }: 
                   <Input
                     value={service.name}
                     onChange={(e) => update(i, 'name', e.target.value)}
-                    placeholder="Ej. Consulta nutricional"
+                    placeholder={isFood ? 'Ej. Charoelote' : 'Ej. Consulta nutricional'}
                     disabled={disabled}
                   />
                   <Input
@@ -221,11 +231,12 @@ export function BusinessServicesEditor({ value, onChange, onRemove, disabled }: 
         }}
       />
       <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={add}>
-        + Agregar servicio
+        {isFood ? '+ Agregar platillo' : '+ Agregar servicio'}
       </Button>
       <p className="text-muted-foreground text-xs">
-        Servicios o paquetes con costo propio. Deja el precio vacío si se cotiza. La foto es
-        opcional — útil para menús de comida (un platillo por servicio).
+        {isFood
+          ? 'Platillos del menú con su precio y foto. Deja el precio vacío si varía.'
+          : 'Servicios o paquetes con costo propio. Deja el precio vacío si se cotiza. La foto es opcional.'}
       </p>
     </div>
   )
