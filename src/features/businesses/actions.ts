@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { BUSINESS_PHOTOS_BUCKET, pathFromPublicUrl } from '@/lib/storage'
 import { getCurrentProfile } from '@/features/auth/queries'
 import {
   bulkCategorySchema,
@@ -18,7 +19,7 @@ import type { WeeklyHours } from './types'
 
 export type BusinessFormState = { error: string | null }
 
-const BUCKET = 'business-photos'
+const BUCKET = BUSINESS_PHOTOS_BUCKET
 
 function parseHours(formData: FormData): WeeklyHours {
   const raw = formData.get('hours')
@@ -162,13 +163,6 @@ function extFromMime(mime: string): string {
   if (mime === 'image/png') return 'png'
   if (mime === 'image/webp') return 'webp'
   return 'bin'
-}
-
-function pathFromPublicUrl(url: string): string | null {
-  const marker = `/storage/v1/object/public/${BUCKET}/`
-  const idx = url.indexOf(marker)
-  if (idx === -1) return null
-  return url.slice(idx + marker.length)
 }
 
 function firstIssue(err: import('zod').ZodError): string {

@@ -1,6 +1,10 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // El modo campo se prueba desde el celular contra el dev server de la laptop,
+  // así que las requests llegan con un Origin de LAN y Next las bloquea por
+  // default. Sólo aplica a `next dev` — en producción no tiene efecto.
+  allowedDevOrigins: ['192.168.101.17', '100.96.221.80'],
   images: {
     dangerouslyAllowLocalIP: process.env.NODE_ENV === 'development',
     remotePatterns: [

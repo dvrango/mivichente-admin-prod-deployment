@@ -1527,6 +1527,7 @@ export type Database = {
           caption: string | null
           created_at: string
           id: string
+          kind: string
           order_index: number
           url: string
         }
@@ -1535,6 +1536,7 @@ export type Database = {
           caption?: string | null
           created_at?: string
           id?: string
+          kind?: string
           order_index?: number
           url: string
         }
@@ -1543,6 +1545,7 @@ export type Database = {
           caption?: string | null
           created_at?: string
           id?: string
+          kind?: string
           order_index?: number
           url?: string
         }
@@ -1692,6 +1695,9 @@ export type Database = {
           is_active: boolean
           is_featured: boolean
           is_verified: boolean
+          latitude: number | null
+          location_accuracy_m: number | null
+          longitude: number | null
           maps_url: string | null
           municipio: string
           name: string
@@ -1723,6 +1729,9 @@ export type Database = {
           is_active?: boolean
           is_featured?: boolean
           is_verified?: boolean
+          latitude?: number | null
+          location_accuracy_m?: number | null
+          longitude?: number | null
           maps_url?: string | null
           municipio?: string
           name: string
@@ -1754,6 +1763,9 @@ export type Database = {
           is_active?: boolean
           is_featured?: boolean
           is_verified?: boolean
+          latitude?: number | null
+          location_accuracy_m?: number | null
+          longitude?: number | null
           maps_url?: string | null
           municipio?: string
           name?: string
@@ -1881,6 +1893,9 @@ export type Database = {
           is_active: boolean
           is_featured: boolean
           is_verified: boolean
+          latitude: number | null
+          location_accuracy_m: number | null
+          longitude: number | null
           maps_url: string | null
           municipio: string
           name: string
@@ -1924,6 +1939,9 @@ export type Database = {
           is_active: boolean
           is_featured: boolean
           is_verified: boolean
+          latitude: number | null
+          location_accuracy_m: number | null
+          longitude: number | null
           maps_url: string | null
           municipio: string
           name: string
