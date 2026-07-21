@@ -1617,6 +1617,7 @@ export type Database = {
         Row: {
           business_id: string
           created_at: string
+          device_id: string | null
           id: string
           note: string | null
           reason: Database['public']['Enums']['business_report_reason']
@@ -1624,6 +1625,7 @@ export type Database = {
         Insert: {
           business_id: string
           created_at?: string
+          device_id?: string | null
           id?: string
           note?: string | null
           reason: Database['public']['Enums']['business_report_reason']
@@ -1631,6 +1633,7 @@ export type Database = {
         Update: {
           business_id?: string
           created_at?: string
+          device_id?: string | null
           id?: string
           note?: string | null
           reason?: Database['public']['Enums']['business_report_reason']
@@ -1880,6 +1883,30 @@ export type Database = {
           id?: string
           src?: string
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      search_events: {
+        Row: {
+          created_at: string
+          device_id: string
+          id: string
+          query: string
+          result_count: number
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          id?: string
+          query: string
+          result_count: number
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          id?: string
+          query?: string
+          result_count?: number
         }
         Relationships: []
       }
