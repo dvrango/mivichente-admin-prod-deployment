@@ -1618,16 +1618,22 @@ export type Database = {
           business_id: string
           created_at: string
           id: string
+          note: string | null
+          reason: Database['public']['Enums']['business_report_reason']
         }
         Insert: {
           business_id: string
           created_at?: string
           id?: string
+          note?: string | null
+          reason: Database['public']['Enums']['business_report_reason']
         }
         Update: {
           business_id?: string
           created_at?: string
           id?: string
+          note?: string | null
+          reason?: Database['public']['Enums']['business_report_reason']
         }
         Relationships: [
           {
@@ -2008,7 +2014,7 @@ export type Database = {
       user_municipio: { Args: never; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      business_report_reason: 'cerrado' | 'datos_incorrectos' | 'duplicado' | 'spam' | 'otro'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3314,7 +3320,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      business_report_reason: ['cerrado', 'datos_incorrectos', 'duplicado', 'spam', 'otro'],
+    },
   },
   realtime: {
     Enums: {
