@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, ChevronDown, Loader2, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, Copy, Loader2, Share2, TriangleAlert } from 'lucide-react'
 import { formatMxPhone, normalizeMxPhone } from '@/lib/validation/phone'
 import type { Business, CategoryOption } from '@/features/businesses/types'
 import { finishFieldVisit, getOfferingSuggestions, setFieldPrimaryCategory } from '../actions'
@@ -49,6 +49,14 @@ export function FieldCapture({
   const [dbSuggestions, setDbSuggestions] = useState<string[]>([])
   const [finishing, startFinish] = useTransition()
   const [finishError, setFinishError] = useState<string | null>(null)
+  // Al terminar, en vez de saltar directo a /campo, mostramos la ficha lista
+  // para compartir: ese es el paso que convierte la visita en usuarios (el dueño
+  // manda su link a sus clientes). Sin esto la captura no cierra conversión.
+  const [done, setDone] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const shareUrl = `https://vichente.com/${business.slug}`
+  const shareUrlDisplay = `vichente.com/${business.slug}`
 
   const category = useMemo(
     () => categories.find((c) => c.id === categoryId) ?? null,
@@ -117,13 +125,87 @@ export function FieldCapture({
         setFinishError(result.error)
         return
       }
-      router.push('/campo')
+      setDone(true)
     })
+  }
+
+  async function shareCard() {
+    // Web Share API: en el celular abre el sheet nativo con WhatsApp arriba —
+    // que es el canal real del pueblo. Sin soporte, cae a copiar.
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: name, text: `${name} en Vichente`, url: shareUrl })
+      } catch {
+        // El usuario canceló el sheet: no es error.
+      }
+      return
+    }
+    await copyLink()
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setFinishError('No se pudo copiar el link')
+    }
   }
 
   const filteredCategories = categories.filter((c) =>
     c.name.toLowerCase().includes(categoryFilter.toLowerCase()),
   )
+
+  if (done) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
+        <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+          <Check className="size-8" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold">{name} ya está en Vichente</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Pásale su ficha al dueño para que la comparta con sus clientes.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={copyLink}
+          className="bg-muted/40 flex w-full items-center gap-2 rounded-xl border px-4 py-3 text-left"
+        >
+          <span className="min-w-0 flex-1 truncate text-sm">{shareUrlDisplay}</span>
+          {copied ? (
+            <span className="flex shrink-0 items-center gap-1 text-xs text-emerald-600">
+              <Check className="size-4" />
+              Copiado
+            </span>
+          ) : (
+            <Copy className="text-muted-foreground size-4 shrink-0" />
+          )}
+        </button>
+
+        <div className="flex w-full flex-col gap-2">
+          <button
+            type="button"
+            onClick={shareCard}
+            className="bg-primary text-primary-foreground flex h-14 w-full items-center justify-center gap-2 rounded-xl text-base font-medium active:translate-y-px"
+          >
+            <Share2 className="size-5" />
+            Compartir ficha
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/campo')}
+            className="text-muted-foreground hover:text-foreground h-12 w-full text-base font-medium"
+          >
+            Siguiente negocio
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
