@@ -1910,6 +1910,37 @@ export type Database = {
         }
         Relationships: []
       }
+      search_result_taps: {
+        Row: {
+          business_id: string
+          created_at: string
+          device_id: string
+          id: string
+          query: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          device_id: string
+          id?: string
+          query: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          query?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'search_result_taps_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
