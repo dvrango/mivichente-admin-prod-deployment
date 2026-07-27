@@ -87,6 +87,9 @@ async function uploadServiceImages(
   for (const s of services) {
     const base = { name: s.name, price: s.price, description: s.description }
     if (s.imageNewIndex === undefined) {
+      // Igual que la galería: si el cliente la acaba de subir, se apunta para
+      // poder limpiarla si el guardado falla.
+      if (s.justUploaded && s.image_url) uploadedPaths.push(s.image_url)
       resolved.push({ ...base, image_url: s.image_url ?? null })
       continue
     }
@@ -198,6 +201,9 @@ async function uploadGallery(
 
   for (const entry of gallery) {
     if (entry.url !== undefined) {
+      // Subida por el cliente en esta edición: entra a uploadedPaths para que
+      // se borre del bucket si el guardado truena más adelante.
+      if (entry.justUploaded) uploadedPaths.push(entry.url)
       photos.push({ url: entry.url, caption: entry.caption })
       continue
     }

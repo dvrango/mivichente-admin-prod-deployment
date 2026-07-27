@@ -116,10 +116,14 @@ export const serviceSchema = z
       .trim()
       .transform((v) => v || null),
     // Foto del servicio/platillo, mismo patrón que la galería: `image_url` = ya
-    // guardada; `imageNewIndex` = archivo nuevo (`service_photo_new_{i}` del
-    // FormData). Ambas opcionales — un servicio puede no tener foto.
+    // guardada o recién subida por el cliente; `imageNewIndex` = archivo nuevo
+    // que viaja en el FormData (`service_photo_new_{i}`). Ambas opcionales — un
+    // servicio puede no tener foto.
     image_url: z.string().trim().min(1).optional(),
     imageNewIndex: z.number().int().min(0).optional(),
+    // `true` = el cliente la acaba de subir en esta misma edición. Sirve para
+    // borrarla del bucket si el guardado falla después.
+    justUploaded: z.boolean().optional(),
   })
   .refine(
     (s) => !(s.image_url !== undefined && s.imageNewIndex !== undefined),
@@ -132,13 +136,20 @@ export const servicesSchema = z.array(serviceSchema, { message: 'Servicios invá
 export type ServiceValues = z.infer<typeof servicesSchema>
 
 // Galería (business_photos). Viaja como JSON con el orden final; cada entrada
-// es o una foto ya guardada (`url`) o una nueva por subir (`newIndex`, que
-// apunta al File `photo_new_{i}` del FormData). El orden del array es el
-// order_index, y la primera es la portada (se denormaliza en photo_url).
+// es una foto con `url` (ya guardada, o recién subida por el cliente antes de
+// enviar el form) o un puntero `newIndex` al File `photo_new_{i}` del FormData.
+// El camino normal hoy es el primero: el cliente comprime y sube directo a
+// Storage, porque los server actions topan en 1 MB de body. El segundo se
+// conserva como respaldo si el navegador no puede comprimir.
+// El orden del array es el order_index, y la primera es la portada (se
+// denormaliza en photo_url).
 export const galleryPhotoSchema = z
   .object({
     url: z.string().trim().min(1).optional(),
     newIndex: z.number().int().min(0).optional(),
+    // `true` = el cliente la acaba de subir en esta misma edición. Sirve para
+    // borrarla del bucket si el guardado falla después.
+    justUploaded: z.boolean().optional(),
     caption: z
       .string()
       .trim()

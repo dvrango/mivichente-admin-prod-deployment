@@ -1,9 +1,11 @@
-import { PHOTO_TARGET_LONG_EDGE } from '../constants'
+// Compresión en el cliente antes de subir. Nació en el modo campo, donde es la
+// mayor ganancia de fricción: una foto de celular pesa 3–6 MB y sale de aquí en
+// 200–400 KB, o sea ~15× menos tiempo de subida sobre datos móviles. Vive acá
+// (y ya no bajo `features/field/`) porque el form de escritorio la usa igual.
+// De paso, nunca se choca con el límite de 5 MB que valida Zod.
 
-// Compresión en el cliente antes de subir. Es la mayor ganancia de fricción de
-// todo el modo campo: una foto de celular pesa 3–6 MB y sale de aquí en 200–400
-// KB, o sea ~15× menos tiempo de subida sobre datos móviles. De paso, nunca se
-// choca con el límite de 5 MB que valida Zod.
+/** Lado largo al que se reescala antes de subir. */
+export const PHOTO_TARGET_LONG_EDGE = 1600
 //
 // Sin dependencia externa: `createImageBitmap` + canvas hacen todo el trabajo.
 

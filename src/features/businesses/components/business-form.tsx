@@ -12,6 +12,7 @@ import { CategorySelect } from '@/components/shared/category-select'
 import { PhoneInput } from '@/components/shared/phone-input'
 import { normalizeMxPhone } from '@/lib/validation/phone'
 import { slugify } from '@/lib/slug'
+import { uploadBusinessPhoto, removeUploadedPhotos } from '@/lib/images/upload-business-photo'
 import {
   Form,
   FormControl,
@@ -189,59 +190,83 @@ export function BusinessForm({
 
   function onSubmit(values: ClientFormInput) {
     setServerError(null)
-    const fd = new FormData()
-    fd.set('name', values.name)
-    fd.set('slug', values.slug ?? '')
-    fd.set('primary_category_id', values.primary_category_id)
-    fd.set('secondary_category_ids', JSON.stringify(secondaryIds))
-    fd.set('phone', values.phone)
-    fd.set('phone_is_whatsapp', String(values.phone_is_whatsapp))
-    fd.set('address', values.address ?? '')
-    fd.set('maps_url', values.maps_url ?? '')
-    fd.set('municipio', values.municipio)
-    fd.set('colonia', values.colonia ?? '')
-    fd.set('description', values.description ?? '')
-    fd.set('facebook_url', values.facebook_url ?? '')
-    fd.set('instagram_url', values.instagram_url ?? '')
-    fd.set('aliases', JSON.stringify(aliases))
-    fd.set('offerings', JSON.stringify(offerings))
-    fd.set('hours', JSON.stringify(hours))
-    // El título de la sección se deriva del tipo de la categoría principal (no
-    // hay input): comida → "Menú", el resto → "Servicios".
-    const submitType = categories.find((c) => c.id === values.primary_category_id)?.type
-    fd.set('services_label', submitType === 'food' ? 'Menú' : 'Servicios')
-    // Filas en blanco (el admin agregó una y no la llenó) no se mandan: el
-    // schema las rechazaría por nombre vacío y el guardado fallaría entero.
-    // La foto de cada servicio viaja como la galería: los archivos nuevos van
-    // aparte (service_photo_new_{k}) referenciados por índice; las ya guardadas
-    // como image_url.
-    let serviceImgIndex = 0
-    const servicesPayload = services
-      .filter((s) => s.name.trim() !== '')
-      .map((s) => {
+    startTransition(async () => {
+      // Las fotos nuevas se comprimen y suben desde el browser ANTES de llamar
+      // al server action: una foto de celular pesa 3–6 MB y el body de un
+      // server action topa en 1 MB, así que mandarlas por ahí reventaba el
+      // guardado. Al action sólo le llegan URLs. Mismo camino que el modo campo.
+      const justUploaded: string[] = []
+
+      async function upload(file: File): Promise<string | null> {
+        const { url, error } = await uploadBusinessPhoto(file)
+        if (!url) {
+          setServerError(error ?? 'No se pudo subir la foto.')
+          // Lo ya subido en este intento se borra: si no, cada reintento deja
+          // copias sueltas en el bucket.
+          await removeUploadedPhotos(justUploaded)
+          return null
+        }
+        justUploaded.push(url)
+        return url
+      }
+
+      const fd = new FormData()
+      fd.set('name', values.name)
+      fd.set('slug', values.slug ?? '')
+      fd.set('primary_category_id', values.primary_category_id)
+      fd.set('secondary_category_ids', JSON.stringify(secondaryIds))
+      fd.set('phone', values.phone)
+      fd.set('phone_is_whatsapp', String(values.phone_is_whatsapp))
+      fd.set('address', values.address ?? '')
+      fd.set('maps_url', values.maps_url ?? '')
+      fd.set('municipio', values.municipio)
+      fd.set('colonia', values.colonia ?? '')
+      fd.set('description', values.description ?? '')
+      fd.set('facebook_url', values.facebook_url ?? '')
+      fd.set('instagram_url', values.instagram_url ?? '')
+      fd.set('aliases', JSON.stringify(aliases))
+      fd.set('offerings', JSON.stringify(offerings))
+      fd.set('hours', JSON.stringify(hours))
+      // El título de la sección se deriva del tipo de la categoría principal (no
+      // hay input): comida → "Menú", el resto → "Servicios".
+      const submitType = categories.find((c) => c.id === values.primary_category_id)?.type
+      fd.set('services_label', submitType === 'food' ? 'Menú' : 'Servicios')
+      // Filas en blanco (el admin agregó una y no la llenó) no se mandan: el
+      // schema las rechazaría por nombre vacío y el guardado fallaría entero.
+      const servicesPayload: Record<string, unknown>[] = []
+      for (const s of services.filter((x) => x.name.trim() !== '')) {
         const base = { name: s.name, price: s.price, description: s.description }
         if (s.imageFile) {
-          fd.set(`service_photo_new_${serviceImgIndex}`, s.imageFile)
-          return { ...base, imageNewIndex: serviceImgIndex++ }
+          const url = await upload(s.imageFile)
+          if (!url) return
+          servicesPayload.push({ ...base, image_url: url, justUploaded: true })
+          continue
         }
-        if (s.imageUrl) return { ...base, image_url: s.imageUrl }
-        return base
-      })
-    fd.set('services', JSON.stringify(servicesPayload))
-    // La galería viaja como metadata en orden; los archivos nuevos van aparte
-    // y se referencian por índice (el server los busca como photo_new_{i}).
-    let newIndex = 0
-    const gallery = photos.map((p) => {
-      if (p.file) {
-        fd.set(`photo_new_${newIndex}`, p.file)
-        return { newIndex: newIndex++, caption: p.caption }
+        if (s.imageUrl) servicesPayload.push({ ...base, image_url: s.imageUrl })
+        else servicesPayload.push(base)
       }
-      return { url: p.url, caption: p.caption }
-    })
-    fd.set('gallery', JSON.stringify(gallery))
-    startTransition(async () => {
+      fd.set('services', JSON.stringify(servicesPayload))
+      // La galería viaja como metadata en orden. Las fotos nuevas ya son URLs
+      // (se subieron arriba), marcadas con `justUploaded` para que el server
+      // las borre del bucket si el guardado falla.
+      const gallery: Record<string, unknown>[] = []
+      for (const p of photos) {
+        if (p.file) {
+          const url = await upload(p.file)
+          if (!url) return
+          gallery.push({ url, caption: p.caption, justUploaded: true })
+          continue
+        }
+        gallery.push({ url: p.url, caption: p.caption })
+      }
+      fd.set('gallery', JSON.stringify(gallery))
+
       const result = await action({ error: null }, fd)
-      if (result?.error) setServerError(result.error)
+      if (result?.error) {
+        setServerError(result.error)
+        // El server ya limpió lo que subió el cliente (uploadedPaths), así que
+        // aquí no se vuelve a borrar nada.
+      }
     })
   }
 

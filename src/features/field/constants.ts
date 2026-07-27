@@ -26,8 +26,8 @@ export const SELECTABLE_PHOTO_KINDS: PhotoKind[] = [
 /** Fotos recomendadas por el PRD. El gate de "visita terminada" sólo pide 1. */
 export const PHOTO_TARGET_COUNT = 3
 
-/** Lado largo al que se reescala antes de subir. */
-export const PHOTO_TARGET_LONG_EDGE = 1600
+// PHOTO_TARGET_LONG_EDGE vive en `@/lib/images/compress-image` — es un detalle
+// de la compresión, que ahora comparten modo campo y form de escritorio.
 
 /** Debounce por campo antes de guardar. El blur hace flush inmediato. */
 export const FIELD_SAVE_DEBOUNCE_MS = 600
