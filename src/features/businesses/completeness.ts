@@ -23,7 +23,29 @@ export type CompletenessInput = Pick<
   | 'schedule'
   | 'facebook_url'
   | 'instagram_url'
->
+> & {
+  /** Si tiene filas en `business_hours`. Ver `hasSchedule`. */
+  hasHours: boolean
+}
+
+/**
+ * ÚNICA definición de "este negocio ya tiene horario", para el admin entero.
+ *
+ * El horario vive en dos lados: la tabla `business_hours` (el camino normal) y
+ * el texto `businesses.schedule`, que el modo campo usa para los negocios que no
+ * manejan horario ("previa cita", "a domicilio"). Cualquiera de los dos cuenta.
+ *
+ * Existía duplicada y mal: el semáforo miraba SÓLO el texto, así que un negocio
+ * con sus 6 filas de horario bien capturadas salía como "falta: Horario"
+ * (reproducido con Tacos Brayan Sucursal), mientras el gate de campo — que sí
+ * miraba las dos fuentes — decía lo contrario en la misma pantalla.
+ *
+ * Que las dos representaciones existan es deuda conocida (ver mikitasks
+ * `clcauvbzj`); mientras exista, la regla se lee de aquí y de ningún otro lado.
+ */
+export function hasSchedule(input: { schedule: string | null; hasHours: boolean }): boolean {
+  return input.hasHours || !!input.schedule?.trim()
+}
 
 export type Completeness = {
   level: CompletenessLevel
@@ -40,7 +62,7 @@ const FIELDS: { label: string; filled: (b: CompletenessInput) => boolean }[] = [
   { label: 'Ubicación', filled: (b) => !!b.address?.trim() || !!b.maps_url?.trim() },
   { label: 'Categoría', filled: (b) => !!b.category_id },
   { label: 'Productos/servicios', filled: (b) => b.offerings.length > 0 },
-  { label: 'Horario', filled: (b) => !!b.schedule?.trim() },
+  { label: 'Horario', filled: hasSchedule },
   { label: 'Redes', filled: (b) => !!b.facebook_url?.trim() || !!b.instagram_url?.trim() },
 ]
 

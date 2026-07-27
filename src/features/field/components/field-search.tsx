@@ -5,11 +5,18 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2, Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getCompleteness } from '@/features/businesses/completeness'
+import { fetchBusinessIdsWithHours } from '@/features/businesses/hours'
 import type { Business } from '@/features/businesses/types'
 import { FIELD_SEARCH_DEBOUNCE_MS } from '../constants'
 import type { RecentFieldBusiness } from '../queries'
 
-type Result = Business & { category: { id: string; name: string; type: string } | null }
+type Result = Business & {
+  category: { id: string; name: string; type: string } | null
+  // La RPC devuelve `setof businesses`, sin relaciones: los horarios se
+  // resuelven aparte para que el semáforo no marque "falta Horario" a un
+  // negocio que sí lo tiene en `business_hours`.
+  hasHours: boolean
+}
 
 const DOT_BY_LEVEL = {
   green: 'bg-emerald-500',
@@ -51,9 +58,15 @@ export function FieldSearch({
         .rpc('search_businesses', { search_query: term })
         .select('*, category:categories!businesses_category_id_fkey(id, name, type)')
 
+      const rows = (data as Omit<Result, 'hasHours'>[] | null) ?? []
+      const withHours = await fetchBusinessIdsWithHours(
+        supabase,
+        rows.map((b) => b.id),
+      )
+
       // Descartar respuestas viejas que llegaron fuera de orden.
       if (tokenRef.current !== token) return
-      setResults((data as Result[] | null) ?? [])
+      setResults(rows.map((b) => ({ ...b, hasHours: withHours.has(b.id) })))
       setLoading(false)
     },
     [supabase],

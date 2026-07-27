@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import type { Business } from '@/features/businesses/types'
 import { getCompleteness, type CompletenessLevel } from '@/features/businesses/completeness'
+import { fetchBusinessIdsWithHours } from '@/features/businesses/hours'
 import { normalizeText } from '@/lib/normalize'
 
 type CategorySuggestion = {
@@ -25,8 +26,12 @@ type CategorySuggestion = {
   business_count: number
 }
 
+// La RPC devuelve `setof businesses`, sin relaciones: si el horario vive en
+// `business_hours` hay que resolverlo aparte o el semáforo miente.
+type PreviewBusiness = Business & { hasHours: boolean }
+
 type Results = {
-  businesses: Business[]
+  businesses: PreviewBusiness[]
   suggestions: CategorySuggestion[]
 }
 
@@ -51,7 +56,10 @@ const BORDER_BY_LEVEL: Record<CompletenessLevel, string> = {
 // Espeja prioritizeByMunicipio de mobile: prioriza (no filtra) los negocios del
 // municipio elegido; el resto conserva su orden relativo del RPC. Array.sort es
 // estable en JS (ES2019+), igual que el List.sort de Dart.
-function prioritizeByMunicipio(businesses: Business[], municipio: string): Business[] {
+function prioritizeByMunicipio(
+  businesses: PreviewBusiness[],
+  municipio: string,
+): PreviewBusiness[] {
   if (!municipio) return businesses
   return [...businesses].sort((a, b) => {
     const aMatch = a.municipio === municipio
@@ -106,7 +114,15 @@ export function SearchPreview({ defaultMunicipio }: { defaultMunicipio?: string 
         setError(biz.error?.message ?? sug.error?.message ?? 'Error al buscar')
         setRawResults(null)
       } else {
-        setRawResults({ businesses: biz.data ?? [], suggestions: sug.data ?? [] })
+        const rows: Business[] = biz.data ?? []
+        const withHours = await fetchBusinessIdsWithHours(
+          supabase,
+          rows.map((b) => b.id),
+        )
+        setRawResults({
+          businesses: rows.map((b) => ({ ...b, hasHours: withHours.has(b.id) })),
+          suggestions: sug.data ?? [],
+        })
       }
       setLoading(false)
     },

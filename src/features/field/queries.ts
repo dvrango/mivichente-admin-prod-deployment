@@ -1,6 +1,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import type { CompletenessInput } from '@/features/businesses/completeness'
+import { fetchBusinessIdsWithHours } from '@/features/businesses/hours'
 
 /** Cuántos negocios recientes se ofrecen para volver de un toque. */
 export const RECENT_FIELD_LIMIT = 8
@@ -28,7 +29,13 @@ export async function getRecentFieldBusinesses(userId: string): Promise<RecentFi
     .order('updated_at', { ascending: false })
     .limit(RECENT_FIELD_LIMIT)
   if (error) throw error
-  return data ?? []
+
+  const rows = data ?? []
+  const withHours = await fetchBusinessIdsWithHours(
+    supabase,
+    rows.map((b) => b.id),
+  )
+  return rows.map((b) => ({ ...b, hasHours: withHours.has(b.id) }))
 }
 
 export type FieldPhoto = {

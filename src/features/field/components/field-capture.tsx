@@ -14,6 +14,7 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { formatMxPhone, normalizeMxPhone } from '@/lib/validation/phone'
+import { hasSchedule } from '@/features/businesses/completeness'
 import type { Business, CategoryOption, WeeklyHours } from '@/features/businesses/types'
 import {
   finishFieldVisit,
@@ -120,13 +121,14 @@ export function FieldCapture({
       done: !!address.trim() || !!mapsUrl.trim(),
     },
     { id: 'campo-nombre', label: 'Nombre', done: !!name.trim() },
-    // El horario se olvidaba porque el form no lo pedía. Cuenta como cubierto
-    // también con el texto libre: "previa cita" en un psicólogo o "hasta que se
-    // acaba la carne" en unas carnitas no es un dato faltante, ES el horario.
+    // El horario se olvidaba porque el form no lo pedía. La regla de qué cuenta
+    // como "tiene horario" es la MISMA que usa el semáforo (`hasSchedule`), para
+    // que no se contradigan en la misma pantalla: la tabla o el texto libre —
+    // "previa cita" en un psicólogo no es un dato faltante, ES el horario.
     {
       id: 'campo-horario',
       label: 'Horario',
-      done: Object.keys(hours).length > 0 || !!schedule.trim(),
+      done: hasSchedule({ schedule, hasHours: Object.keys(hours).length > 0 }),
     },
   ]
   const missing = requirements.filter((r) => !r.done)
@@ -246,6 +248,16 @@ export function FieldCapture({
           >
             Siguiente negocio
           </button>
+          {/* Tercera salida, deliberadamente debajo de "Compartir ficha": al
+              cerrar la visita es cuando te acuerdas del dato que faltó, y sin
+              esto había que volver a buscar el negocio desde cero. */}
+          <Link
+            href={`/businesses/${business.id}?returnTo=/campo/${business.id}`}
+            className="text-muted-foreground hover:text-foreground flex h-12 w-full items-center justify-center gap-2 text-base font-medium"
+          >
+            <SlidersHorizontal className="size-4" />
+            Editar ficha completa
+          </Link>
         </div>
       </div>
     )
