@@ -10,6 +10,7 @@ import {
   bulkIdsSchema,
   gallerySchema,
   parseBusinessForm,
+  parseCoordinates,
   photoFileSchema,
   servicesSchema,
   type GalleryValues,
@@ -316,6 +317,8 @@ export async function createBusiness(
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
   const { primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
+  const coordinates = parseCoordinates(formData)
+  if (!coordinates.success) return { error: firstIssue(coordinates.error) }
   const hours = parseHours(formData)
   const services = parseServices(formData)
   if (!services.success) return { error: firstIssue(services.error) }
@@ -349,6 +352,7 @@ export async function createBusiness(
     .from('businesses')
     .insert({
       ...data,
+      ...coordinates.data,
       // slug vacío → se omite para que el trigger de la DB lo autogenere del nombre.
       ...(slug ? { slug } : {}),
       category_id: primary_category_id,
@@ -380,6 +384,18 @@ export async function createBusiness(
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
 
+  // El form venía precargado desde una solicitud de auto-registro
+  // (`approveRegistration` sin business_id): recién ahora que el negocio existe
+  // se cierra la solicitud y se deja ligada, para que no quede huérfana.
+  const registrationId = formData.get('registration_id')
+  if (typeof registrationId === 'string' && registrationId) {
+    await supabase
+      .from('business_registrations')
+      .update({ status: 'approved', business_id: inserted.id })
+      .eq('id', registrationId)
+    revalidatePath('/registrations')
+  }
+
   revalidatePath('/businesses')
   redirect('/businesses')
 }
@@ -393,8 +409,10 @@ export async function updateBusiness(
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
   const { primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
-  // Se valida antes de subir nada: si servicios o galería traen error se corta
-  // aquí y no quedan archivos huérfanos en el bucket.
+  // Se valida antes de subir nada: si coordenadas, servicios o galería traen
+  // error se corta aquí y no quedan archivos huérfanos en el bucket.
+  const coordinates = parseCoordinates(formData)
+  if (!coordinates.success) return { error: firstIssue(coordinates.error) }
   const services = parseServices(formData)
   if (!services.success) return { error: firstIssue(services.error) }
   const gallery = parseGallery(formData)
@@ -433,6 +451,7 @@ export async function updateBusiness(
     .from('businesses')
     .update({
       ...data,
+      ...coordinates.data,
       // slug vacío → se omite para NO tocar el slug existente (que ya circula
       // en links compartidos). Sólo se actualiza si el admin escribió uno.
       ...(slug ? { slug } : {}),

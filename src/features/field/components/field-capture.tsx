@@ -3,13 +3,28 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, ChevronDown, Copy, Loader2, Share2, TriangleAlert } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Copy,
+  Loader2,
+  Share2,
+  SlidersHorizontal,
+  TriangleAlert,
+} from 'lucide-react'
 import { formatMxPhone, normalizeMxPhone } from '@/lib/validation/phone'
-import type { Business, CategoryOption } from '@/features/businesses/types'
-import { finishFieldVisit, getOfferingSuggestions, setFieldPrimaryCategory } from '../actions'
+import type { Business, CategoryOption, WeeklyHours } from '@/features/businesses/types'
+import {
+  finishFieldVisit,
+  getOfferingSuggestions,
+  setFieldHours,
+  setFieldPrimaryCategory,
+} from '../actions'
 import { useFieldSave } from '../hooks/use-field-save'
 import { seedOfferings } from '../offering-suggestions'
 import type { FieldPhoto } from '../queries'
+import { FieldHours } from './field-hours'
 import { FieldLocation } from './field-location'
 import { FieldOfferings } from './field-offerings'
 import { FieldPhotos } from './field-photos'
@@ -25,14 +40,16 @@ export function FieldCapture({
   photos,
   categories,
   primaryCategoryId,
+  hours: initialHours,
 }: {
   business: Business
   photos: FieldPhoto[]
   categories: CategoryOption[]
   primaryCategoryId: string | null
+  hours: WeeklyHours
 }) {
   const router = useRouter()
-  const { overall, save, saveNow, flush } = useFieldSave(business.id)
+  const { overall, save, saveNow, flush, flushAll } = useFieldSave(business.id)
 
   const [name, setName] = useState(business.name)
   const [phone, setPhone] = useState(business.phone ?? '')
@@ -43,6 +60,11 @@ export function FieldCapture({
   const [offerings, setOfferings] = useState<string[]>(business.offerings ?? [])
   const [categoryId, setCategoryId] = useState(primaryCategoryId)
   const [photoCount, setPhotoCount] = useState(photos.length)
+  const [hours, setHours] = useState<WeeklyHours>(initialHours)
+  const [schedule, setSchedule] = useState(business.schedule ?? '')
+  const [owner, setOwner] = useState(business.owner ?? '')
+  const [ownerPhone, setOwnerPhone] = useState(business.owner_phone ?? '')
+  const [ownerNote, setOwnerNote] = useState(business.owner_contact_note ?? '')
 
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -98,9 +120,23 @@ export function FieldCapture({
       done: !!address.trim() || !!mapsUrl.trim(),
     },
     { id: 'campo-nombre', label: 'Nombre', done: !!name.trim() },
+    // El horario se olvidaba porque el form no lo pedía. Cuenta como cubierto
+    // también con el texto libre: "previa cita" en un psicólogo o "hasta que se
+    // acaba la carne" en unas carnitas no es un dato faltante, ES el horario.
+    {
+      id: 'campo-horario',
+      label: 'Horario',
+      done: Object.keys(hours).length > 0 || !!schedule.trim(),
+    },
   ]
   const missing = requirements.filter((r) => !r.done)
   const score = (requirements.length - missing.length) / requirements.length
+
+  // El gate sólo aplica al PUBLICAR: evita que salga al directorio una ficha
+  // vacía. En un negocio ya publicado el botón es una salida, no un cierre de
+  // visita — todo se guardó solo mientras se capturaba, así que bloquearlo no
+  // protege nada y sólo estorba. Los chips de lo que falta se siguen viendo.
+  const blockedByRequirements = !business.is_active && missing.length > 0
 
   // Tocar un chip lleva al campo. Es todo el modelo de navegación: no se scrollea
   // buscando qué falta, la app lo dice y te lleva.
@@ -109,6 +145,14 @@ export function FieldCapture({
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     el?.querySelector<HTMLElement>('input, textarea, button')?.focus({ preventScroll: true })
   }, [])
+
+  function saveHours(next: WeeklyHours) {
+    setHours(next)
+    void (async () => {
+      const result = await setFieldHours(business.id, next)
+      if (result.error) setFinishError(result.error)
+    })()
+  }
 
   async function pickCategory(id: string) {
     setCategoryId(id)
@@ -223,6 +267,17 @@ export function FieldCapture({
             {name || 'Sin nombre'}
           </span>
           <SavePill status={overall} />
+          {/* Salida al editor de escritorio, con el mismo negocio ya abierto.
+              `returnTo` regresa aquí al guardar: campo y editor dejan de ser
+              islas separadas. */}
+          <Link
+            href={`/businesses/${business.id}?returnTo=/campo/${business.id}`}
+            onClick={flushAll}
+            aria-label="Abrir en el editor completo"
+            className="text-muted-foreground hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-lg"
+          >
+            <SlidersHorizontal className="size-5" />
+          </Link>
         </div>
       </header>
 
@@ -361,6 +416,57 @@ export function FieldCapture({
           }}
         />
 
+        <FieldHours
+          value={hours}
+          scheduleText={schedule}
+          onHoursChange={saveHours}
+          onScheduleChange={(text) => {
+            setSchedule(text)
+            save('schedule', text)
+          }}
+          onScheduleBlur={() => flush('schedule')}
+        />
+
+        <section id="campo-dueno" className="scroll-mt-20 border-t px-4 py-5">
+          <h2 className="font-semibold">Contacto del dueño</h2>
+          <p className="text-muted-foreground mt-1 mb-3 text-sm">
+            A quién le hablas después por las fotos o para que reclame su ficha. No sale en la app.
+          </p>
+          <input
+            value={owner}
+            onChange={(e) => {
+              setOwner(e.target.value)
+              save('owner', e.target.value)
+            }}
+            onBlur={() => flush('owner')}
+            placeholder="Nombre del dueño"
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 mb-3 h-14 w-full rounded-xl border px-4 text-base outline-none focus-visible:ring-3"
+          />
+          <input
+            type="tel"
+            inputMode="tel"
+            value={formatMxPhone(ownerPhone)}
+            onChange={(e) => {
+              const digits = normalizeMxPhone(e.target.value)
+              setOwnerPhone(digits)
+              if (digits.length === 0 || digits.length === 10) save('owner_phone', digits)
+            }}
+            onBlur={() => flush('owner_phone')}
+            placeholder="Su teléfono"
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 mb-3 h-14 w-full rounded-xl border px-4 text-base outline-none focus-visible:ring-3"
+          />
+          <input
+            value={ownerNote}
+            onChange={(e) => {
+              setOwnerNote(e.target.value)
+              save('owner_contact_note', e.target.value)
+            }}
+            onBlur={() => flush('owner_contact_note')}
+            placeholder="Quién es (ej. hija del dueño, lleva el FB)"
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-14 w-full rounded-xl border px-4 text-base outline-none focus-visible:ring-3"
+          />
+        </section>
+
         <section className="border-t px-4 py-5">
           <h2 className="mb-3 font-semibold">Descripción</h2>
           <textarea
@@ -398,7 +504,7 @@ export function FieldCapture({
         <button
           type="button"
           onClick={finish}
-          disabled={missing.length > 0 || finishing}
+          disabled={blockedByRequirements || finishing}
           className="bg-primary text-primary-foreground h-14 w-full rounded-xl text-base font-medium active:translate-y-px disabled:opacity-40"
         >
           {finishing ? 'Guardando…' : business.is_active ? 'Listo' : 'Terminar visita'}

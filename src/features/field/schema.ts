@@ -22,6 +22,9 @@ export const fieldPatchSchema = businessFormSchema
     instagram_url: true,
     offerings: true,
     aliases: true,
+    owner: true,
+    owner_phone: true,
+    owner_contact_note: true,
   })
   .partial()
   // Coordenadas: no viven en `businessFormSchema` porque el form de escritorio
@@ -30,6 +33,15 @@ export const fieldPatchSchema = businessFormSchema
     latitude: z.number().min(-90).max(90).nullable().optional(),
     longitude: z.number().min(-180).max(180).nullable().optional(),
     location_accuracy_m: z.number().min(0).nullable().optional(),
+    // Horario en texto libre. La app lo pinta tal cual cuando el negocio no
+    // tiene filas en `business_hours` — es la salida para el changarro que
+    // abre "cuando hay masa" y no se puede meter en una tabla de 7 días.
+    schedule: z
+      .string()
+      .trim()
+      .transform((v) => v || null)
+      .nullable()
+      .optional(),
   })
 
 export type FieldPatch = z.infer<typeof fieldPatchSchema>

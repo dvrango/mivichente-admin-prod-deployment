@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getCompleteness } from '@/features/businesses/completeness'
 import type { Business } from '@/features/businesses/types'
 import { FIELD_SEARCH_DEBOUNCE_MS } from '../constants'
+import type { RecentFieldBusiness } from '../queries'
 
 type Result = Business & { category: { id: string; name: string; type: string } | null }
 
@@ -19,9 +20,11 @@ const DOT_BY_LEVEL = {
 export function FieldSearch({
   municipio,
   isAdmin,
+  recent,
 }: {
   municipio: string | null
   isAdmin: boolean
+  recent: RecentFieldBusiness[]
 }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Result[]>([])
@@ -153,11 +156,48 @@ export function FieldSearch({
         )}
 
         {query.trim().length < 2 && (
-          <p className="text-muted-foreground py-10 text-center text-sm">
-            Busca el negocio antes de crearlo.
-            <br />
-            Casi todos ya están cargados.
-          </p>
+          <>
+            <p className="text-muted-foreground py-6 text-center text-sm">
+              Busca el negocio antes de crearlo.
+              <br />
+              Casi todos ya están cargados.
+            </p>
+
+            {/* Volver a lo último capturado sin teclear el nombre otra vez: lo
+                normal en la calle es acordarse de un dato dos changarros
+                después. */}
+            {recent.length > 0 && (
+              <>
+                <h2 className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
+                  Capturados hace poco
+                </h2>
+                <ul className="divide-y">
+                  {recent.map((b) => {
+                    const { level, missing } = getCompleteness(b)
+                    return (
+                      <li key={b.id}>
+                        <Link
+                          href={`/campo/${b.id}`}
+                          className="active:bg-muted flex min-h-14 items-start gap-3 py-3"
+                        >
+                          <span
+                            className={`mt-1.5 size-2.5 shrink-0 rounded-full ${DOT_BY_LEVEL[level]}`}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{b.name}</span>
+                            <span className="text-muted-foreground block truncate text-xs">
+                              {b.is_active ? 'Publicado' : 'Sin publicar'}
+                              {missing.length > 0 && ` · falta: ${missing.join(', ')}`}
+                            </span>
+                          </span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
+            )}
+          </>
         )}
       </div>
     </div>

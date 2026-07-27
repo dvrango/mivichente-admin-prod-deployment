@@ -6,6 +6,25 @@ import type { Business } from './types'
 
 export type CompletenessLevel = 'green' | 'yellow' | 'red'
 
+/**
+ * Lo mínimo que hay que traer de un negocio para medirlo. Es un subconjunto de
+ * `Business` a propósito: las listas que sólo pintan el semáforo (ej. los
+ * últimos negocios capturados en campo) no tienen por qué traer la fila entera.
+ */
+export type CompletenessInput = Pick<
+  Business,
+  | 'phone'
+  | 'description'
+  | 'photo_url'
+  | 'address'
+  | 'maps_url'
+  | 'category_id'
+  | 'offerings'
+  | 'schedule'
+  | 'facebook_url'
+  | 'instagram_url'
+>
+
 export type Completeness = {
   level: CompletenessLevel
   /** 0–1: fracción de campos clave presentes. */
@@ -14,7 +33,7 @@ export type Completeness = {
   missing: string[]
 }
 
-const FIELDS: { label: string; filled: (b: Business) => boolean }[] = [
+const FIELDS: { label: string; filled: (b: CompletenessInput) => boolean }[] = [
   { label: 'Teléfono', filled: (b) => !!b.phone?.trim() },
   { label: 'Descripción', filled: (b) => !!b.description?.trim() },
   { label: 'Foto', filled: (b) => !!b.photo_url?.trim() },
@@ -25,7 +44,7 @@ const FIELDS: { label: string; filled: (b: Business) => boolean }[] = [
   { label: 'Redes', filled: (b) => !!b.facebook_url?.trim() || !!b.instagram_url?.trim() },
 ]
 
-export function getCompleteness(b: Business): Completeness {
+export function getCompleteness(b: CompletenessInput): Completeness {
   const missing = FIELDS.filter((f) => !f.filled(b)).map((f) => f.label)
   const score = (FIELDS.length - missing.length) / FIELDS.length
   const level: CompletenessLevel = score >= 0.75 ? 'green' : score >= 0.4 ? 'yellow' : 'red'

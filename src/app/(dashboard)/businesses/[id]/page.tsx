@@ -47,8 +47,11 @@ export default async function EditBusinessPage({
   // Sin este gate el formulario se ve editable y falla en el submit.
   const readOnly = !!lockedMunicipio && business.municipio !== lockedMunicipio
 
-  // Sólo se acepta un returnTo relativo dentro de /businesses (evita open redirect).
-  const safeReturnTo = returnTo?.startsWith('/businesses') ? returnTo : undefined
+  // Sólo se acepta un returnTo relativo dentro de /businesses o /campo (evita
+  // open redirect). /campo es el viaje de vuelta: se entra al editor desde la
+  // pantalla de captura y al guardar se regresa al mismo negocio en campo.
+  const safeReturnTo =
+    returnTo?.startsWith('/businesses') || returnTo?.startsWith('/campo') ? returnTo : undefined
 
   const action = updateBusiness.bind(null, id, safeReturnTo) as (
     prev: BusinessFormState,
@@ -122,6 +125,11 @@ export default async function EditBusinessPage({
           facebook_url: business.facebook_url,
           instagram_url: business.instagram_url,
           offerings: business.offerings,
+          owner: business.owner,
+          owner_phone: business.owner_phone,
+          owner_contact_note: business.owner_contact_note,
+          latitude: business.latitude,
+          longitude: business.longitude,
         }}
         defaultHours={hours}
         defaultServices={services}

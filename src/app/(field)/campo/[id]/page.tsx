@@ -4,6 +4,7 @@ import {
   getActiveCategoryOptions,
   getBusinessById,
   getBusinessCategoryIds,
+  getBusinessHours,
 } from '@/features/businesses/queries'
 import { FieldCapture } from '@/features/field/components/field-capture'
 import { getFieldPhotos } from '@/features/field/queries'
@@ -25,10 +26,11 @@ export default async function CampoBusinessPage({ params }: { params: Promise<{ 
     redirect('/campo')
   }
 
-  const [photos, categories, categoryIds] = await Promise.all([
+  const [photos, categories, categoryIds, hours] = await Promise.all([
     getFieldPhotos(id),
     getActiveCategoryOptions(),
     getBusinessCategoryIds(id),
+    getBusinessHours(id),
   ])
 
   return (
@@ -37,6 +39,7 @@ export default async function CampoBusinessPage({ params }: { params: Promise<{ 
       photos={photos}
       categories={categories}
       primaryCategoryId={categoryIds.primaryId ?? business.category_id}
+      hours={hours}
     />
   )
 }

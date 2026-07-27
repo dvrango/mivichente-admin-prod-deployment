@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { CategorySelect } from '@/components/shared/category-select'
 import { PhoneInput } from '@/components/shared/phone-input'
 import { normalizeMxPhone } from '@/lib/validation/phone'
+import { coordinatesFromMapsUrl } from '@/lib/geo/maps-url'
 import { slugify } from '@/lib/slug'
 import { uploadBusinessPhoto, removeUploadedPhotos } from '@/lib/images/upload-business-photo'
 import {
@@ -46,6 +47,9 @@ type Props = {
   // (el RLS de UPDATE ya lo bloquea; esto evita que la UI prometa algo que
   // el submit va a rechazar).
   readOnly?: boolean
+  // Alta que viene de aprobar una solicitud de auto-registro: viaja al server
+  // action para cerrar esa solicitud cuando el negocio ya quedó creado.
+  registrationId?: string
   defaults?: {
     name?: string
     slug?: string | null
@@ -64,6 +68,11 @@ type Props = {
     photo_url?: string | null
     aliases?: string[] | null
     offerings?: string[] | null
+    owner?: string | null
+    owner_phone?: string | null
+    owner_contact_note?: string | null
+    latitude?: number | null
+    longitude?: number | null
   }
   defaultHours?: WeeklyHours
   defaultServices?: ServiceInput[]
@@ -85,6 +94,10 @@ type ClientFormInput = Omit<
   'aliases' | 'offerings' | 'secondary_category_ids' | 'services_label'
 >
 
+function coordinateToInput(value: number | null | undefined): string {
+  return value === null || value === undefined ? '' : String(value)
+}
+
 export function BusinessForm({
   action,
   submitLabel,
@@ -95,6 +108,7 @@ export function BusinessForm({
   defaultPhotos,
   lockedMunicipio,
   readOnly = false,
+  registrationId,
 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
@@ -107,6 +121,11 @@ export function BusinessForm({
   const [categorySearch, setCategorySearch] = useState('')
   const [hours, setHours] = useState<WeeklyHours>(defaultHours ?? {})
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
+  // Coordenadas: fuera de react-hook-form (como horarios y galería) porque se
+  // teclean como texto y el schema las convierte a número o null al enviar.
+  const [latitude, setLatitude] = useState(coordinateToInput(defaults?.latitude))
+  const [longitude, setLongitude] = useState(coordinateToInput(defaults?.longitude))
+  const [coordsNotice, setCoordsNotice] = useState<string | null>(null)
   const [services, setServices] = useState<ServiceInput[]>(defaultServices ?? [])
   const [showServices, setShowServices] = useState(() => (defaultServices ?? []).length > 0)
   const aliasInputRef = useRef<HTMLInputElement>(null)
@@ -180,6 +199,9 @@ export function BusinessForm({
       description: defaults?.description ?? '',
       facebook_url: defaults?.facebook_url ?? '',
       instagram_url: defaults?.instagram_url ?? '',
+      owner: defaults?.owner ?? '',
+      owner_phone: normalizeMxPhone(defaults?.owner_phone),
+      owner_contact_note: defaults?.owner_contact_note ?? '',
     },
   })
 
@@ -224,6 +246,12 @@ export function BusinessForm({
       fd.set('description', values.description ?? '')
       fd.set('facebook_url', values.facebook_url ?? '')
       fd.set('instagram_url', values.instagram_url ?? '')
+      fd.set('owner', values.owner ?? '')
+      fd.set('owner_phone', values.owner_phone ?? '')
+      fd.set('owner_contact_note', values.owner_contact_note ?? '')
+      fd.set('latitude', latitude.trim())
+      fd.set('longitude', longitude.trim())
+      if (registrationId) fd.set('registration_id', registrationId)
       fd.set('aliases', JSON.stringify(aliases))
       fd.set('offerings', JSON.stringify(offerings))
       fd.set('hours', JSON.stringify(hours))
@@ -484,6 +512,80 @@ export function BusinessForm({
             )}
           />
 
+          <div className="space-y-4 rounded-md border p-4">
+            <div>
+              <p className="text-sm font-medium leading-none">
+                Contacto del dueño{' '}
+                <span className="text-muted-foreground font-normal">(interno)</span>
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                A quién se le habla después de la visita (fotos, verificación, reclamar perfil). No
+                se muestra en la app.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="owner"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dueño</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Nombre del dueño"
+                        disabled={isPending}
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="owner_phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teléfono del dueño</FormLabel>
+                    <FormControl>
+                      <PhoneInput
+                        name={field.name}
+                        ref={field.ref}
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onChange={field.onChange}
+                        disabled={isPending}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="owner_contact_note"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quién es el contacto</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Ej. hija del dueño, lleva el Facebook"
+                      disabled={isPending}
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           <FormField
             control={form.control}
             name="address"
@@ -516,6 +618,66 @@ export function BusinessForm({
               </FormItem>
             )}
           />
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium leading-none">
+                Coordenadas <span className="text-muted-foreground font-normal">(opcional)</span>
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={() => {
+                  const coords = coordinatesFromMapsUrl(form.getValues('maps_url'))
+                  if (!coords) {
+                    setCoordsNotice(
+                      'Ese link no trae coordenadas. Si es un link corto (maps.app.goo.gl), ábrelo y copia la URL larga.',
+                    )
+                    return
+                  }
+                  setLatitude(String(coords.latitude))
+                  setLongitude(String(coords.longitude))
+                  setCoordsNotice(null)
+                }}
+              >
+                Extraer del link de Maps
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                aria-label="Latitud"
+                inputMode="decimal"
+                placeholder="Latitud (23.7…)"
+                disabled={isPending}
+                value={latitude}
+                onChange={(e) => {
+                  setLatitude(e.target.value)
+                  setCoordsNotice(null)
+                }}
+              />
+              <Input
+                aria-label="Longitud"
+                inputMode="decimal"
+                placeholder="Longitud (-103.9…)"
+                disabled={isPending}
+                value={longitude}
+                onChange={(e) => {
+                  setLongitude(e.target.value)
+                  setCoordsNotice(null)
+                }}
+              />
+            </div>
+            {coordsNotice ? (
+              <p className="text-xs text-amber-700 dark:text-amber-500">{coordsNotice}</p>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                Las pone el GPS en modo campo. Aquí se pueden pegar o sacar del link de Maps. Vacías
+                = sin ubicación en el mapa.
+              </p>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <FormField

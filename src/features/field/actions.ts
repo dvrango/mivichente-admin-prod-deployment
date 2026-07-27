@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { BUSINESS_PHOTOS_BUCKET, pathFromPublicUrl } from '@/lib/storage'
 import { bulkSetPrimaryCategory } from '@/features/businesses/actions'
+import { weeklyHoursSchema } from '@/features/businesses/schema'
 import { fieldCreateSchema, fieldPatchSchema, fieldPhotoSchema, photoKindSchema } from './schema'
 import { PHOTO_KIND_LABELS } from './constants'
 import type { FieldPhoto } from './queries'
@@ -64,6 +65,41 @@ export async function patchBusinessFields(id: string, patch: unknown): Promise<F
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  revalidatePath('/businesses')
+  return OK
+}
+
+/**
+ * Horario semanal. Reemplaza TODAS las filas de `business_hours` del negocio:
+ * la UI de campo siempre manda el horario completo (los presets arman la semana
+ * entera), así que aquí no aplica el criterio aditivo de las fotos.
+ *
+ * `business_hours` no tiene policy UPDATE en RLS — por eso delete + insert, el
+ * mismo camino que `upsertHours` del form de escritorio.
+ */
+export async function setFieldHours(id: string, hours: unknown): Promise<FieldActionResult> {
+  const parsed = weeklyHoursSchema.safeParse(hours)
+  if (!parsed.success) return { error: firstIssue(parsed.error) }
+
+  const supabase = await createClient()
+  const { error: deleteError } = await supabase
+    .from('business_hours')
+    .delete()
+    .eq('business_id', id)
+  if (deleteError) return { error: deleteError.message }
+
+  const rows = Object.entries(parsed.data).map(([day, h]) => ({
+    business_id: id,
+    day_of_week: Number(day),
+    opens_at: h.opens_at,
+    closes_at: h.closes_at,
+  }))
+
+  if (rows.length > 0) {
+    const { error } = await supabase.from('business_hours').insert(rows)
+    if (error) return { error: error.message }
+  }
 
   revalidatePath('/businesses')
   return OK

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { mxPhoneSchema } from '@/lib/validation/phone'
+import { mxPhoneSchema, optionalMxPhoneSchema } from '@/lib/validation/phone'
 import { SLUG_PATTERN, isReservedSlug, slugify } from '@/lib/slug'
 
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024
@@ -92,6 +92,19 @@ export const businessFormSchema = z.object({
     .nullable(),
   aliases: z.array(z.string().trim().min(1)),
   offerings: z.array(z.string().trim().min(1)),
+  // Contacto interno de la campaña de campo: a quién se le habla DESPUÉS de la
+  // visita (fotos, verificación, reclamar perfil). Nunca se muestra en la app.
+  owner: z
+    .string()
+    .trim()
+    .transform((v) => v || null)
+    .nullable(),
+  owner_phone: optionalMxPhoneSchema,
+  owner_contact_note: z
+    .string()
+    .trim()
+    .transform((v) => v || null)
+    .nullable(),
 })
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>
@@ -165,6 +178,38 @@ export const gallerySchema = z.array(galleryPhotoSchema, { message: 'Fotos invá
 /** Galería validada: mezcla de fotos ya guardadas y punteros a archivos nuevos. */
 export type GalleryValues = z.infer<typeof gallerySchema>
 
+// Coordenadas. Viajan aparte del form principal (como horarios y galería)
+// porque se teclean/pegan como texto y hay que dejarlas vaciar: string vacío =
+// null, no 0. En modo campo las pone el GPS; en escritorio se pegan a mano o se
+// extraen del `maps_url` que ya está guardado.
+function coordinateSchema(limit: number, message: string) {
+  return z
+    .string()
+    .trim()
+    .transform((v) => (v === '' ? null : Number(v)))
+    .refine((v) => v === null || (Number.isFinite(v) && Math.abs(v) <= limit), message)
+}
+
+export const coordinatesSchema = z.object({
+  latitude: coordinateSchema(90, 'Latitud inválida.'),
+  longitude: coordinateSchema(180, 'Longitud inválida.'),
+})
+
+export type CoordinatesInput = z.infer<typeof coordinatesSchema>
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+
+export const dayHoursSchema = z.object({
+  opens_at: z.string().regex(HHMM, 'Hora de apertura inválida.'),
+  closes_at: z.string().regex(HHMM, 'Hora de cierre inválida.'),
+})
+
+/** Horario semanal: llaves '0'–'6' (domingo = 0, igual que `extract(dow)`). */
+export const weeklyHoursSchema = z.record(
+  z.string().regex(/^[0-6]$/, 'Día inválido.'),
+  dayHoursSchema,
+)
+
 export const BUSINESSES_PAGE_SIZE = 20
 
 export const BUSINESS_STATUS_VALUES = ['all', 'active', 'inactive'] as const
@@ -233,6 +278,16 @@ export function parseBusinessForm(formData: FormData) {
     instagram_url: formData.get('instagram_url') ?? '',
     aliases: parseJsonArray(formData, 'aliases'),
     offerings: parseJsonArray(formData, 'offerings'),
+    owner: formData.get('owner') ?? '',
+    owner_phone: formData.get('owner_phone') ?? '',
+    owner_contact_note: formData.get('owner_contact_note') ?? '',
   }
   return businessFormSchema.safeParse(raw)
+}
+
+export function parseCoordinates(formData: FormData) {
+  return coordinatesSchema.safeParse({
+    latitude: formData.get('latitude') ?? '',
+    longitude: formData.get('longitude') ?? '',
+  })
 }

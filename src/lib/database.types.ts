@@ -1712,6 +1712,9 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
+          owner: string | null
+          owner_contact_note: string | null
+          owner_phone: string | null
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
@@ -1746,6 +1749,9 @@ export type Database = {
           name: string
           name_normalized?: string | null
           offerings?: string[]
+          owner?: string | null
+          owner_contact_note?: string | null
+          owner_phone?: string | null
           phone: string
           phone_is_whatsapp?: boolean
           photo_url?: string | null
@@ -1780,6 +1786,9 @@ export type Database = {
           name?: string
           name_normalized?: string | null
           offerings?: string[]
+          owner?: string | null
+          owner_contact_note?: string | null
+          owner_phone?: string | null
           phone?: string
           phone_is_whatsapp?: boolean
           photo_url?: string | null
@@ -1986,6 +1995,9 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
+          owner: string | null
+          owner_contact_note: string | null
+          owner_phone: string | null
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
@@ -2032,6 +2044,9 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
+          owner: string | null
+          owner_contact_note: string | null
+          owner_phone: string | null
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null

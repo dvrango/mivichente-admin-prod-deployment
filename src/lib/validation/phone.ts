@@ -23,3 +23,16 @@ export const mxPhoneSchema = z
   .min(1, 'El teléfono es requerido.')
   .transform(normalizeMxPhone)
   .refine((v) => v.length === MX_PHONE_DIGITS, 'El teléfono debe tener 10 dígitos.')
+
+// Teléfono que puede quedar vacío (ej. el del dueño). Vacío → null en la DB;
+// si se escribe algo, se exige el mismo formato de 10 dígitos.
+export const optionalMxPhoneSchema = z
+  .string()
+  .trim()
+  .transform(normalizeMxPhone)
+  .refine((v) => v === '' || v.length === MX_PHONE_DIGITS, 'El teléfono debe tener 10 dígitos.')
+  .transform((v) => (v === '' ? null : v))
+  // `.nullable()` para que el tipo de ENTRADA también acepte null, igual que el
+  // resto de los campos opcionales del form: si no, react-hook-form tipa el
+  // resolver con una entrada distinta a `BusinessFormInput` y no compila.
+  .nullable()
