@@ -1657,6 +1657,8 @@ export type Database = {
           name: string
           order_index: number
           price: number | null
+          section: string | null
+          updated_at: string
         }
         Insert: {
           business_id: string
@@ -1667,6 +1669,8 @@ export type Database = {
           name: string
           order_index?: number
           price?: number | null
+          section?: string | null
+          updated_at?: string
         }
         Update: {
           business_id?: string
@@ -1677,10 +1681,40 @@ export type Database = {
           name?: string
           order_index?: number
           price?: number | null
+          section?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: 'business_services_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      business_slug_history: {
+        Row: {
+          business_id: string
+          id: string
+          replaced_at: string
+          slug: string
+        }
+        Insert: {
+          business_id: string
+          id?: string
+          replaced_at?: string
+          slug: string
+        }
+        Update: {
+          business_id?: string
+          id?: string
+          replaced_at?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_slug_history_business_id_fkey'
             columns: ['business_id']
             referencedRelation: 'businesses'
             referencedColumns: ['id']
@@ -1876,24 +1910,40 @@ export type Database = {
       }
       qr_scans: {
         Row: {
+          business_id: string | null
+          channel: string
           created_at: string
           id: string
+          slug_at_scan: string | null
           src: string
           user_agent: string | null
         }
         Insert: {
+          business_id?: string | null
+          channel: string
           created_at?: string
           id?: string
+          slug_at_scan?: string | null
           src: string
           user_agent?: string | null
         }
         Update: {
+          business_id?: string | null
+          channel?: string
           created_at?: string
           id?: string
+          slug_at_scan?: string | null
           src?: string
           user_agent?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'qr_scans_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
       }
       search_events: {
         Row: {
@@ -2018,6 +2068,7 @@ export type Database = {
       immutable_unaccent: { Args: { '': string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_search_stopword: { Args: { term: string }; Returns: boolean }
+      qr_scan_channel_from_src: { Args: { p_src: string }; Returns: string }
       search_businesses: {
         Args: { search_query: string }
         Returns: {
