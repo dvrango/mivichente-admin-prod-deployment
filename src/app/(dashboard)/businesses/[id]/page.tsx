@@ -1,5 +1,7 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import { PageHeader } from '@/components/shared/page-header'
 import { formatDateLong } from '@/lib/date'
 import { getCurrentProfile } from '@/features/auth/queries'
@@ -72,16 +74,26 @@ export default async function EditBusinessPage({
           ) : undefined
         }
         actions={
-          readOnly ? (
-            <Badge variant="outline">Solo lectura · {business.municipio}</Badge>
-          ) : (
-            <div className="flex gap-2">
-              <ToggleVerifiedButton id={business.id} isVerified={business.is_verified} />
-              <ToggleFeaturedButton id={business.id} isFeatured={business.is_featured} />
-              <ToggleDeliveryButton id={business.id} hasDelivery={business.has_delivery} />
-              <ToggleActiveButton id={business.id} isActive={business.is_active} />
-            </div>
-          )
+          <div className="flex flex-wrap gap-2">
+            {/* Generar material no modifica nada, así que también está
+                disponible en solo lectura. */}
+            <Link
+              href={`/businesses/${id}/material`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Material gráfico
+            </Link>
+            {readOnly ? (
+              <Badge variant="outline">Solo lectura · {business.municipio}</Badge>
+            ) : (
+              <>
+                <ToggleVerifiedButton id={business.id} isVerified={business.is_verified} />
+                <ToggleFeaturedButton id={business.id} isFeatured={business.is_featured} />
+                <ToggleDeliveryButton id={business.id} hasDelivery={business.has_delivery} />
+                <ToggleActiveButton id={business.id} isActive={business.is_active} />
+              </>
+            )}
+          </div>
         }
       />
       <div className="text-muted-foreground space-y-0.5 text-xs">
