@@ -22,7 +22,16 @@ export type BusinessCategoryIds = {
 }
 
 export type DayHours = { opens_at: string; closes_at: string }
-export type WeeklyHours = Partial<Record<number, DayHours>>
+
+/**
+ * Horario semanal por día (0=Dom … 6=Sáb). Cada día es una LISTA de turnos:
+ * más de uno = horario partido (abre en la mañana, cierra a comer, reabre en la
+ * tarde), que es lo normal en media plaza. Día ausente o lista vacía = cerrado.
+ *
+ * El orden del array es el orden en que se pinta y se guarda; los turnos se
+ * ordenan por `opens_at` al leerlos de la DB.
+ */
+export type WeeklyHours = Partial<Record<number, DayHours[]>>
 
 /**
  * Servicio de un negocio tal como lo maneja el form. name/price/description son

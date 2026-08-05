@@ -126,6 +126,7 @@ export default async function EditBusinessPage({
           secondary_category_ids: categoryIds.secondaryIds,
           phone: business.phone,
           phone_is_whatsapp: business.phone_is_whatsapp,
+          whatsapp_phone: business.whatsapp_phone,
           address: business.address,
           maps_url: business.maps_url,
           municipio: business.municipio,

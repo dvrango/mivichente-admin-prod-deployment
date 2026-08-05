@@ -89,12 +89,15 @@ export async function setFieldHours(id: string, hours: unknown): Promise<FieldAc
     .eq('business_id', id)
   if (deleteError) return { error: deleteError.message }
 
-  const rows = Object.entries(parsed.data).map(([day, h]) => ({
-    business_id: id,
-    day_of_week: Number(day),
-    opens_at: h.opens_at,
-    closes_at: h.closes_at,
-  }))
+  // Una fila por turno: un día partido (mañana + tarde) genera dos.
+  const rows = Object.entries(parsed.data).flatMap(([day, shifts]) =>
+    shifts.map((h) => ({
+      business_id: id,
+      day_of_week: Number(day),
+      opens_at: h.opens_at,
+      closes_at: h.closes_at,
+    })),
+  )
 
   if (rows.length > 0) {
     const { error } = await supabase.from('business_hours').insert(rows)

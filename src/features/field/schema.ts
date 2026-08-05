@@ -14,6 +14,7 @@ export const fieldPatchSchema = businessFormSchema
     name: true,
     phone: true,
     phone_is_whatsapp: true,
+    whatsapp_phone: true,
     address: true,
     maps_url: true,
     colonia: true,

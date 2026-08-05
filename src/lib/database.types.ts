@@ -1758,6 +1758,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           verified_at: string | null
+          whatsapp_phone: string | null
         }
         Insert: {
           address?: string | null
@@ -1795,6 +1796,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           verified_at?: string | null
+          whatsapp_phone?: string | null
         }
         Update: {
           address?: string | null
@@ -1832,6 +1834,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           verified_at?: string | null
+          whatsapp_phone?: string | null
         }
         Relationships: [
           {
@@ -2057,6 +2060,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           verified_at: string | null
+          whatsapp_phone: string | null
         }[]
         SetofOptions: {
           from: '*'
@@ -2107,6 +2111,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           verified_at: string | null
+          whatsapp_phone: string | null
         }[]
         SetofOptions: {
           from: '*'
@@ -2179,7 +2184,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_07_14: {
+      messages_2026_08_03: {
         Row: {
           event: string | null
           extension: string
@@ -2212,7 +2217,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_07_15: {
+      messages_2026_08_04: {
         Row: {
           event: string | null
           extension: string
@@ -2245,7 +2250,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_07_16: {
+      messages_2026_08_05: {
         Row: {
           event: string | null
           extension: string
@@ -2278,7 +2283,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_07_17: {
+      messages_2026_08_06: {
         Row: {
           event: string | null
           extension: string
@@ -2311,7 +2316,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_07_18: {
+      messages_2026_08_07: {
         Row: {
           event: string | null
           extension: string

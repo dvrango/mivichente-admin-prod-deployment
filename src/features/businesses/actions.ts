@@ -38,14 +38,15 @@ async function upsertHours(
   hours: WeeklyHours,
 ) {
   await supabase.from('business_hours').delete().eq('business_id', businessId)
-  const rows = Object.entries(hours)
-    .filter(([, h]) => !!h)
-    .map(([day, h]) => ({
+  // Una fila por TURNO: un día con horario partido genera dos.
+  const rows = Object.entries(hours).flatMap(([day, shifts]) =>
+    (shifts ?? []).map((h) => ({
       business_id: businessId,
       day_of_week: Number(day),
-      opens_at: h!.opens_at,
-      closes_at: h!.closes_at,
-    }))
+      opens_at: h.opens_at,
+      closes_at: h.closes_at,
+    })),
+  )
   if (rows.length > 0) {
     const { error } = await supabase.from('business_hours').insert(rows)
     if (error) throw new Error(error.message)

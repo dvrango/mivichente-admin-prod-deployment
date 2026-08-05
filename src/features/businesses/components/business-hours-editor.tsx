@@ -18,6 +18,13 @@ const DAYS = [
 const DEFAULT_OPEN = '09:00'
 const DEFAULT_CLOSE = '18:00'
 
+// Segundo turno de un día partido: el patrón de la plaza es cerrar a comer y
+// reabrir en la tarde. Son sólo valores de arranque, se editan encima.
+const DEFAULT_SECOND_OPEN = '16:00'
+const DEFAULT_SECOND_CLOSE = '21:00'
+
+const MAX_SHIFTS = 2
+
 type Props = {
   value: WeeklyHours
   onChange: (hours: WeeklyHours) => void
@@ -28,7 +35,7 @@ type Props = {
 export function BusinessHoursEditor({ value, onChange, onRemove, disabled }: Props) {
   function toggle(day: number, open: boolean) {
     if (open) {
-      onChange({ ...value, [day]: { opens_at: DEFAULT_OPEN, closes_at: DEFAULT_CLOSE } })
+      onChange({ ...value, [day]: [{ opens_at: DEFAULT_OPEN, closes_at: DEFAULT_CLOSE }] })
     } else {
       const next = { ...value }
       delete next[day]
@@ -36,25 +43,45 @@ export function BusinessHoursEditor({ value, onChange, onRemove, disabled }: Pro
     }
   }
 
-  function update(day: number, field: 'opens_at' | 'closes_at', time: string) {
-    const existing = value[day]
-    if (!existing) return
-    onChange({ ...value, [day]: { ...existing, [field]: time } })
+  function update(day: number, index: number, field: 'opens_at' | 'closes_at', time: string) {
+    const shifts = value[day]
+    if (!shifts?.[index]) return
+    const nextShifts = shifts.map((s, i) => (i === index ? { ...s, [field]: time } : s))
+    onChange({ ...value, [day]: nextShifts })
+  }
+
+  /** Segundo turno del día (horario partido). */
+  function addShift(day: number) {
+    const shifts = value[day]
+    if (!shifts || shifts.length >= MAX_SHIFTS) return
+    onChange({
+      ...value,
+      [day]: [...shifts, { opens_at: DEFAULT_SECOND_OPEN, closes_at: DEFAULT_SECOND_CLOSE }],
+    })
+  }
+
+  function removeShift(day: number, index: number) {
+    const shifts = value[day]
+    if (!shifts) return
+    const nextShifts = shifts.filter((_, i) => i !== index)
+    // Quitar el único turno equivale a cerrar el día.
+    if (nextShifts.length === 0) return toggle(day, false)
+    onChange({ ...value, [day]: nextShifts })
   }
 
   function copyMonToWeekdays() {
     const mon = value[1]
     if (!mon) return
     const next = { ...value }
-    for (const d of [2, 3, 4, 5]) next[d] = { ...mon }
+    for (const d of [2, 3, 4, 5]) next[d] = mon.map((s) => ({ ...s }))
     onChange(next)
   }
 
   function applyToAll() {
-    const first = Object.values(value).find(Boolean)
+    const first = Object.values(value).find((s) => s && s.length > 0)
     if (!first) return
     const next: WeeklyHours = {}
-    for (const d of [0, 1, 2, 3, 4, 5, 6]) next[d] = { ...first }
+    for (const d of [0, 1, 2, 3, 4, 5, 6]) next[d] = first.map((s) => ({ ...s }))
     onChange(next)
   }
 
@@ -63,8 +90,8 @@ export function BusinessHoursEditor({ value, onChange, onRemove, disabled }: Pro
     onRemove?.()
   }
 
-  const monOpen = !!value[1]
-  const hasAny = Object.values(value).some(Boolean)
+  const monOpen = !!value[1]?.length
+  const hasAny = Object.values(value).some((s) => s && s.length > 0)
 
   return (
     <div className="space-y-3">
@@ -108,42 +135,72 @@ export function BusinessHoursEditor({ value, onChange, onRemove, disabled }: Pro
       </div>
       <div className="divide-y rounded-md border">
         {DAYS.map(({ value: day, label }) => {
-          const hours = value[day]
-          const isOpen = !!hours
+          const shifts = value[day] ?? []
+          const isOpen = shifts.length > 0
           return (
-            <div key={day} className="flex items-center gap-3 px-3 py-2.5">
+            <div key={day} className="flex items-start gap-3 px-3 py-2.5">
               <Checkbox
                 id={`day-${day}`}
                 checked={isOpen}
                 onCheckedChange={(v) => toggle(day, !!v)}
                 disabled={disabled}
+                className="mt-2.5"
               />
               <label
                 htmlFor={`day-${day}`}
-                className="w-8 cursor-pointer text-sm font-medium select-none"
+                className="mt-2 w-8 cursor-pointer text-sm font-medium select-none"
               >
                 {label}
               </label>
               {isOpen ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="time"
-                    value={hours.opens_at}
-                    onChange={(e) => update(day, 'opens_at', e.target.value)}
-                    disabled={disabled}
-                    className="w-28"
-                  />
-                  <span className="text-muted-foreground text-sm">–</span>
-                  <Input
-                    type="time"
-                    value={hours.closes_at}
-                    onChange={(e) => update(day, 'closes_at', e.target.value)}
-                    disabled={disabled}
-                    className="w-28"
-                  />
+                <div className="flex flex-col gap-2">
+                  {shifts.map((hours, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input
+                        type="time"
+                        aria-label={`Abre ${label}${i > 0 ? ' (turno 2)' : ''}`}
+                        value={hours.opens_at}
+                        onChange={(e) => update(day, i, 'opens_at', e.target.value)}
+                        disabled={disabled}
+                        className="w-28"
+                      />
+                      <span className="text-muted-foreground text-sm">–</span>
+                      <Input
+                        type="time"
+                        aria-label={`Cierra ${label}${i > 0 ? ' (turno 2)' : ''}`}
+                        value={hours.closes_at}
+                        onChange={(e) => update(day, i, 'closes_at', e.target.value)}
+                        disabled={disabled}
+                        className="w-28"
+                      />
+                      {i > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={disabled}
+                          onClick={() => removeShift(day, i)}
+                        >
+                          Quitar
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  {shifts.length < MAX_SHIFTS && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="self-start px-0"
+                      disabled={disabled}
+                      onClick={() => addShift(day)}
+                    >
+                      + Otro turno (cierra a comer)
+                    </Button>
+                  )}
                 </div>
               ) : (
-                <span className="text-muted-foreground text-sm">Cerrado</span>
+                <span className="text-muted-foreground mt-2 text-sm">Cerrado</span>
               )}
             </div>
           )

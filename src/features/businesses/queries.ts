@@ -265,11 +265,17 @@ export async function getBusinessHours(businessId: string): Promise<WeeklyHours>
     .eq('business_id', businessId)
   if (error) throw error
   const hours: WeeklyHours = {}
+  // Un día puede traer más de una fila (horario partido). Se agrupan y se
+  // ordenan por hora de apertura para que el editor siempre pinte mañana antes
+  // que tarde, sin depender del orden que devuelva Postgres.
   for (const row of data ?? []) {
-    hours[row.day_of_week] = {
+    ;(hours[row.day_of_week] ??= []).push({
       opens_at: row.opens_at.slice(0, 5),
       closes_at: row.closes_at.slice(0, 5),
-    }
+    })
+  }
+  for (const shifts of Object.values(hours)) {
+    shifts?.sort((a, b) => a.opens_at.localeCompare(b.opens_at))
   }
   return hours
 }

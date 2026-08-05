@@ -17,6 +17,11 @@ import { formatMxPhone, normalizeMxPhone } from '@/lib/validation/phone'
 import { hasSchedule } from '@/features/businesses/completeness'
 import type { Business, CategoryOption, WeeklyHours } from '@/features/businesses/types'
 import {
+  WHATSAPP_MODES,
+  initialWhatsappMode,
+  type WhatsappMode,
+} from '@/features/businesses/whatsapp'
+import {
   finishFieldVisit,
   getOfferingSuggestions,
   setFieldHours,
@@ -54,7 +59,13 @@ export function FieldCapture({
 
   const [name, setName] = useState(business.name)
   const [phone, setPhone] = useState(business.phone ?? '')
-  const [isWhatsapp, setIsWhatsapp] = useState(business.phone_is_whatsapp)
+  // Una sola pregunta de WhatsApp con tres respuestas excluyentes. El segundo
+  // número sólo se pide con "Otro número", así que la captura de calle sigue
+  // siendo dos toques en el caso normal.
+  const [waMode, setWaMode] = useState<WhatsappMode>(() =>
+    initialWhatsappMode(business.whatsapp_phone, business.phone_is_whatsapp),
+  )
+  const [waPhone, setWaPhone] = useState(business.whatsapp_phone ?? '')
   const [address, setAddress] = useState(business.address ?? '')
   const [mapsUrl, setMapsUrl] = useState(business.maps_url ?? '')
   const [description, setDescription] = useState(business.description ?? '')
@@ -147,6 +158,23 @@ export function FieldCapture({
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     el?.querySelector<HTMLElement>('input, textarea, button')?.focus({ preventScroll: true })
   }, [])
+
+  /**
+   * Traduce la opción elegida a las dos columnas reales y las manda de una vez.
+   * Al salir de "Otro número" el segundo teléfono se limpia: si se quedara
+   * guardado, el negocio seguiría mandando el WhatsApp a un número que el
+   * capturista ya dijo que no aplica.
+   */
+  function changeWhatsappMode(mode: WhatsappMode) {
+    setWaMode(mode)
+    save('phone_is_whatsapp', mode === 'mismo')
+    void flush('phone_is_whatsapp')
+    if (mode !== 'otro') {
+      setWaPhone('')
+      save('whatsapp_phone', '')
+      void flush('whatsapp_phone')
+    }
+  }
 
   function saveHours(next: WeeklyHours) {
     setHours(next)
@@ -316,7 +344,7 @@ export function FieldCapture({
         </section>
 
         <section id="campo-telefono" className="scroll-mt-20 border-t px-4 py-5">
-          <h2 className="mb-3 font-semibold">Teléfono</h2>
+          <h2 className="mb-3 font-semibold">Teléfono (llamadas)</h2>
           <input
             type="tel"
             inputMode="tel"
@@ -330,29 +358,57 @@ export function FieldCapture({
             placeholder="618 123 4567"
             className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-14 w-full rounded-xl border px-4 text-base outline-none focus-visible:ring-3"
           />
-          <button
-            type="button"
-            onClick={() => {
-              const next = !isWhatsapp
-              setIsWhatsapp(next)
-              save('phone_is_whatsapp', next)
-              void flush('phone_is_whatsapp')
-            }}
-            className="mt-3 flex min-h-12 w-full items-center gap-3 text-left"
-          >
-            <span
-              className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${
-                isWhatsapp ? 'bg-emerald-500' : 'bg-muted'
-              }`}
-            >
-              <span
-                className={`size-5 rounded-full bg-white transition-transform ${
-                  isWhatsapp ? 'translate-x-5' : ''
+          {/* Una sola pregunta con tres respuestas excluyentes, en vez del
+              switch "Tiene WhatsApp" + link escondido que había: los dos
+              contestaban lo mismo y se podían contradecir. */}
+          <p className="text-muted-foreground mt-4 mb-2 text-sm">WhatsApp</p>
+          <div className="flex gap-2">
+            {WHATSAPP_MODES.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => changeWhatsappMode(value)}
+                aria-pressed={waMode === value}
+                className={`min-h-12 flex-1 rounded-xl px-2 text-sm font-medium ${
+                  waMode === value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground'
                 }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {waMode === 'otro' && (
+            <div className="mt-3">
+              <label
+                htmlFor="campo-whatsapp-phone"
+                className="text-muted-foreground mb-1 block text-sm"
+              >
+                Número de WhatsApp
+              </label>
+              <input
+                id="campo-whatsapp-phone"
+                type="tel"
+                inputMode="tel"
+                autoFocus={!waPhone}
+                value={formatMxPhone(waPhone)}
+                onChange={(e) => {
+                  const digits = normalizeMxPhone(e.target.value)
+                  setWaPhone(digits)
+                  // Se guarda con 10 dígitos o vacío (vacío = borrar el número
+                  // aparte); los estados intermedios del tecleo no se mandan.
+                  if (digits.length === 10 || digits.length === 0) {
+                    save('whatsapp_phone', digits)
+                  }
+                }}
+                onBlur={() => flush('whatsapp_phone')}
+                placeholder="618 123 4567"
+                className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-14 w-full rounded-xl border px-4 text-base outline-none focus-visible:ring-3"
               />
-            </span>
-            Tiene WhatsApp
-          </button>
+            </div>
+          )}
         </section>
 
         <section id="campo-categoria" className="scroll-mt-20 border-t px-4 py-5">

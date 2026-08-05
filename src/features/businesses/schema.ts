@@ -52,6 +52,10 @@ export const businessFormSchema = z.object({
   secondary_category_ids: z.array(z.string().uuid()).default([]),
   phone: mxPhoneSchema,
   phone_is_whatsapp: z.boolean(),
+  // Número de WhatsApp cuando NO es el mismo que el de llamadas. Vacío → null y
+  // el WhatsApp cae a `phone` (si `phone_is_whatsapp`), que es como se comportan
+  // todos los negocios cargados hasta hoy.
+  whatsapp_phone: optionalMxPhoneSchema,
   address: z
     .string()
     .trim()
@@ -204,10 +208,18 @@ export const dayHoursSchema = z.object({
   closes_at: z.string().regex(HHMM, 'Hora de cierre inválida.'),
 })
 
-/** Horario semanal: llaves '0'–'6' (domingo = 0, igual que `extract(dow)`). */
+/**
+ * Horario semanal: llaves '0'–'6' (domingo = 0, igual que `extract(dow)`).
+ * El valor es la lista de TURNOS del día — dos turnos = horario partido.
+ * Se topa en 2 a propósito: en campo no ha aparecido un negocio con tres, y el
+ * límite evita que un bug de UI escriba una lista infinita.
+ */
 export const weeklyHoursSchema = z.record(
   z.string().regex(/^[0-6]$/, 'Día inválido.'),
-  dayHoursSchema,
+  z
+    .array(dayHoursSchema)
+    .min(1, 'El día necesita al menos un turno.')
+    .max(2, 'Máximo 2 turnos por día.'),
 )
 
 export const BUSINESSES_PAGE_SIZE = 20
@@ -268,6 +280,7 @@ export function parseBusinessForm(formData: FormData) {
     secondary_category_ids: secondaryRaw.filter((c) => c !== primary),
     phone: formData.get('phone'),
     phone_is_whatsapp: formData.get('phone_is_whatsapp') === 'true',
+    whatsapp_phone: formData.get('whatsapp_phone') ?? '',
     address: formData.get('address') ?? '',
     maps_url: formData.get('maps_url') ?? '',
     municipio: formData.get('municipio') ?? 'Vicente Guerrero',

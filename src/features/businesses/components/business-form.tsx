@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { BusinessFormState } from '../actions'
 import { businessFormSchema, MUNICIPIOS, type BusinessFormInput } from '../schema'
 import type { CategoryOption, PhotoInput, ServiceInput, WeeklyHours } from '../types'
+import { WHATSAPP_MODES, initialWhatsappMode, type WhatsappMode } from '../whatsapp'
 import { BusinessGalleryEditor } from './business-gallery-editor'
 import { BusinessHoursEditor } from './business-hours-editor'
 import { BusinessServicesEditor } from './business-services-editor'
@@ -57,6 +58,7 @@ type Props = {
     secondary_category_ids?: string[] | null
     phone?: string
     phone_is_whatsapp?: boolean | null
+    whatsapp_phone?: string | null
     address?: string | null
     maps_url?: string | null
     municipio?: string | null
@@ -119,6 +121,9 @@ export function BusinessForm({
   const [offeringInput, setOfferingInput] = useState('')
   const [secondaryIds, setSecondaryIds] = useState<string[]>(defaults?.secondary_category_ids ?? [])
   const [categorySearch, setCategorySearch] = useState('')
+  const [whatsappMode, setWhatsappModeState] = useState<WhatsappMode>(() =>
+    initialWhatsappMode(defaults?.whatsapp_phone, defaults?.phone_is_whatsapp),
+  )
   const [hours, setHours] = useState<WeeklyHours>(defaultHours ?? {})
   const [showHours, setShowHours] = useState(() => Object.keys(defaultHours ?? {}).length > 0)
   // Coordenadas: fuera de react-hook-form (como horarios y galería) porque se
@@ -190,6 +195,7 @@ export function BusinessForm({
       primary_category_id: defaults?.primary_category_id ?? '',
       phone: normalizeMxPhone(defaults?.phone),
       phone_is_whatsapp: defaults?.phone_is_whatsapp ?? false,
+      whatsapp_phone: normalizeMxPhone(defaults?.whatsapp_phone),
       address: defaults?.address ?? '',
       maps_url: defaults?.maps_url ?? '',
       municipio: (lockedMunicipio ??
@@ -204,6 +210,20 @@ export function BusinessForm({
       owner_contact_note: defaults?.owner_contact_note ?? '',
     },
   })
+
+  /**
+   * Traduce la opción elegida a las dos columnas que sí existen en la DB.
+   * `phone_is_whatsapp` significa "el número de llamadas TAMBIÉN tiene
+   * WhatsApp", así que con "Otro número" va en false: el WhatsApp es el otro.
+   */
+  function setWhatsappMode(mode: WhatsappMode) {
+    setWhatsappModeState(mode)
+    form.setValue('phone_is_whatsapp', mode === 'mismo')
+    // Al salir de "Otro número" el segundo teléfono se limpia: si se quedara
+    // guardado, el negocio seguiría mandando el WhatsApp a un número que el
+    // capturista ya dijo que no aplica.
+    if (mode !== 'otro') form.setValue('whatsapp_phone', '')
+  }
 
   const watchedName = useWatch({ control: form.control, name: 'name' })
   useEffect(() => {
@@ -239,6 +259,7 @@ export function BusinessForm({
       fd.set('secondary_category_ids', JSON.stringify(secondaryIds))
       fd.set('phone', values.phone)
       fd.set('phone_is_whatsapp', String(values.phone_is_whatsapp))
+      fd.set('whatsapp_phone', values.whatsapp_phone ?? '')
       fd.set('address', values.address ?? '')
       fd.set('maps_url', values.maps_url ?? '')
       fd.set('municipio', values.municipio)
@@ -476,7 +497,7 @@ export function BusinessForm({
             name="phone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Teléfono</FormLabel>
+                <FormLabel>Teléfono (llamadas)</FormLabel>
                 <FormControl>
                   <PhoneInput
                     name={field.name}
@@ -492,25 +513,57 @@ export function BusinessForm({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="phone_is_whatsapp"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center gap-2">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
+          {/* Una sola pregunta de WhatsApp en vez de checkbox + campo suelto.
+              Antes se podía palomear "tiene WhatsApp" Y escribir otro número, y
+              nadie sabía cuál ganaba; las tres opciones son excluyentes por
+              construcción. El mapeo a DB está en `setWhatsappMode`. */}
+          <FormItem>
+            <FormLabel>WhatsApp</FormLabel>
+            <div className="space-y-2">
+              {WHATSAPP_MODES.map(({ value, label }) => (
+                <label
+                  key={value}
+                  htmlFor={`wa-mode-${value}`}
+                  className="flex cursor-pointer items-center gap-2 text-sm"
+                >
+                  <input
+                    type="radio"
+                    id={`wa-mode-${value}`}
+                    name="whatsapp_mode"
+                    value={value}
+                    checked={whatsappMode === value}
+                    onChange={() => setWhatsappMode(value)}
                     disabled={isPending}
-                    id="phone_is_whatsapp"
+                    className="size-4 cursor-pointer"
                   />
-                </FormControl>
-                <FormLabel htmlFor="phone_is_whatsapp" className="!mt-0 cursor-pointer">
-                  El teléfono tiene WhatsApp
-                </FormLabel>
-              </FormItem>
-            )}
-          />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </FormItem>
+
+          {whatsappMode === 'otro' && (
+            <FormField
+              control={form.control}
+              name="whatsapp_phone"
+              render={({ field }) => (
+                <FormItem className="pl-6">
+                  <FormLabel>Número de WhatsApp</FormLabel>
+                  <FormControl>
+                    <PhoneInput
+                      name={field.name}
+                      ref={field.ref}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onChange={field.onChange}
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <div className="space-y-4 rounded-md border p-4">
             <div>
