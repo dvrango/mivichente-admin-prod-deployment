@@ -153,7 +153,12 @@ export function BusinessServicesEditor({
                     <ImagePlus className="size-5" />
                   </button>
                 )}
-                <div className="grid flex-1 grid-cols-[1fr_8rem] gap-2">
+                {/* En celular nombre y precio se apilan. En una fila, el precio
+                    de 8rem y los tres botones son anchos fijos que a ~360px no
+                    dejan nada para el nombre: el input quedaba de ~0px y no se
+                    veía lo tecleado. `min-w-0` para que sí pueda encoger dentro
+                    del flex en vez de desbordarse. */}
+                <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-[1fr_8rem]">
                   <Input
                     value={service.name}
                     onChange={(e) => update(i, 'name', e.target.value)}
