@@ -28,4 +28,6 @@ curl -sf "${META_URL}/pg/generators/typescript" \
   -H "apikey: ${ANON_KEY}" \
   > "$OUT"
 
+npx prettier --write "$OUT"
+
 echo "✓ Tipos generados en src/lib/database.types.ts"
