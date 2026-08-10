@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useRef } from 'react'
-import { ArrowDown, ArrowUp, ImagePlus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Eye, EyeOff, ImagePlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -26,6 +26,7 @@ const EMPTY_SERVICE: ServiceInput = {
   imageUrl: null,
   imageFile: null,
   imagePreviewUrl: null,
+  isPublished: true,
 }
 
 export function BusinessServicesEditor({
@@ -46,6 +47,10 @@ export function BusinessServicesEditor({
 
   function add() {
     onChange([...value, { ...EMPTY_SERVICE }])
+  }
+
+  function togglePublished(index: number) {
+    onChange(value.map((s, i) => (i === index ? { ...s, isPublished: !s.isPublished } : s)))
   }
 
   function remove(index: number) {
@@ -120,7 +125,10 @@ export function BusinessServicesEditor({
       {value.length > 0 && (
         <div className="space-y-2">
           {value.map((service, i) => (
-            <div key={i} className="space-y-2 rounded-md border p-3">
+            <div
+              key={i}
+              className={`space-y-2 rounded-md border p-3 ${service.isPublished ? '' : 'opacity-60'}`}
+            >
               <div className="flex items-start gap-2">
                 {service.imagePreviewUrl ? (
                   <div className="relative shrink-0">
@@ -177,6 +185,26 @@ export function BusinessServicesEditor({
                   />
                 </div>
                 <div className="flex gap-0.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={`size-8 ${service.isPublished ? '' : 'text-muted-foreground'}`}
+                    disabled={disabled}
+                    onClick={() => togglePublished(i)}
+                    aria-label={service.isPublished ? 'Ocultar de la app' : 'Mostrar en la app'}
+                    title={
+                      service.isPublished
+                        ? 'Visible en la app — clic para ocultar'
+                        : 'Oculto — clic para publicar'
+                    }
+                  >
+                    {service.isPublished ? (
+                      <Eye className="size-3.5" />
+                    ) : (
+                      <EyeOff className="size-3.5" />
+                    )}
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"

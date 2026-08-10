@@ -70,6 +70,7 @@ type ResolvedService = {
   price: number | null
   description: string | null
   image_url: string | null
+  is_published: boolean
 }
 
 /**
@@ -87,7 +88,12 @@ async function uploadServiceImages(
   const uploadedPaths: string[] = []
 
   for (const s of services) {
-    const base = { name: s.name, price: s.price, description: s.description }
+    const base = {
+      name: s.name,
+      price: s.price,
+      description: s.description,
+      is_published: s.is_published,
+    }
     if (s.imageNewIndex === undefined) {
       // Igual que la galería: si el cliente la acaba de subir, se apunta para
       // poder limpiarla si el guardado falla.
@@ -135,6 +141,7 @@ async function upsertServices(
     price: s.price,
     description: s.description,
     image_url: s.image_url,
+    is_published: s.is_published,
     order_index: i,
   }))
   if (rows.length > 0) {

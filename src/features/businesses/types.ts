@@ -51,6 +51,9 @@ export type ServiceInput = {
   imageUrl: string | null
   imageFile: File | null
   imagePreviewUrl: string | null
+  // Control manual de visibilidad en la app. true = visible (default, no
+  // rompe servicios existentes). false = oculto mientras se arma/edita.
+  isPublished: boolean
 }
 
 /**

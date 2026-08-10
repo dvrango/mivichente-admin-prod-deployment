@@ -141,6 +141,9 @@ export const serviceSchema = z
     // `true` = el cliente la acaba de subir en esta misma edición. Sirve para
     // borrarla del bucket si el guardado falla después.
     justUploaded: z.boolean().optional(),
+    // Visibilidad manual en la app. Default true: un servicio sin este campo
+    // (payload viejo) se sigue mostrando igual que hoy.
+    is_published: z.boolean().default(true),
   })
   .refine(
     (s) => !(s.image_url !== undefined && s.imageNewIndex !== undefined),

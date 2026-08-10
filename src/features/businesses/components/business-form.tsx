@@ -284,7 +284,12 @@ export function BusinessForm({
       // schema las rechazaría por nombre vacío y el guardado fallaría entero.
       const servicesPayload: Record<string, unknown>[] = []
       for (const s of services.filter((x) => x.name.trim() !== '')) {
-        const base = { name: s.name, price: s.price, description: s.description }
+        const base = {
+          name: s.name,
+          price: s.price,
+          description: s.description,
+          is_published: s.isPublished,
+        }
         if (s.imageFile) {
           const url = await upload(s.imageFile)
           if (!url) return
@@ -948,6 +953,7 @@ export function BusinessForm({
                       imageUrl: null,
                       imageFile: null,
                       imagePreviewUrl: null,
+                      isPublished: true,
                     },
                   ])
                 }}

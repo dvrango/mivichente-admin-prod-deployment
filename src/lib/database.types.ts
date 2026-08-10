@@ -1490,6 +1490,40 @@ export type Database = {
           },
         ]
       }
+      business_contacts: {
+        Row: {
+          business_id: string
+          channel: string
+          created_at: string
+          device_id: string
+          id: string
+          source: string
+        }
+        Insert: {
+          business_id: string
+          channel: string
+          created_at?: string
+          device_id: string
+          id?: string
+          source: string
+        }
+        Update: {
+          business_id?: string
+          channel?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_contacts_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       business_hours: {
         Row: {
           business_id: string
@@ -1654,6 +1688,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          is_published: boolean
           name: string
           order_index: number
           price: number | null
@@ -1666,6 +1701,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_published?: boolean
           name: string
           order_index?: number
           price?: number | null
@@ -1678,6 +1714,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_published?: boolean
           name?: string
           order_index?: number
           price?: number | null
