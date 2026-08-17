@@ -1,6 +1,12 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Sin esto, Turbopack sube directorios buscando un lockfile y puede anclar
+  // la raíz del proyecto fuera del repo (ej. un lockfile viejo en ~/Documents),
+  // lo que hace que vigile carpetas ajenas enteras — vault, otros repos, etc.
+  turbopack: {
+    root: __dirname,
+  },
   // El modo campo se prueba desde el celular contra el dev server de la laptop,
   // así que las requests llegan con un Origin de LAN y Next las bloquea por
   // default. Sólo aplica a `next dev` — en producción no tiene efecto.
