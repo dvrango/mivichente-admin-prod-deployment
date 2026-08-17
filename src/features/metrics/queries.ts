@@ -46,9 +46,11 @@ type ContactRow = { channel: string; source: string; created_at: string }
 
 function weekIndexOf(createdAt: string, now: number): number {
   // 0 = semana actual (últimos 7 días), WEEKS-1 = la más vieja del rango.
-  return Math.min(
-    WEEKS - 1,
-    Math.floor((now - new Date(createdAt).getTime()) / (WINDOW_DAYS * DAY_MS)),
+  // Clamp abajo también: una fila con created_at muy cerca de `now` (o el
+  // reloj de la DB un poco adelante del de Vercel) puede dar índice negativo.
+  return Math.max(
+    0,
+    Math.min(WEEKS - 1, Math.floor((now - new Date(createdAt).getTime()) / (WINDOW_DAYS * DAY_MS))),
   )
 }
 
