@@ -12,3 +12,11 @@ export const SRC_MENU_QR = 'menu-qr'
 export function urlMenuImpresa(slug: string): string {
   return `${DOMINIO_PUBLICO}/${slug}/menu?src=${SRC_MENU_QR}`
 }
+
+/** URL del perfil como se LEE en la tarjeta que el negocio comparte. Va sin
+ *  `?src=` a propósito: nadie la escanea, alguien la teclea desde la foto, y
+ *  cada carácter de más es una oportunidad de equivocarse. El costo es que ese
+ *  tráfico no queda atribuido en qr_scans. */
+export function urlPerfilLegible(slug: string): string {
+  return `${DOMINIO_PUBLICO.replace('https://', '')}/${slug}`
+}
