@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition, useRef, KeyboardEvent } from 'react'
-import { X } from 'lucide-react'
+import { Check, Copy, X } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Badge } from '@/components/ui/badge'
@@ -138,6 +138,21 @@ export function BusinessForm({
   // Al crear, el slug se deriva del nombre en vivo hasta que el admin lo edita a
   // mano. Al editar ya hay un slug asignado (circula en links) → no se sobreescribe.
   const [slugTouched, setSlugTouched] = useState(!!defaults?.slug)
+  // 'ok' vuelve solo a 'idle' a los 2s; 'error' se queda hasta el siguiente
+  // intento, porque si no se pudo copiar el admin tiene que hacer algo.
+  const [copiaUrl, setCopiaUrl] = useState<'idle' | 'ok' | 'error'>('idle')
+
+  async function copiarUrlNegocio(slug: string) {
+    try {
+      await navigator.clipboard.writeText(`https://vichente.com/${slug}`)
+      setCopiaUrl('ok')
+      setTimeout(() => setCopiaUrl('idle'), 2000)
+    } catch {
+      // navigator.clipboard no existe fuera de contexto seguro (http). No es
+      // el caso en Vercel, pero sí si alguien abre el admin por IP en la LAN.
+      setCopiaUrl('error')
+    }
+  }
 
   function addAlias(value: string) {
     const trimmed = value.trim()
@@ -392,11 +407,45 @@ export function BusinessForm({
                         field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))
                       }}
                     />
+                    {/* Copia la URL completa (con https://), no lo que se lee en
+                        pantalla: es lo que se pega en WhatsApp y lo que hace que
+                        el link sea tocable del otro lado. */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      disabled={isPending || !field.value}
+                      onClick={() => copiarUrlNegocio(field.value ?? '')}
+                      title="Copiar la URL completa"
+                      aria-label="Copiar la URL completa del negocio"
+                    >
+                      {copiaUrl === 'ok' ? (
+                        <Check className="size-4 text-emerald-600" />
+                      ) : (
+                        <Copy className="size-4" />
+                      )}
+                    </Button>
                   </div>
                 </FormControl>
                 <p className="text-muted-foreground text-xs">
                   Se genera solo del nombre. Puedes personalizarlo: minúsculas y guiones.
                 </p>
+                {copiaUrl === 'error' && (
+                  <p className="text-destructive text-xs">
+                    No se pudo copiar. Cópiala a mano: vichente.com/{field.value}
+                  </p>
+                )}
+                {/* El botón copia lo que está en el input, que puede no ser todavía
+                    lo que hay en la base. Sin este aviso se puede pegar en WhatsApp
+                    un link que aún no existe. */}
+                {field.value && field.value !== defaults?.slug && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500">
+                    {defaults?.slug
+                      ? 'Cambiaste la URL: guarda para que este link funcione.'
+                      : 'Guarda el negocio para que este link funcione.'}
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}
