@@ -26,6 +26,15 @@ type NewBusinessSearchParams = {
    * cualquier foto ya subida. La primera es la portada.
    */
   photo_urls?: string
+  address?: string
+  facebook_url?: string
+  instagram_url?: string
+  /**
+   * Horario tal como lo escribió el dueño. No hay campo donde precargarlo
+   * —`business_hours` son filas por día— así que viaja para mostrarse como
+   * aviso y que quien llena el form lo capture en el editor de horarios.
+   */
+  hours_note?: string
 }
 
 export default async function NewBusinessPage({
@@ -68,6 +77,9 @@ export default async function NewBusinessPage({
         offerings: params.offerings ? params.offerings.split('|').filter(Boolean) : [],
         owner: params.contact_name ?? '',
         owner_phone: params.contact_phone ?? '',
+        address: params.address ?? '',
+        facebook_url: params.facebook_url ?? '',
+        instagram_url: params.instagram_url ?? '',
       }
     : undefined
 
@@ -96,6 +108,20 @@ export default async function NewBusinessPage({
             : undefined
         }
       />
+
+      {/* El horario es el único dato de la solicitud que no se puede precargar:
+          `business_hours` son filas por día con turnos partidos y el dueño lo
+          escribió en una línea. Se muestra aquí porque en esta pantalla ya no
+          tiene la solicitud enfrente — si no, el dato se pierde. */}
+      {fromRegistration && params.hours_note && (
+        <div className="rounded-md border border-dashed p-4 text-sm">
+          <p className="font-medium">El dueño dijo su horario así:</p>
+          <p className="text-muted-foreground mt-1">{params.hours_note}</p>
+          <p className="text-muted-foreground mt-2">
+            No se puede precargar solo — captúralo abajo en el editor de horarios.
+          </p>
+        </div>
+      )}
       <BusinessForm
         action={createBusiness}
         submitLabel="Crear"

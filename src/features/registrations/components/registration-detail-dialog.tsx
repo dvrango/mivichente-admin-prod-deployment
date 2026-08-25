@@ -170,6 +170,35 @@ export function RegistrationDetailDialog({
 
               <Campo label="Municipio">{r.municipio}</Campo>
 
+              <Campo label="Dirección">
+                {r.address?.trim() ? (
+                  <p>{r.address}</p>
+                ) : (
+                  <span className="text-muted-foreground">No especificó</span>
+                )}
+              </Campo>
+
+              {/* El horario NO se copia solo al negocio: `business_hours` son
+                  filas por día y soporta turnos partidos, así que se le pidió al
+                  dueño en texto libre y quien aprueba lo captura en el editor.
+                  Por eso se muestra destacado — si nadie lo lee aquí, el dato se
+                  queda enterrado en la solicitud. */}
+              <Campo label="Horario (lo dijo así, hay que capturarlo)">
+                {r.hours_note?.trim() ? (
+                  <p className="bg-muted/50 rounded-md border px-3 py-2">{r.hours_note}</p>
+                ) : (
+                  <span className="text-muted-foreground">No especificó</span>
+                )}
+              </Campo>
+
+              <Campo label="Facebook / Instagram">
+                {r.social_url?.trim() ? (
+                  <p className="break-all">{r.social_url}</p>
+                ) : (
+                  <span className="text-muted-foreground">No especificó</span>
+                )}
+              </Campo>
+
               {/* Se escribe al rechazar y hasta ahora no se mostraba en ningún
                   lado: la razón del rechazo quedaba enterrada en la base. */}
               {r.notes?.trim() && (

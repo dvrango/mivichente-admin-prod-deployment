@@ -29,4 +29,14 @@ export type BusinessRegistration = {
    * ni mandarlas a ningún lado.
    */
   photo_preview_urls?: string[]
+  /** Dirección en las palabras del dueño. Copia directa a `businesses.address`. */
+  address: string | null
+  /**
+   * Horario en texto libre ("9 a 6, domingos cerrado"). **No se mapea solo** a
+   * ninguna columna: `business_hours` son filas por día con turnos partidos, así
+   * que quien aprueba lo lee de aquí y lo captura en el editor de horarios.
+   */
+  hours_note: string | null
+  /** Facebook o Instagram; al aprobar se reparte según el dominio. */
+  social_url: string | null
 }

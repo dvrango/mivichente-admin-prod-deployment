@@ -12,6 +12,23 @@ import { normalizeMxPhone } from '@/lib/validation/phone'
 export type RegistrationActionState = { error: string | null }
 
 /**
+ * El dueño pega su red social en un solo campo — pedirle que distinga si es
+ * Facebook o Instagram sería fricción por nada. Aquí se reparte por dominio.
+ *
+ * Devuelve la columna que le toca, o null si no se reconoce el dominio: en ese
+ * caso no se guarda en ninguna, porque meter un link cualquiera en
+ * `facebook_url` lo pintaría en el perfil como si fuera su página.
+ */
+function socialColumn(url: string): 'facebook_url' | 'instagram_url' | null {
+  const v = url.toLowerCase()
+  if (v.includes('instagram.com')) return 'instagram_url'
+  if (v.includes('facebook.com') || v.includes('fb.com') || v.includes('fb.me')) {
+    return 'facebook_url'
+  }
+  return null
+}
+
+/**
  * Aprobar una solicitud de auto-registro.
  *
  * Dos caminos, según `business_registrations.business_id`:
@@ -38,7 +55,7 @@ export async function approveRegistration(
   const { data: reg, error: fetchErr } = await supabase
     .from('business_registrations')
     .select(
-      'id, business_id, business_name, phone, contact_name, contact_phone, municipio, description, offerings, giro, status, photo_paths',
+      'id, business_id, business_name, phone, contact_name, contact_phone, municipio, description, offerings, giro, status, photo_paths, address, hours_note, social_url',
     )
     .eq('id', id)
     .single()
@@ -59,6 +76,15 @@ export async function approveRegistration(
     if (reg.description) params.set('description', reg.description)
     if (reg.offerings.length > 0) params.set('offerings', reg.offerings.join('|'))
     if (reg.giro) params.set('giro', reg.giro)
+    if (reg.address) params.set('address', reg.address)
+    if (reg.social_url) {
+      const columna = socialColumn(reg.social_url)
+      if (columna) params.set(columna, reg.social_url)
+    }
+    // El horario no tiene campo en el form de negocios: se pasa como aviso para
+    // que quien lo llena lo capture en el editor de horarios. Sin esto, el dato
+    // se queda enterrado en la solicitud que el admin ya no tiene enfrente.
+    if (reg.hours_note) params.set('hours_note', reg.hours_note)
 
     // Los archivos no caben en un query param, pero sus URLs sí. Se copian al
     // bucket público ANTES de redirigir y viajan como URLs ya subidas: el form
@@ -94,7 +120,9 @@ export async function approveRegistration(
 
   const { data: business, error: bizFetchErr } = await supabase
     .from('businesses')
-    .select('id, phone, description, offerings, owner, owner_phone, owner_contact_note, photo_url')
+    .select(
+      'id, phone, description, offerings, owner, owner_phone, owner_contact_note, photo_url, address, facebook_url, instagram_url',
+    )
     .eq('id', reg.business_id)
     .single()
 
@@ -124,6 +152,17 @@ export async function approveRegistration(
   // El teléfono del contacto no pisa el público: si el negocio no tenía ninguno
   // (imposible hoy, phone es NOT NULL) igual quedaría el de la solicitud.
   if (!business.phone?.trim()) patch.phone = normalizeMxPhone(reg.phone)
+  if (!business.address?.trim() && reg.address?.trim()) patch.address = reg.address.trim()
+  // La red social va a la columna que le toque por dominio, y sólo si esa está
+  // vacía: un Instagram nuevo no debe pisar el Facebook que ya estaba.
+  if (reg.social_url?.trim()) {
+    const columna = socialColumn(reg.social_url)
+    if (columna && !business[columna]?.trim()) patch[columna] = reg.social_url.trim()
+  }
+  // `hours_note` NO entra al patch a propósito: business_hours son filas por día
+  // con turnos partidos y no hay forma segura de derivarlas de "9 a 6, domingos
+  // cerrado". Se queda en la solicitud, donde el panel de detalle lo muestra
+  // destacado para que quien aprueba lo capture a mano.
 
   // La foto sólo entra si el negocio no tiene ninguna: mismo criterio que el
   // resto del patch —se rellenan huecos, no se pisa lo que ya revisó un humano.

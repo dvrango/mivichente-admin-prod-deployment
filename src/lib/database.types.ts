@@ -1594,6 +1594,7 @@ export type Database = {
       }
       business_registrations: {
         Row: {
+          address: string | null
           business_id: string | null
           business_name: string
           contact_name: string
@@ -1601,15 +1602,18 @@ export type Database = {
           created_at: string
           description: string | null
           giro: string | null
+          hours_note: string | null
           id: string
           municipio: string
           notes: string | null
           offerings: string[]
           phone: string
           photo_paths: string[]
+          social_url: string | null
           status: string
         }
         Insert: {
+          address?: string | null
           business_id?: string | null
           business_name: string
           contact_name: string
@@ -1617,15 +1621,18 @@ export type Database = {
           created_at?: string
           description?: string | null
           giro?: string | null
+          hours_note?: string | null
           id?: string
           municipio: string
           notes?: string | null
           offerings?: string[]
           phone: string
           photo_paths?: string[]
+          social_url?: string | null
           status?: string
         }
         Update: {
+          address?: string | null
           business_id?: string | null
           business_name?: string
           contact_name?: string
@@ -1633,12 +1640,14 @@ export type Database = {
           created_at?: string
           description?: string | null
           giro?: string | null
+          hours_note?: string | null
           id?: string
           municipio?: string
           notes?: string | null
           offerings?: string[]
           phone?: string
           photo_paths?: string[]
+          social_url?: string | null
           status?: string
         }
         Relationships: [
