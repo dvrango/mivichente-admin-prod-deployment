@@ -19,6 +19,13 @@ type NewBusinessSearchParams = {
   /** Ofertas declaradas por el dueño, separadas por `|`. */
   offerings?: string
   giro?: string
+  /**
+   * Fotos que subió el dueño (hasta 3), ya copiadas al bucket público por
+   * `approveRegistration` y separadas por `|`. Viajan como URLs porque los
+   * archivos no caben en un query param — y así el form las trata como
+   * cualquier foto ya subida. La primera es la portada.
+   */
+  photo_urls?: string
 }
 
 export default async function NewBusinessPage({
@@ -64,6 +71,18 @@ export default async function NewBusinessPage({
       }
     : undefined
 
+  // La galería arranca con las fotos del dueño ya cargadas: `url` puesta y
+  // `file` en null es exactamente la forma de una foto que ya vive en storage,
+  // así que el guardado les crea sus filas en `business_photos` por el camino
+  // de siempre, en este orden. Sin caption — nadie las tituló, y el admin puede
+  // escribirlas antes de guardar.
+  const photoUrls =
+    fromRegistration && params.photo_urls ? params.photo_urls.split('|').filter(Boolean) : []
+  const defaultPhotos =
+    photoUrls.length > 0
+      ? photoUrls.map((url) => ({ url, file: null, previewUrl: url, caption: '' }))
+      : undefined
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -84,6 +103,7 @@ export default async function NewBusinessPage({
         lockedMunicipio={lockedMunicipio}
         registrationId={fromRegistration}
         defaults={defaults}
+        defaultPhotos={defaultPhotos}
       />
     </div>
   )

@@ -1606,6 +1606,7 @@ export type Database = {
           notes: string | null
           offerings: string[]
           phone: string
+          photo_paths: string[]
           status: string
         }
         Insert: {
@@ -1621,6 +1622,7 @@ export type Database = {
           notes?: string | null
           offerings?: string[]
           phone: string
+          photo_paths?: string[]
           status?: string
         }
         Update: {
@@ -1636,6 +1638,7 @@ export type Database = {
           notes?: string | null
           offerings?: string[]
           phone?: string
+          photo_paths?: string[]
           status?: string
         }
         Relationships: [
@@ -2221,7 +2224,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_03: {
+      messages_2026_08_17: {
         Row: {
           event: string | null
           extension: string
@@ -2254,7 +2257,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_04: {
+      messages_2026_08_18: {
         Row: {
           event: string | null
           extension: string
@@ -2287,7 +2290,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_05: {
+      messages_2026_08_19: {
         Row: {
           event: string | null
           extension: string
@@ -2320,7 +2323,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_06: {
+      messages_2026_08_20: {
         Row: {
           event: string | null
           extension: string
@@ -2353,7 +2356,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_07: {
+      messages_2026_08_21: {
         Row: {
           event: string | null
           extension: string

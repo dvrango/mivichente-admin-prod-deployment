@@ -86,6 +86,48 @@ export function RegistrationDetailDialog({
                 </div>
               )}
 
+              {/* La foto se ve ANTES de aprobar, no después: es la única
+                  revisión humana que hay sobre algo que entró por un formulario
+                  abierto. Vive en un bucket privado, así que llega como URL
+                  firmada desde la query y no está publicada en ningún lado
+                  mientras se decide. */}
+              <Campo
+                label={
+                  (r.photo_paths?.length ?? 0) > 1
+                    ? `Fotos que subió el dueño (${r.photo_paths.length})`
+                    : 'Foto que subió el dueño'
+                }
+              >
+                {(r.photo_preview_urls?.length ?? 0) > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {r.photo_preview_urls!.map((url, i) => (
+                      <div key={url} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt={`Foto ${i + 1} de ${r.business_name}`}
+                          className="bg-muted max-h-48 w-full rounded-lg border object-contain"
+                        />
+                        {/* La primera va a ser la portada del negocio y la que
+                            sale en la tarjeta: se marca para que quien revisa
+                            sepa cuál pesa más al decidir. */}
+                        {i === 0 && (
+                          <Badge className="absolute top-1.5 left-1.5" variant="secondary">
+                            Principal
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (r.photo_paths?.length ?? 0) > 0 ? (
+                  <span className="text-muted-foreground">
+                    Subió fotos, pero no se pudieron cargar. Recarga la página.
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">No subió fotos</span>
+                )}
+              </Campo>
+
               <Campo label="Qué vende">
                 {r.giro && (
                   <div className="text-muted-foreground mb-1.5 text-xs uppercase">
