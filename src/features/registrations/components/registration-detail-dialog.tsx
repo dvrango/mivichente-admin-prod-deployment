@@ -120,8 +120,15 @@ export function RegistrationDetailDialog({
                     ))}
                   </div>
                 ) : (r.photo_paths?.length ?? 0) > 0 ? (
+                  // Hay paths pero ninguno se pudo firmar. En una solicitud ya
+                  // resuelta eso es lo esperado, no una falla: al aprobar las
+                  // fotos se copian al negocio y al rechazar se borran, y en los
+                  // dos casos el staging queda vacío. Decir "recarga la página"
+                  // ahí manda a recargar en vano.
                   <span className="text-muted-foreground">
-                    Subió fotos, pero no se pudieron cargar. Recarga la página.
+                    {r.status === 'approved' || r.status === 'rejected'
+                      ? `Subió ${r.photo_paths.length === 1 ? 'una foto' : `${r.photo_paths.length} fotos`}. Ya no se ${r.photo_paths.length === 1 ? 'muestra' : 'muestran'} aquí: al ${r.status === 'approved' ? 'aprobar se copiaron al negocio' : 'rechazar se borraron'}.`
+                      : 'Subió fotos, pero no se pudieron cargar. Recarga la página.'}
                   </span>
                 ) : (
                   <span className="text-muted-foreground">No subió fotos</span>
