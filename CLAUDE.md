@@ -88,7 +88,7 @@ SUPABASE_SERVICE_ROLE_KEY=   # solo server
 
 ## Base de datos
 
-Schema en Obsidian (`02 Apps/v2-flutter/Database Schema.md`) + migraciones en `supabase/migrations/`. Tras cada migración: `npm run db:types:local`.
+Schema en Obsidian (`02 Apps/v2-admin-web/Database Schema.md`) + migraciones en `supabase/migrations/`. Tras cada migración: `npm run db:types:local`.
 
 ## Acceso
 
