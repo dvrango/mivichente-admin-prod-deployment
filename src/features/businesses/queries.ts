@@ -69,6 +69,22 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
     if (filters.municipio) {
       rows = rows.filter((r) => r.municipio === filters.municipio)
     }
+    if (filters.menu !== 'all') {
+      // Sólo negocios de comida: al resto no le aplica tener menú. Sobre esos
+      // ids se consulta business_services de una (no una query por negocio).
+      const foodRows = rows.filter((r) => r.category?.type === 'food')
+      const foodIds = foodRows.map((r) => r.id)
+      let withMenu = new Set<string>()
+      if (foodIds.length > 0) {
+        const { data: svcRows, error: svcError } = await supabase
+          .from('business_services')
+          .select('business_id')
+          .in('business_id', foodIds)
+        if (svcError) throw svcError
+        withMenu = new Set((svcRows ?? []).map((r) => r.business_id))
+      }
+      rows = foodRows.filter((r) => withMenu.has(r.id) === (filters.menu === 'with'))
+    }
     const total = rows.length
     const page = filters.page
     const pageCount = Math.max(1, Math.ceil(total / pageSize))
@@ -89,10 +105,30 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
     categoryBusinessIds = [...new Set((bcRows ?? []).map((r) => r.business_id))]
   }
 
+  // Negocios con al menos un servicio cargado. Se resuelve la lista de ids una
+  // vez y se usa en positivo (con menú) o en negativo (sin menú): son ~24 de
+  // ~585, mucho más corta que la de los negocios de comida sin menú.
+  let menuBusinessIds: string[] | null = null
+  if (filters.menu !== 'all') {
+    const { data: svcRows, error: svcError } = await supabase
+      .from('business_services')
+      .select('business_id')
+    if (svcError) throw svcError
+    menuBusinessIds = [...new Set((svcRows ?? []).map((r) => r.business_id))]
+  }
+
+  // Con filtro de menú el embed de categoría pasa a `!inner` para acotar a
+  // comida (`category.type = 'food'`). Es un embed to-one, así que no duplica
+  // filas y el `count: 'exact'` sigue cuadrando con la paginación.
+  const categoryEmbed =
+    filters.menu === 'all'
+      ? 'category:categories!businesses_category_id_fkey(id, name, type)'
+      : 'category:categories!businesses_category_id_fkey!inner(id, name, type)'
+
   let query = supabase
     .from('businesses')
     .select(
-      '*, category:categories!businesses_category_id_fkey(id, name, type), created_by_profile:profiles!businesses_created_by_fkey(email), updated_by_profile:profiles!businesses_updated_by_fkey(email)',
+      `*, ${categoryEmbed}, created_by_profile:profiles!businesses_created_by_fkey(email), updated_by_profile:profiles!businesses_updated_by_fkey(email)`,
       { count: 'exact' },
     )
     .order('created_at', { ascending: false })
@@ -108,6 +144,15 @@ export async function getBusinesses(filters: BusinessFilters): Promise<Businesse
   }
   if (filters.verified === 'yes') query = query.eq('is_verified', true)
   if (filters.municipio) query = query.eq('municipio', filters.municipio)
+  if (filters.menu !== 'all') {
+    query = query.eq('category.type', 'food')
+    if (filters.menu === 'with') {
+      query = query.in('id', menuBusinessIds ?? [])
+    } else if ((menuBusinessIds ?? []).length > 0) {
+      // `not.in` con lista vacía generaría `in.()`, que PostgREST rechaza.
+      query = query.not('id', 'in', `(${(menuBusinessIds ?? []).join(',')})`)
+    }
+  }
 
   const { data, error, count } = await query
   if (error) throw error

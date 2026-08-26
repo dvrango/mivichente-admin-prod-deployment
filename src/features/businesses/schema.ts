@@ -238,12 +238,21 @@ export type BusinessReview = (typeof BUSINESS_REVIEW_VALUES)[number]
 export const BUSINESS_VERIFIED_VALUES = ['all', 'yes'] as const
 export type BusinessVerified = (typeof BUSINESS_VERIFIED_VALUES)[number]
 
+// Menú = negocio de comida (categoría primaria con type 'food') con al menos un
+// servicio cargado en `business_services`; es lo que se imprime en el QR
+// (vichente.com/<slug>/menu). Los negocios que NO son de comida quedan fuera de
+// 'with' y de 'without': no les aplica tener menú, así que meterlos en "sin
+// menú" inflaría la lista de pendientes con negocios que nunca van a cargarlo.
+export const BUSINESS_MENU_VALUES = ['all', 'with', 'without'] as const
+export type BusinessMenu = (typeof BUSINESS_MENU_VALUES)[number]
+
 export const businessFiltersSchema = z.object({
   q: z.string().trim().optional().default(''),
   category: z.string().trim().optional().default(''),
   status: z.enum(BUSINESS_STATUS_VALUES).optional().default('all'),
   review: z.enum(BUSINESS_REVIEW_VALUES).optional().default('all'),
   verified: z.enum(BUSINESS_VERIFIED_VALUES).optional().default('all'),
+  menu: z.enum(BUSINESS_MENU_VALUES).optional().default('all'),
   // Sólo lo usa el admin (el reviewer ya queda acotado por RLS a su municipio).
   municipio: z.string().trim().optional().default(''),
   page: z.coerce.number().int().min(1).optional().default(1),

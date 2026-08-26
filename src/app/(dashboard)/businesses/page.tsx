@@ -25,6 +25,7 @@ export default async function BusinessesPage({
     review?: string
     verified?: string
     municipio?: string
+    menu?: string
     page?: string
   }>
 }) {
@@ -49,6 +50,7 @@ export default async function BusinessesPage({
       review: filters.review !== 'all' ? filters.review : null,
       verified: filters.verified !== 'all' ? filters.verified : null,
       municipio: filters.municipio || null,
+      menu: filters.menu !== 'all' ? filters.menu : null,
       page: nextPage > 1 ? String(nextPage) : null,
     })
   }
