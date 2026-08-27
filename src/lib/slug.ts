@@ -34,6 +34,9 @@ export const RESERVED_SLUGS = [
   'search',
   'explorar',
   'vichente',
+  // rutas raíz de los tabs de la app mobile (ver migration reserve_tab_slugs)
+  'negocios',
+  'comida',
 ] as const
 
 // Un slug válido: minúsculas, dígitos y guiones simples, sin guion al inicio/fin.
