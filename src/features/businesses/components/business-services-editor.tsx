@@ -59,6 +59,39 @@ export function BusinessServicesEditor({
     onChange(value.map((s, i) => (i === index ? { ...s, [field]: !s[field] } : s)))
   }
 
+  // Marca/desmarca "mostrar en el perfil" para TODA una sección de un jalón —
+  // un menú de restaurante trae 80+ platillos y hacerlo fila por fila para
+  // sacar "Bebidas" y "Bar" del perfil es inviable.
+  function setSectionShowInProfile(section: string, next: boolean) {
+    onChange(value.map((s) => (s.section.trim() === section ? { ...s, showInProfile: next } : s)))
+  }
+
+  // Secciones con nombre, en orden de aparición, con su estado agregado de
+  // visibilidad en el perfil (todas dentro / todas fuera / mezcladas).
+  const sectionSummary = (() => {
+    const order: string[] = []
+    const rows = new Map<string, ServiceInput[]>()
+    for (const s of value) {
+      const key = s.section.trim()
+      if (!key) continue
+      if (!rows.has(key)) {
+        rows.set(key, [])
+        order.push(key)
+      }
+      rows.get(key)!.push(s)
+    }
+    return order.map((name) => {
+      const items = rows.get(name)!
+      const shown = items.filter((s) => s.showInProfile).length
+      return {
+        name,
+        count: items.length,
+        allShown: shown === items.length,
+        noneShown: shown === 0,
+      }
+    })
+  })()
+
   function remove(index: number) {
     const service = value[index]
     if (service.imageFile && service.imagePreviewUrl) URL.revokeObjectURL(service.imagePreviewUrl)
@@ -127,6 +160,44 @@ export function BusinessServicesEditor({
           </Button>
         )}
       </div>
+
+      {isFood && sectionSummary.length > 0 && (
+        <div className="bg-muted/40 space-y-1.5 rounded-md border p-3">
+          <p className="text-muted-foreground text-xs font-medium">
+            Perfil por sección
+            <span className="font-normal">
+              {' '}
+              — el menú de mesa siempre muestra todo; esto es solo qué sale en la ficha del negocio.
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sectionSummary.map((sec) => (
+              <Button
+                key={sec.name}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={disabled}
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => setSectionShowInProfile(sec.name, !sec.allShown)}
+                title={
+                  sec.allShown
+                    ? `"${sec.name}" está en el perfil — clic para sacar la sección`
+                    : `"${sec.name}" está fuera del perfil — clic para meter la sección`
+                }
+              >
+                {sec.allShown ? (
+                  <User className="size-3" />
+                ) : (
+                  <UserX className={`size-3 ${sec.noneShown ? '' : 'opacity-50'}`} />
+                )}
+                {sec.name}
+                <span className="text-muted-foreground">({sec.count})</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {value.length > 0 && (
         <div className="space-y-2">
