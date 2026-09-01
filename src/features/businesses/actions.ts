@@ -71,6 +71,8 @@ type ResolvedService = {
   description: string | null
   image_url: string | null
   is_published: boolean
+  section: string | null
+  show_in_profile: boolean
 }
 
 /**
@@ -93,6 +95,8 @@ async function uploadServiceImages(
       price: s.price,
       description: s.description,
       is_published: s.is_published,
+      section: s.section ?? null,
+      show_in_profile: s.show_in_profile,
     }
     if (s.imageNewIndex === undefined) {
       // Igual que la galería: si el cliente la acaba de subir, se apunta para
@@ -142,6 +146,8 @@ async function upsertServices(
     description: s.description,
     image_url: s.image_url,
     is_published: s.is_published,
+    section: s.section,
+    show_in_profile: s.show_in_profile,
     order_index: i,
   }))
   if (rows.length > 0) {

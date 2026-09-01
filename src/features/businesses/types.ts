@@ -54,6 +54,16 @@ export type ServiceInput = {
   // Control manual de visibilidad en la app. true = visible (default, no
   // rompe servicios existentes). false = oculto mientras se arma/edita.
   isPublished: boolean
+  // Agrupa el platillo dentro del menú de mesa (chips + headers en
+  // MenuDeMesa.tsx). '' = sin sección, sale suelto. No confundir con
+  // `services_label` (título de TODA la sección, "Menú"/"Servicios").
+  section: string
+  // 2º eje de visibilidad, independiente de isPublished (2026-09-01). El
+  // menú de mesa (landing) siempre muestra todo lo publicado — este campo
+  // NO lo filtra. Solo el perfil (Flutter) lo respeta: ahí es "pide por
+  // teléfono/WhatsApp", así que un ítem puede estar en la mesa (bar,
+  // bebidas) sin salir en el perfil. Default true: no rompe lo existente.
+  showInProfile: boolean
 }
 
 /**

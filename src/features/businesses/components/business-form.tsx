@@ -36,7 +36,7 @@ import type { CategoryOption, PhotoInput, ServiceInput, WeeklyHours } from '../t
 import { WHATSAPP_MODES, initialWhatsappMode, type WhatsappMode } from '../whatsapp'
 import { BusinessGalleryEditor } from './business-gallery-editor'
 import { BusinessHoursEditor } from './business-hours-editor'
-import { BusinessServicesEditor } from './business-services-editor'
+import { BusinessServicesEditor, EMPTY_SERVICE } from './business-services-editor'
 
 type Props = {
   action: (prev: BusinessFormState, formData: FormData) => Promise<BusinessFormState>
@@ -304,6 +304,8 @@ export function BusinessForm({
           price: s.price,
           description: s.description,
           is_published: s.isPublished,
+          section: s.section,
+          show_in_profile: s.showInProfile,
         }
         if (s.imageFile) {
           const url = await upload(s.imageFile)
@@ -994,17 +996,7 @@ export function BusinessForm({
                 disabled={isPending}
                 onClick={() => {
                   setShowServices(true)
-                  setServices([
-                    {
-                      name: '',
-                      price: '',
-                      description: '',
-                      imageUrl: null,
-                      imageFile: null,
-                      imagePreviewUrl: null,
-                      isPublished: true,
-                    },
-                  ])
+                  setServices([{ ...EMPTY_SERVICE }])
                 }}
               >
                 {primaryType === 'food' ? '+ Agregar platillos' : '+ Agregar servicios'}

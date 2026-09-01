@@ -144,6 +144,17 @@ export const serviceSchema = z
     // Visibilidad manual en la app. Default true: un servicio sin este campo
     // (payload viejo) se sigue mostrando igual que hoy.
     is_published: z.boolean().default(true),
+    // Sección dentro del menú de mesa ("Bebidas", "Aguachiles"). '' → null,
+    // el ítem sale sin agrupar.
+    section: z
+      .string()
+      .trim()
+      .transform((v) => v || null)
+      .optional(),
+    // 2º eje de visibilidad — filtra solo el perfil (Flutter), nunca el menú
+    // de mesa. Default true: un servicio sin este campo se sigue mostrando
+    // en el perfil igual que hoy.
+    show_in_profile: z.boolean().default(true),
   })
   .refine(
     (s) => !(s.image_url !== undefined && s.imageNewIndex !== undefined),

@@ -287,7 +287,7 @@ export async function getBusinessServices(businessId: string): Promise<ServiceIn
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('business_services')
-    .select('name, price, description, image_url, is_published')
+    .select('name, price, description, image_url, is_published, section, show_in_profile')
     .eq('business_id', businessId)
     .order('order_index')
     .order('name')
@@ -300,6 +300,8 @@ export async function getBusinessServices(businessId: string): Promise<ServiceIn
     imageFile: null,
     imagePreviewUrl: r.image_url,
     isPublished: r.is_published,
+    section: r.section ?? '',
+    showInProfile: r.show_in_profile,
   }))
 }
 

@@ -1708,6 +1708,7 @@ export type Database = {
           order_index: number
           price: number | null
           section: string | null
+          show_in_profile: boolean
           updated_at: string
         }
         Insert: {
@@ -1721,6 +1722,7 @@ export type Database = {
           order_index?: number
           price?: number | null
           section?: string | null
+          show_in_profile?: boolean
           updated_at?: string
         }
         Update: {
@@ -1734,6 +1736,7 @@ export type Database = {
           order_index?: number
           price?: number | null
           section?: string | null
+          show_in_profile?: boolean
           updated_at?: string
         }
         Relationships: [

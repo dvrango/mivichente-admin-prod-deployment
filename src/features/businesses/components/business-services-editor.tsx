@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useRef } from 'react'
-import { ArrowDown, ArrowUp, Eye, EyeOff, ImagePlus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Eye, EyeOff, ImagePlus, User, UserX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,7 +19,7 @@ type Props = {
   disabled?: boolean
 }
 
-const EMPTY_SERVICE: ServiceInput = {
+export const EMPTY_SERVICE: ServiceInput = {
   name: '',
   price: '',
   description: '',
@@ -27,6 +27,8 @@ const EMPTY_SERVICE: ServiceInput = {
   imageFile: null,
   imagePreviewUrl: null,
   isPublished: true,
+  section: '',
+  showInProfile: true,
 }
 
 export function BusinessServicesEditor({
@@ -41,7 +43,11 @@ export function BusinessServicesEditor({
   // Índice de la fila cuya foto se está eligiendo (un solo <input> compartido).
   const targetIndex = useRef<number | null>(null)
 
-  function update(index: number, field: 'name' | 'price' | 'description', next: string) {
+  function update(
+    index: number,
+    field: 'name' | 'price' | 'description' | 'section',
+    next: string,
+  ) {
     onChange(value.map((s, i) => (i === index ? { ...s, [field]: next } : s)))
   }
 
@@ -49,8 +55,8 @@ export function BusinessServicesEditor({
     onChange([...value, { ...EMPTY_SERVICE }])
   }
 
-  function togglePublished(index: number) {
-    onChange(value.map((s, i) => (i === index ? { ...s, isPublished: !s.isPublished } : s)))
+  function toggleFlag(index: number, field: 'isPublished' | 'showInProfile') {
+    onChange(value.map((s, i) => (i === index ? { ...s, [field]: !s[field] } : s)))
   }
 
   function remove(index: number) {
@@ -191,7 +197,7 @@ export function BusinessServicesEditor({
                     size="icon"
                     className={`size-8 ${service.isPublished ? '' : 'text-muted-foreground'}`}
                     disabled={disabled}
-                    onClick={() => togglePublished(i)}
+                    onClick={() => toggleFlag(i, 'isPublished')}
                     aria-label={service.isPublished ? 'Ocultar de la app' : 'Mostrar en la app'}
                     title={
                       service.isPublished
@@ -205,6 +211,32 @@ export function BusinessServicesEditor({
                       <EyeOff className="size-3.5" />
                     )}
                   </Button>
+                  {isFood && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={`size-8 ${service.showInProfile ? '' : 'text-muted-foreground'}`}
+                      disabled={disabled}
+                      onClick={() => toggleFlag(i, 'showInProfile')}
+                      aria-label={
+                        service.showInProfile
+                          ? 'Ocultar del perfil (sigue en el menú de mesa)'
+                          : 'Mostrar en el perfil'
+                      }
+                      title={
+                        service.showInProfile
+                          ? 'Visible en el perfil — clic para ocultar (sigue en el menú de mesa)'
+                          : 'Oculto del perfil — clic para mostrar. Sigue en el menú de mesa si está publicado.'
+                      }
+                    >
+                      {service.showInProfile ? (
+                        <User className="size-3.5" />
+                      ) : (
+                        <UserX className="size-3.5" />
+                      )}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -240,6 +272,14 @@ export function BusinessServicesEditor({
                   </Button>
                 </div>
               </div>
+              {isFood && (
+                <Input
+                  value={service.section}
+                  onChange={(e) => update(i, 'section', e.target.value)}
+                  placeholder="Sección del menú (opcional), ej. Bebidas"
+                  disabled={disabled}
+                />
+              )}
               <Textarea
                 rows={2}
                 value={service.description}
