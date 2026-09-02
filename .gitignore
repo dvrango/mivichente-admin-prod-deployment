@@ -55,3 +55,9 @@ scripts/output/
 scripts/test-manifest.json
 
 certificates
+
+# backups de produccion (contienen data real y emails) — nunca se commitean
+*.sql.gz
+/restore/
+restore-check-*.err
+scripts/backup/*.env

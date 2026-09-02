@@ -1,0 +1,15 @@
+[Unit]
+Description=Dispara el backup de producción de Vichente todos los días
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+
+# Si el minipc estaba apagado a la hora programada, corre en cuanto arranque.
+# Sin esto, un apagón se traduce en un día sin backup y nadie se entera.
+Persistent=true
+
+# Evita pegarle a Supabase y a R2 en el mismo segundo exacto todos los días.
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

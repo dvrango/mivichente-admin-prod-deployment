@@ -15,6 +15,9 @@
     "db:types:local": "sh scripts/gen-types-local.sh",
     "db:types:prod": "supabase gen types typescript --linked > src/lib/database.types.ts",
     "db:reset:local": "supabase db reset",
+    "db:backup": "ssh minipc /home/dvrango/vichente-backup/bin/backup-prod.sh",
+    "db:restore:check": "ssh minipc /home/dvrango/vichente-backup/bin/restore-check.sh",
+    "backup:deploy": "sh scripts/backup/deploy-to-minipc.sh",
     "prepare": "husky"
   },
   "lint-staged": {

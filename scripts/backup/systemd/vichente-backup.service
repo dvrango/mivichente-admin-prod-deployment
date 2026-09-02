@@ -1,0 +1,30 @@
+[Unit]
+Description=Backup de producción de Vichente (DB + Storage) a Cloudflare R2
+Documentation=https://github.com/DvranLabs/mivichente-admin
+After=network-online.target docker.service
+Wants=network-online.target
+# `supabase db dump` corre pg_dump dentro de un contenedor, así que Docker tiene
+# que estar arriba. El usuario dvrango ya pertenece al grupo docker.
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=dvrango
+WorkingDirectory=/home/dvrango/vichente-backup
+ExecStart=/home/dvrango/vichente-backup/bin/backup-prod.sh
+
+# El PATH mínimo de systemd no incluye ni linuxbrew (donde vive el CLI de Supabase)
+# ni el cliente de postgres. Sin esto el timer falla cada noche con "command not found",
+# aunque los comandos sí existan en una sesión interactiva.
+Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/17/bin
+
+# La primera corrida baja la imagen de postgres (~1 GB) y sube ~83 MB de fotos;
+# después son segundos. Margen amplio por si la red va lenta.
+TimeoutStartSec=1800
+
+# El script lee sus secretos de ~/.config/vichente-backup/env (modo 0600).
+# No se declara EnvironmentFile aquí a propósito: systemd es estricto con ese
+# formato y una comilla de más rompería el arranque sin decir por qué.
+
+[Install]
+WantedBy=multi-user.target
