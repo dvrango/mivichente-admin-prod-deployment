@@ -355,9 +355,25 @@ export function BusinessServicesEditor({
                 rows={2}
                 value={service.description}
                 onChange={(e) => update(i, 'description', e.target.value)}
-                placeholder="Qué incluye (opcional)"
+                placeholder={
+                  isFood ? 'Ej. Contiene: jamón, piña, asadero' : 'Qué incluye (opcional)'
+                }
                 disabled={disabled}
               />
+              {/* El menú de mesa parte la descripción en grupos de chips cuando
+                  encuentra "Etiqueta: a, b, c" (landing/src/lib/menu-de-mesa.ts).
+                  Sin esta ayuda el formato solo lo conoce quien lo escribió: el
+                  menú de Divla's se capturó por SQL y nadie más habría sabido
+                  que "Tamaños:" genera chips, ni que tiene que ir primero. */}
+              {isFood && (
+                <p className="text-muted-foreground text-xs">
+                  Escribe cada grupo como <b>Etiqueta: a, b, c</b> y se muestra como chips en el
+                  menú de mesa. Ej. <b>Tamaños: chica $90, mediana $220</b> ·{' '}
+                  <b>Contiene: jamón, piña</b>. Si usas los dos, Tamaños va primero (si no, se mete
+                  dentro de la otra lista). Se ven 6 por grupo; el resto queda tras un &quot;ver
+                  más&quot;.
+                </p>
+              )}
             </div>
           ))}
         </div>
