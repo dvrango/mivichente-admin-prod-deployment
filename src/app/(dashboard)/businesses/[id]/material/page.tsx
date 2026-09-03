@@ -49,7 +49,7 @@ export default async function MaterialGraficoPage({ params }: { params: Promise<
           <h2 className="text-lg font-semibold">Ya estamos en Vichente App</h2>
           <p className="text-muted-foreground text-sm">
             Para que el negocio lo publique en sus redes al darse de alta. Es la misma tarjeta que
-            ve quien abre su ficha, así que lo que se corrija en el negocio se refleja aquí al
+            ve quien abre su perfil, así que lo que se corrija en el negocio se refleja aquí al
             regenerar.
           </p>
           {/* La imagen a propósito no lleva la URL escrita: nadie teclea una
@@ -84,7 +84,7 @@ export default async function MaterialGraficoPage({ params }: { params: Promise<
           <p className="mt-1">
             El QR llevaría a una página sin platillos. Carga los items en{' '}
             <Link href={`/businesses/${id}`} className="underline">
-              la ficha del negocio
+              el perfil del negocio
             </Link>{' '}
             antes de imprimir.
           </p>

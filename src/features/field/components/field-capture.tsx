@@ -240,7 +240,7 @@ export function FieldCapture({
         <div>
           <h2 className="text-xl font-semibold">{name} ya está en Vichente</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Pásale su ficha al dueño para que la comparta con sus clientes.
+            Pásale su perfil al dueño para que lo comparta con sus clientes.
           </p>
         </div>
 
@@ -267,7 +267,7 @@ export function FieldCapture({
             className="bg-primary text-primary-foreground flex h-14 w-full items-center justify-center gap-2 rounded-xl text-base font-medium active:translate-y-px"
           >
             <Share2 className="size-5" />
-            Compartir ficha
+            Compartir perfil
           </button>
           <button
             type="button"
@@ -276,7 +276,7 @@ export function FieldCapture({
           >
             Siguiente negocio
           </button>
-          {/* Tercera salida, deliberadamente debajo de "Compartir ficha": al
+          {/* Tercera salida, deliberadamente debajo de "Compartir perfil": al
               cerrar la visita es cuando te acuerdas del dato que faltó, y sin
               esto había que volver a buscar el negocio desde cero. */}
           <Link
@@ -284,7 +284,7 @@ export function FieldCapture({
             className="text-muted-foreground hover:text-foreground flex h-12 w-full items-center justify-center gap-2 text-base font-medium"
           >
             <SlidersHorizontal className="size-4" />
-            Editar ficha completa
+            Editar perfil completo
           </Link>
         </div>
       </div>
@@ -498,7 +498,7 @@ export function FieldCapture({
         <section id="campo-dueno" className="scroll-mt-20 border-t px-4 py-5">
           <h2 className="font-semibold">Contacto del dueño</h2>
           <p className="text-muted-foreground mt-1 mb-3 text-sm">
-            A quién le hablas después por las fotos o para que reclame su ficha. No sale en la app.
+            A quién le hablas después por las fotos o para que reclame su perfil. No sale en la app.
           </p>
           <input
             value={owner}

@@ -36,11 +36,24 @@ import { Textarea } from '@/components/ui/textarea'
  */
 export type PhotoIntent = { kind: 'keep' } | { kind: 'remove' } | { kind: 'new'; file: File }
 
+/**
+ * Las TRES combinaciones válidas de `is_published` + `show_in_profile`.
+ *
+ * La cuarta (oculto pero en el perfil) no existe: el perfil sólo muestra lo
+ * publicado y el menú de mesa es su superconjunto por diseño. Antes esto eran
+ * dos botones sueltos, uno de los cuales se deshabilitaba según el otro — o
+ * sea, una jerarquía disfrazada de dos interruptores independientes, y nadie
+ * entendía si tocarlos prendía o apagaba. El mapeo a booleans vive en
+ * `menu-editor.tsx`, que es quien habla con el server.
+ */
+export type MenuVisibility = 'ambos' | 'solo_qr' | 'oculto'
+
 export type MenuDraft = {
   name: string
   price: string
   section: string
   description: string
+  visibility: MenuVisibility
   photo: PhotoIntent
 }
 
@@ -49,10 +62,23 @@ export type MenuDraftInitial = {
   price: string
   section: string
   description: string
+  visibility: MenuVisibility
   imageUrl: string | null
 }
 
 const SIN_SECCION = ''
+
+/** El orden es de más visible a menos: es como se lee la pregunta. */
+const VISIBILITY_OPTIONS: { value: MenuVisibility; label: string }[] = [
+  { value: 'ambos', label: 'En la app y en el menú del QR' },
+  { value: 'solo_qr', label: 'Solo en el menú del QR' },
+  { value: 'oculto', label: 'Nadie (oculto)' },
+]
+
+/** Mismo texto que el chip, para la vista de sólo lectura del editor. */
+export function visibilityLabel(visibility: MenuVisibility): string {
+  return VISIBILITY_OPTIONS.find((o) => o.value === visibility)?.label ?? ''
+}
 
 type Props = {
   /** 'nuevo' cambia el copy y el botón; el layout es el mismo a propósito. */
@@ -85,6 +111,7 @@ export function MenuItemForm({
   const [price, setPrice] = useState(initial.price)
   const [section, setSection] = useState(initial.section)
   const [description, setDescription] = useState(initial.description)
+  const [visibility, setVisibility] = useState<MenuVisibility>(initial.visibility)
 
   // La sección tecleada a mano sólo aparece cuando se pide: con 13 secciones ya
   // capturadas, teclear es la excepción y elegir es la regla — y teclear es
@@ -134,7 +161,7 @@ export function MenuItemForm({
       : photoRemoved
         ? { kind: 'remove' }
         : { kind: 'keep' }
-    onSave({ name, price, section, description, photo })
+    onSave({ name, price, section, description, visibility, photo })
   }
 
   return (
@@ -234,13 +261,17 @@ export function MenuItemForm({
           placeholder={isMenu ? 'Ej. Contiene: jamón, piña, asadero' : 'Qué incluye'}
           disabled={saving}
         />
-        {/* El menú de mesa parte la descripción en chips cuando encuentra
-            "Etiqueta: a, b, c" (landing/src/lib/menu-de-mesa.ts). Sin esta ayuda
-            el formato sólo lo conoce quien lo escribió. */}
+        {/* El menú de mesa parte la descripción en lista cuando reconoce una
+            etiqueta (`CORTE_ETIQUETA` en landing/src/lib/menu-de-mesa.ts). La
+            ayuda nombra las etiquetas que de verdad funcionan: la versión
+            anterior enseñaba "Etiqueta: a, b, c" como si cualquier palabra
+            sirviera, y remataba con "si usas Tamaños, ponlo primero" — que era
+            una regla del parser filtrada al copy, no algo que el usuario pueda
+            deducir. Si se agrega una etiqueta allá, se agrega acá. */}
         {isMenu && (
           <p className="text-muted-foreground text-xs">
-            Escribe cada grupo como <b>Etiqueta: a, b, c</b> y se ve como chips en el menú de la
-            mesa. Ej. <b>Tamaños: chica $90, mediana $220</b>. Si usas Tamaños, ponlo primero.
+            Si el platillo trae varias cosas, escribe <b>Contiene: jamón, piña</b> y en el menú del
+            QR se ve como lista. También funciona con Incluye, Sabores, Tamaños y Opciones.
           </p>
         )}
       </div>
@@ -308,6 +339,32 @@ export function MenuItemForm({
         )}
       </div>
 
+      {/* Visibilidad: UNA pregunta con tres respuestas excluyentes.
+          Va DENTRO del formulario a propósito. Antes vivía en un bloque aparte
+          que escribía al tocarse, o sea dos modelos de guardado a 3cm de
+          distancia en la misma tarjeta; ahora sale por el mismo botón que el
+          resto y no hay nada que explicar sobre cuándo se guarda. */}
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">¿Quién lo ve?</p>
+        <div className="flex flex-wrap gap-1.5">
+          {VISIBILITY_OPTIONS.map((option) => (
+            <Chip
+              key={option.value}
+              active={visibility === option.value}
+              disabled={saving}
+              onClick={() => setVisibility(option.value)}
+            >
+              {option.label}
+            </Chip>
+          ))}
+        </div>
+        {/* Se definen las dos superficies una vez, en vez de explicar qué hace
+            cada combinación de estados. */}
+        <p className="text-muted-foreground text-xs">
+          El menú del QR es el de la mesa. El perfil es lo que ve quien busca el negocio en la app.
+        </p>
+      </div>
+
       {error && (
         <p className="border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-2.5 text-sm">
           {error}
@@ -350,6 +407,7 @@ function Chip({
       type="button"
       disabled={disabled}
       onClick={onClick}
+      aria-pressed={active}
       className={`min-h-9 rounded-full border px-3 py-1.5 text-sm disabled:opacity-50 ${
         active ? 'bg-primary text-primary-foreground border-transparent' : 'border-input'
       }`}
