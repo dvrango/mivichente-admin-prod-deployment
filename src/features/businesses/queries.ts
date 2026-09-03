@@ -8,7 +8,6 @@ import type {
   BusinessWithCategory,
   CategoryOption,
   PhotoInput,
-  ServiceInput,
   WeeklyHours,
 } from './types'
 
@@ -283,27 +282,11 @@ export async function getBusinessPhotos(businessId: string): Promise<PhotoInput[
   }))
 }
 
-export async function getBusinessServices(businessId: string): Promise<ServiceInput[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('business_services')
-    .select('name, price, description, image_url, is_published, section, show_in_profile')
-    .eq('business_id', businessId)
-    .order('order_index')
-    .order('name')
-  if (error) throw error
-  return (data ?? []).map((r) => ({
-    name: r.name,
-    price: r.price === null ? '' : String(r.price),
-    description: r.description ?? '',
-    imageUrl: r.image_url,
-    imageFile: null,
-    imagePreviewUrl: r.image_url,
-    isPublished: r.is_published,
-    section: r.section ?? '',
-    showInProfile: r.show_in_profile,
-  }))
-}
+// NOTA (2026-09-02): acá vivía `getBusinessServices`, que poblaba el editor de
+// servicios dentro del form del negocio. Ese editor ya no existe: el menú se lee
+// con `getMenuItems` (features/business-menu/queries.ts), que además trae el
+// `id` de cada fila, y quien sólo necesita saber cuántos hay usa
+// `countMenuItems` en vez de traerse las 83 filas para un `.length`.
 
 export async function getBusinessHours(businessId: string): Promise<WeeklyHours> {
   const supabase = await createClient()

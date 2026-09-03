@@ -12,9 +12,7 @@ import {
   parseBusinessForm,
   parseCoordinates,
   photoFileSchema,
-  servicesSchema,
   type GalleryValues,
-  type ServiceValues,
 } from './schema'
 import type { WeeklyHours } from './types'
 
@@ -53,108 +51,16 @@ async function upsertHours(
   }
 }
 
-function parseServices(formData: FormData) {
-  const raw = formData.get('services')
-  if (typeof raw !== 'string' || !raw.trim()) return servicesSchema.safeParse([])
-  let json: unknown = null
-  try {
-    json = JSON.parse(raw)
-  } catch {
-    // json queda null -> el schema falla con "Servicios inválidos."
-  }
-  return servicesSchema.safeParse(json)
-}
-
-type ResolvedService = {
-  name: string
-  price: number | null
-  description: string | null
-  image_url: string | null
-  is_published: boolean
-  section: string | null
-  show_in_profile: boolean
-}
-
-/**
- * Sube las fotos nuevas de los servicios y devuelve la lista ya resuelta (cada
- * servicio con su image_url final o null). Mismo patrón que uploadGallery: los
- * archivos nuevos viajan como `service_photo_new_{i}` y se limpian
- * (`uploadedPaths`) si algo falla después. Comparten bucket con la galería.
- */
-async function uploadServiceImages(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  services: ServiceValues,
-  formData: FormData,
-): Promise<{ services: ResolvedService[]; uploadedPaths: string[]; error: string | null }> {
-  const resolved: ResolvedService[] = []
-  const uploadedPaths: string[] = []
-
-  for (const s of services) {
-    const base = {
-      name: s.name,
-      price: s.price,
-      description: s.description,
-      is_published: s.is_published,
-      section: s.section ?? null,
-      show_in_profile: s.show_in_profile,
-    }
-    if (s.imageNewIndex === undefined) {
-      // Igual que la galería: si el cliente la acaba de subir, se apunta para
-      // poder limpiarla si el guardado falla.
-      if (s.justUploaded && s.image_url) uploadedPaths.push(s.image_url)
-      resolved.push({ ...base, image_url: s.image_url ?? null })
-      continue
-    }
-    const file = formData.get(`service_photo_new_${s.imageNewIndex}`)
-    const parsedFile = photoFileSchema.safeParse(file)
-    if (!parsedFile.success) {
-      return { services: resolved, uploadedPaths, error: firstIssue(parsedFile.error) }
-    }
-    const path = `${crypto.randomUUID()}.${extFromMime(parsedFile.data.type)}`
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, parsedFile.data, { contentType: parsedFile.data.type, upsert: false })
-    if (uploadError) {
-      return {
-        services: resolved,
-        uploadedPaths,
-        error: `Error subiendo foto del servicio: ${uploadError.message}`,
-      }
-    }
-    uploadedPaths.push(path)
-    resolved.push({
-      ...base,
-      image_url: supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
-    })
-  }
-
-  return { services: resolved, uploadedPaths, error: null }
-}
-
-// Delete-all-then-insert, igual que upsertHours. order_index = posición en el
-// array que mandó el form, así el admin controla el orden de despliegue.
-async function upsertServices(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  businessId: string,
-  services: ResolvedService[],
-) {
-  await supabase.from('business_services').delete().eq('business_id', businessId)
-  const rows = services.map((s, i) => ({
-    business_id: businessId,
-    name: s.name,
-    price: s.price,
-    description: s.description,
-    image_url: s.image_url,
-    is_published: s.is_published,
-    section: s.section,
-    show_in_profile: s.show_in_profile,
-    order_index: i,
-  }))
-  if (rows.length > 0) {
-    const { error } = await supabase.from('business_services').insert(rows)
-    if (error) throw new Error(error.message)
-  }
-}
+// NOTA (2026-09-02): acá vivían `parseServices`, `uploadServiceImages` y
+// `upsertServices`. El menú (`business_services`) YA NO se guarda desde el form
+// del negocio: su único escritor es `features/business-menu/actions.ts`, que
+// escribe ítem por ítem. El guardado viejo era delete-all-then-insert, así que
+// mientras convivieran los dos, un submit del form borraba lo que el editor
+// nuevo acababa de guardar y regeneraba todos los ids.
+//
+// Si alguien vuelve a necesitar tocar el menú desde acá, NO lo revivas: cada
+// escritura de este archivo es reemplazo de documento completo, y con un menú
+// de 83 platillos eso es exactamente el problema que se acaba de quitar.
 
 // business_categories guarda TODAS las categorías del negocio. La primaria
 // (is_primary = true) también se denormaliza en businesses.category_id (ver
@@ -334,8 +240,6 @@ export async function createBusiness(
   const coordinates = parseCoordinates(formData)
   if (!coordinates.success) return { error: firstIssue(coordinates.error) }
   const hours = parseHours(formData)
-  const services = parseServices(formData)
-  if (!services.success) return { error: firstIssue(services.error) }
   const gallery = parseGallery(formData)
   if (!gallery.success) return { error: firstIssue(gallery.error) }
 
@@ -349,16 +253,6 @@ export async function createBusiness(
   if (uploadError) {
     await removePaths(supabase, uploadedPaths)
     return { error: uploadError }
-  }
-
-  const {
-    services: resolvedServices,
-    uploadedPaths: serviceUploadedPaths,
-    error: serviceUploadError,
-  } = await uploadServiceImages(supabase, services.data, formData)
-  if (serviceUploadError) {
-    await removePaths(supabase, [...uploadedPaths, ...serviceUploadedPaths])
-    return { error: serviceUploadError }
   }
 
   const actorId = await currentUserId(supabase)
@@ -380,7 +274,7 @@ export async function createBusiness(
     .single()
 
   if (error) {
-    await removePaths(supabase, [...uploadedPaths, ...serviceUploadedPaths])
+    await removePaths(supabase, uploadedPaths)
     return { error: error.message }
   }
 
@@ -392,7 +286,6 @@ export async function createBusiness(
       secondary_category_ids,
     )
     await upsertHours(supabase, inserted.id, hours)
-    await upsertServices(supabase, inserted.id, resolvedServices)
     await upsertPhotos(supabase, inserted.id, photos)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
@@ -423,20 +316,26 @@ export async function updateBusiness(
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
   const { primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
-  // Se valida antes de subir nada: si coordenadas, servicios o galería traen
-  // error se corta aquí y no quedan archivos huérfanos en el bucket.
+  // Se valida antes de subir nada: si coordenadas o galería traen error se
+  // corta aquí y no quedan archivos huérfanos en el bucket.
   const coordinates = parseCoordinates(formData)
   if (!coordinates.success) return { error: firstIssue(coordinates.error) }
-  const services = parseServices(formData)
-  if (!services.success) return { error: firstIssue(services.error) }
   const gallery = parseGallery(formData)
   if (!gallery.success) return { error: firstIssue(gallery.error) }
 
   const supabase = await createClient()
 
-  // Los archivos que ya tenía (galería + fotos de servicios): los que no
-  // sobrevivan al guardado se borran del storage al final.
-  const previousUrls = await allStorageUrlsOf(supabase, [id])
+  // SÓLO las fotos de la galería (`business_photos`), NO `allStorageUrlsOf`.
+  // Este barrido borra del bucket lo que estaba antes y no está después, y este
+  // action ya no sabe nada del menú: si acá entraran las fotos de
+  // `business_services` (que comparten bucket), ninguna sobreviviría al filtro
+  // de `keptUrls` y cada guardado del negocio borraría los archivos del menú
+  // entero, dejando las filas apuntando a rutas muertas. En silencio: sólo se
+  // nota abriendo la app.
+  //
+  // `allStorageUrlsOf` SÍ se sigue usando en deleteBusiness/bulkDeleteBusinesses,
+  // donde el negocio completo se va y sus fotos de menú también deben irse.
+  const previousUrls = await photoUrlsOf(supabase, [id])
 
   const {
     photos,
@@ -446,16 +345,6 @@ export async function updateBusiness(
   if (uploadError) {
     await removePaths(supabase, uploadedPaths)
     return { error: uploadError }
-  }
-
-  const {
-    services: resolvedServices,
-    uploadedPaths: serviceUploadedPaths,
-    error: serviceUploadError,
-  } = await uploadServiceImages(supabase, services.data, formData)
-  if (serviceUploadError) {
-    await removePaths(supabase, [...uploadedPaths, ...serviceUploadedPaths])
-    return { error: serviceUploadError }
   }
 
   const hours = parseHours(formData)
@@ -478,25 +367,22 @@ export async function updateBusiness(
     .eq('id', id)
 
   if (error) {
-    await removePaths(supabase, [...uploadedPaths, ...serviceUploadedPaths])
+    await removePaths(supabase, uploadedPaths)
     return { error: error.message }
   }
 
   try {
     await upsertBusinessCategories(supabase, id, primary_category_id, secondary_category_ids)
     await upsertHours(supabase, id, hours)
-    await upsertServices(supabase, id, resolvedServices)
     await upsertPhotos(supabase, id, photos)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
 
-  // Recién ahora que todo quedó guardado: limpiar del storage los archivos que
-  // el admin quitó — tanto fotos de galería como fotos de servicios.
-  const keptUrls = new Set([
-    ...photos.map((p) => p.url),
-    ...resolvedServices.map((s) => s.image_url).filter((u): u is string => u !== null),
-  ])
+  // Recién ahora que todo quedó guardado: limpiar del storage las fotos de
+  // galería que el admin quitó. Las del menú no entran acá (ver previousUrls):
+  // las administra el editor de menú.
+  const keptUrls = new Set(photos.map((p) => p.url))
   await removePaths(
     supabase,
     previousUrls.filter((u) => !keptUrls.has(u)),

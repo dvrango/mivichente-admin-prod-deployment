@@ -17,8 +17,8 @@ import {
   getBusinessCategoryIds,
   getBusinessHours,
   getBusinessPhotos,
-  getBusinessServices,
 } from '@/features/businesses/queries'
+import { countMenuItems } from '@/features/business-menu/queries'
 
 export default async function EditBusinessPage({
   params,
@@ -29,15 +29,18 @@ export default async function EditBusinessPage({
 }) {
   const { id } = await params
   const { returnTo } = await searchParams
-  const [business, categories, hours, services, photos, categoryIds, profile] = await Promise.all([
-    getBusinessById(id),
-    getActiveCategoryOptions(),
-    getBusinessHours(id),
-    getBusinessServices(id),
-    getBusinessPhotos(id),
-    getBusinessCategoryIds(id),
-    getCurrentProfile(),
-  ])
+  // El menú ya no viaja al form: sólo se cuenta para el resumen con enlace a
+  // /businesses/[id]/menu, que es donde se edita.
+  const [business, categories, hours, menuItemCount, photos, categoryIds, profile] =
+    await Promise.all([
+      getBusinessById(id),
+      getActiveCategoryOptions(),
+      getBusinessHours(id),
+      countMenuItems(id),
+      getBusinessPhotos(id),
+      getBusinessCategoryIds(id),
+      getCurrentProfile(),
+    ])
 
   if (!business) notFound()
 
@@ -75,6 +78,16 @@ export default async function EditBusinessPage({
         }
         actions={
           <div className="flex flex-wrap gap-2">
+            {/* Pantalla propia del menú: guarda platillo por platillo y se usa
+                desde el celular. También se abre en solo lectura (adentro se
+                vuelve a decidir si es editable). Es el ÚNICO lugar donde se
+                edita el menú — el form de abajo sólo muestra el resumen. */}
+            <Link
+              href={`/businesses/${id}/menu`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              {business.services_label?.trim() || 'Servicios'}
+            </Link>
             {/* Generar material no modifica nada, así que también está
                 disponible en solo lectura. */}
             <Link
@@ -145,8 +158,9 @@ export default async function EditBusinessPage({
           longitude: business.longitude,
         }}
         defaultHours={hours}
-        defaultServices={services}
         defaultPhotos={photos}
+        businessId={id}
+        menuItemCount={menuItemCount}
       />
     </div>
   )

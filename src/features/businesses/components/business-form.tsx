@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState, useTransition, useRef, KeyboardEvent } from 'react'
+import Link from 'next/link'
 import { Check, Copy, X } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { CategorySelect } from '@/components/shared/category-select'
@@ -32,11 +33,10 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { BusinessFormState } from '../actions'
 import { businessFormSchema, MUNICIPIOS, type BusinessFormInput } from '../schema'
-import type { CategoryOption, PhotoInput, ServiceInput, WeeklyHours } from '../types'
+import type { CategoryOption, PhotoInput, WeeklyHours } from '../types'
 import { WHATSAPP_MODES, initialWhatsappMode, type WhatsappMode } from '../whatsapp'
 import { BusinessGalleryEditor } from './business-gallery-editor'
 import { BusinessHoursEditor } from './business-hours-editor'
-import { BusinessServicesEditor, EMPTY_SERVICE } from './business-services-editor'
 
 type Props = {
   action: (prev: BusinessFormState, formData: FormData) => Promise<BusinessFormState>
@@ -77,8 +77,19 @@ type Props = {
     longitude?: number | null
   }
   defaultHours?: WeeklyHours
-  defaultServices?: ServiceInput[]
   defaultPhotos?: PhotoInput[]
+  /**
+   * Negocio ya existente: habilita el resumen del menú con enlace a su pantalla
+   * (`/businesses/[id]/menu`). Ausente = alta, donde todavía no hay id al que
+   * colgarle platillos — ahí el resumen sólo avisa que el menú se captura
+   * después de guardar.
+   *
+   * El menú NO viaja en este form: se edita ítem por ítem en su propia
+   * pantalla, que es su único escritor (features/business-menu).
+   */
+  businessId?: string
+  /** Cuántos ítems tiene hoy el menú, sólo para el resumen. */
+  menuItemCount?: number
 }
 
 // Estos campos NO los maneja react-hook-form: aliases/offerings/secondary_category_ids
@@ -106,8 +117,9 @@ export function BusinessForm({
   categories,
   defaults,
   defaultHours,
-  defaultServices,
   defaultPhotos,
+  businessId,
+  menuItemCount = 0,
   lockedMunicipio,
   readOnly = false,
   registrationId,
@@ -131,8 +143,6 @@ export function BusinessForm({
   const [latitude, setLatitude] = useState(coordinateToInput(defaults?.latitude))
   const [longitude, setLongitude] = useState(coordinateToInput(defaults?.longitude))
   const [coordsNotice, setCoordsNotice] = useState<string | null>(null)
-  const [services, setServices] = useState<ServiceInput[]>(defaultServices ?? [])
-  const [showServices, setShowServices] = useState(() => (defaultServices ?? []).length > 0)
   const aliasInputRef = useRef<HTMLInputElement>(null)
   const offeringInputRef = useRef<HTMLInputElement>(null)
   // Al crear, el slug se deriva del nombre en vivo hasta que el admin lo edita a
@@ -295,28 +305,9 @@ export function BusinessForm({
       // hay input): comida → "Menú", el resto → "Servicios".
       const submitType = categories.find((c) => c.id === values.primary_category_id)?.type
       fd.set('services_label', submitType === 'food' ? 'Menú' : 'Servicios')
-      // Filas en blanco (el admin agregó una y no la llenó) no se mandan: el
-      // schema las rechazaría por nombre vacío y el guardado fallaría entero.
-      const servicesPayload: Record<string, unknown>[] = []
-      for (const s of services.filter((x) => x.name.trim() !== '')) {
-        const base = {
-          name: s.name,
-          price: s.price,
-          description: s.description,
-          is_published: s.isPublished,
-          section: s.section,
-          show_in_profile: s.showInProfile,
-        }
-        if (s.imageFile) {
-          const url = await upload(s.imageFile)
-          if (!url) return
-          servicesPayload.push({ ...base, image_url: url, justUploaded: true })
-          continue
-        }
-        if (s.imageUrl) servicesPayload.push({ ...base, image_url: s.imageUrl })
-        else servicesPayload.push(base)
-      }
-      fd.set('services', JSON.stringify(servicesPayload))
+      // El menú NO viaja en este FormData: se edita en /businesses/[id]/menu,
+      // ítem por ítem. `services_label` sí se sigue derivando acá (es un dato
+      // del negocio, no del menú, y esa pantalla sólo lo lee).
       // La galería viaja como metadata en orden. Las fotos nuevas ya son URLs
       // (se subieron arriba), marcadas con `justUploaded` para que el server
       // las borre del bucket si el guardado falla.
@@ -347,6 +338,9 @@ export function BusinessForm({
   // teclea: comida → "Menú", el resto → "Servicios". Así el admin no repite un
   // dato que ya definió arriba al elegir la categoría.
   const servicesSectionLabel = primaryType === 'food' ? 'Menú' : 'Servicios'
+  // Cómo se le dice a UN renglón del menú, para el resumen de abajo.
+  const menuItemNoun = primaryType === 'food' ? 'platillo' : 'servicio'
+  const menuItemNounPlural = `${menuItemNoun}s`
 
   const categoriesByType = {
     food: categories.filter((c) => c.type === 'food'),
@@ -976,33 +970,36 @@ export function BusinessForm({
             </div>
           )}
 
-          {showServices ? (
-            <BusinessServicesEditor
-              value={services}
-              onChange={setServices}
-              onRemove={() => setShowServices(false)}
-              label={servicesSectionLabel}
-              disabled={isPending}
-            />
-          ) : (
-            <div>
-              <p className="text-muted-foreground mb-2 text-sm font-medium">
-                {servicesSectionLabel}
+          {/* Resumen, no editor. El menú se edita en /businesses/[id]/menu, que
+              es su único escritor: acá adentro volvería a ser un submit global
+              que reemplaza el menú completo. */}
+          <div>
+            <p className="text-muted-foreground mb-2 text-sm font-medium">{servicesSectionLabel}</p>
+            {businessId ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
+                <p className="min-w-0 flex-1 text-sm">
+                  {menuItemCount === 0
+                    ? `Todavía no hay ${menuItemNounPlural} capturados.`
+                    : `Hay ${menuItemCount} ${
+                        menuItemCount === 1 ? menuItemNoun : menuItemNounPlural
+                      } capturado${menuItemCount === 1 ? '' : 's'}.`}{' '}
+                  <span className="text-muted-foreground">
+                    Se editan en su propia pantalla, uno por uno, y cada cambio se guarda ahí mismo.
+                  </span>
+                </p>
+                <Link
+                  href={`/businesses/${businessId}/menu`}
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                >
+                  {menuItemCount === 0 ? 'Capturar' : 'Abrir'} {servicesSectionLabel.toLowerCase()}
+                </Link>
+              </div>
+            ) : (
+              <p className="text-muted-foreground rounded-md border border-dashed p-4 text-sm">
+                {`Los ${menuItemNounPlural} se capturan después de guardar el negocio: al terminar acá, ábrelo otra vez y entra a "${servicesSectionLabel}".`}
               </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isPending}
-                onClick={() => {
-                  setShowServices(true)
-                  setServices([{ ...EMPTY_SERVICE }])
-                }}
-              >
-                {primaryType === 'food' ? '+ Agregar platillos' : '+ Agregar servicios'}
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium leading-none">

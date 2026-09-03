@@ -2,27 +2,26 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/shared/page-header'
 import { buttonVariants } from '@/components/ui/button'
-import {
-  getAllCategoryOptions,
-  getBusinessById,
-  getBusinessServices,
-} from '@/features/businesses/queries'
+import { countMenuItems } from '@/features/business-menu/queries'
+import { getAllCategoryOptions, getBusinessById } from '@/features/businesses/queries'
 import { EtiquetaMenuPanel } from '@/features/material-grafico/components/etiqueta-menu-panel'
 import { TarjetaNegocioPanel } from '@/features/material-grafico/components/tarjeta-negocio-panel'
 import { urlMenuImpresa, urlPerfilLegible } from '@/features/material-grafico/url-menu'
 
 export default async function MaterialGraficoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  // Sólo hace falta saber SI hay menú, no cuál: `countMenuItems` pide el
+  // conteo con `head: true` en vez de traer las 83 filas para calcular un cero.
   const [business, servicios, categorias] = await Promise.all([
     getBusinessById(id),
-    getBusinessServices(id),
+    countMenuItems(id),
     getAllCategoryOptions(),
   ])
 
   if (!business) notFound()
 
   const url = urlMenuImpresa(business.slug)
-  const sinMenu = servicios.length === 0
+  const sinMenu = servicios === 0
   const categoria = categorias.find((c) => c.id === business.category_id)?.name ?? null
 
   return (

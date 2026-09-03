@@ -33,38 +33,10 @@ export type DayHours = { opens_at: string; closes_at: string }
  */
 export type WeeklyHours = Partial<Record<number, DayHours[]>>
 
-/**
- * Servicio de un negocio tal como lo maneja el form. name/price/description son
- * string porque viajan en un campo JSON del FormData y se teclean en inputs; el
- * schema convierte price a numeric/null al guardar. El orden del array es el
- * order_index.
- *
- * La foto sigue el mismo esquema que la galería: `imageUrl` = ya guardada en
- * storage; `imageFile` = nueva pendiente de subir; `imagePreviewUrl` es lo que
- * se pinta (URL pública u object URL local). Sin foto = las tres en null (los
- * servicios intangibles no llevan foto; los platillos de un menú sí).
- */
-export type ServiceInput = {
-  name: string
-  price: string
-  description: string
-  imageUrl: string | null
-  imageFile: File | null
-  imagePreviewUrl: string | null
-  // Control manual de visibilidad en la app. true = visible (default, no
-  // rompe servicios existentes). false = oculto mientras se arma/edita.
-  isPublished: boolean
-  // Agrupa el platillo dentro del menú de mesa (chips + headers en
-  // MenuDeMesa.tsx). '' = sin sección, sale suelto. No confundir con
-  // `services_label` (título de TODA la sección, "Menú"/"Servicios").
-  section: string
-  // 2º eje de visibilidad, independiente de isPublished (2026-09-01). El
-  // menú de mesa (landing) siempre muestra todo lo publicado — este campo
-  // NO lo filtra. Solo el perfil (Flutter) lo respeta: ahí es "pide por
-  // teléfono/WhatsApp", así que un ítem puede estar en la mesa (bar,
-  // bebidas) sin salir en el perfil. Default true: no rompe lo existente.
-  showInProfile: boolean
-}
+// NOTA (2026-09-02): acá vivía `ServiceInput`, la forma de un servicio dentro
+// del form del negocio. El menú ya no se edita ahí: su tipo es `MenuItem`
+// (features/business-menu/queries.ts), que trae el `id` de la fila porque el
+// editor nuevo direcciona ítems en vez de reemplazar el menú completo.
 
 /**
  * Foto de la galería en el form. `url` = ya guardada en storage; `file` = nueva,

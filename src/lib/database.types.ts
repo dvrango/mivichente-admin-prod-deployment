@@ -1700,6 +1700,7 @@ export type Database = {
         Row: {
           business_id: string
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
           image_url: string | null
@@ -1710,10 +1711,12 @@ export type Database = {
           section: string | null
           show_in_profile: boolean
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           business_id: string
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -1724,10 +1727,12 @@ export type Database = {
           section?: string | null
           show_in_profile?: boolean
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           business_id?: string
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -1738,12 +1743,25 @@ export type Database = {
           section?: string | null
           show_in_profile?: boolean
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
             foreignKeyName: 'business_services_business_id_fkey'
             columns: ['business_id']
             referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_services_created_by_fkey'
+            columns: ['created_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_services_updated_by_fkey'
+            columns: ['updated_by']
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]
@@ -2123,6 +2141,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      can_edit_business: {
+        Args: { target_business_id: string }
+        Returns: boolean
       }
       immutable_unaccent: { Args: { '': string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }

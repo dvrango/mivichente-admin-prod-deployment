@@ -113,58 +113,12 @@ export const businessFormSchema = z.object({
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>
 
-// Servicios del negocio (business_services). Se validan aparte del form
-// principal — igual que los horarios — porque viajan en un campo JSON del
-// FormData en vez de campos planos.
-export const serviceSchema = z
-  .object({
-    name: z.string().trim().min(1, 'Cada servicio necesita un nombre.'),
-    // Vacío = sin precio público (ej. "cotiza tu evento") → null en la DB.
-    price: z
-      .string()
-      .trim()
-      .refine(
-        (v) => v === '' || (v !== '' && Number.isFinite(Number(v)) && Number(v) >= 0),
-        'Precio inválido.',
-      )
-      .transform((v) => (v === '' ? null : Number(v))),
-    description: z
-      .string()
-      .trim()
-      .transform((v) => v || null),
-    // Foto del servicio/platillo, mismo patrón que la galería: `image_url` = ya
-    // guardada o recién subida por el cliente; `imageNewIndex` = archivo nuevo
-    // que viaja en el FormData (`service_photo_new_{i}`). Ambas opcionales — un
-    // servicio puede no tener foto.
-    image_url: z.string().trim().min(1).optional(),
-    imageNewIndex: z.number().int().min(0).optional(),
-    // `true` = el cliente la acaba de subir en esta misma edición. Sirve para
-    // borrarla del bucket si el guardado falla después.
-    justUploaded: z.boolean().optional(),
-    // Visibilidad manual en la app. Default true: un servicio sin este campo
-    // (payload viejo) se sigue mostrando igual que hoy.
-    is_published: z.boolean().default(true),
-    // Sección dentro del menú de mesa ("Bebidas", "Aguachiles"). '' → null,
-    // el ítem sale sin agrupar.
-    section: z
-      .string()
-      .trim()
-      .transform((v) => v || null)
-      .optional(),
-    // 2º eje de visibilidad — filtra solo el perfil (Flutter), nunca el menú
-    // de mesa. Default true: un servicio sin este campo se sigue mostrando
-    // en el perfil igual que hoy.
-    show_in_profile: z.boolean().default(true),
-  })
-  .refine(
-    (s) => !(s.image_url !== undefined && s.imageNewIndex !== undefined),
-    'Cada servicio tiene una sola foto.',
-  )
-
-export const servicesSchema = z.array(serviceSchema, { message: 'Servicios inválidos.' })
-
-/** Servicios ya validados y convertidos (price numérico o null), listos para la DB. */
-export type ServiceValues = z.infer<typeof servicesSchema>
+// NOTA (2026-09-02): acá vivían `serviceSchema` / `servicesSchema`, la
+// validación de los servicios cuando viajaban dentro del FormData de este form.
+// El menú ya no se guarda desde acá: su schema es
+// `features/business-menu/schema.ts`, que valida UN ítem a la vez.
+// `services_label` (arriba, el título "Menú"/"Servicios") sí sigue siendo del
+// form: es un dato del negocio, no del menú.
 
 // Galería (business_photos). Viaja como JSON con el orden final; cada entrada
 // es una foto con `url` (ya guardada, o recién subida por el cliente antes de
