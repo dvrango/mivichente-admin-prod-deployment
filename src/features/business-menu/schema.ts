@@ -53,7 +53,39 @@ const menuItemFields = {
 export const menuItemCreateSchema = z.object(menuItemFields)
 export type MenuItemCreateInput = z.infer<typeof menuItemCreateSchema>
 
-export const menuItemPatchSchema = z.object(menuItemFields).partial()
+/**
+ * El patch se declara APARTE y SIN defaults. No es duplicación por descuido.
+ *
+ * `z.object(menuItemFields).partial()` parecía lo mismo y no lo era: en Zod 4
+ * `.partial()` vuelve la clave opcional, pero el `.default()` de adentro se
+ * sigue aplicando cuando la clave viene ausente. O sea que un patch de
+ * `{name}` llegaba a `updateMenuItem` como
+ * `{name, image_url: null, is_published: true, show_in_profile: true}`, y esa
+ * action decide QUÉ tocar con `'image_url' in parsed.data`. Resultado: cada
+ * "Guardar" del formulario borraba la foto del ítem (y el archivo del bucket,
+ * vía `removeStoredPhoto`) y republicaba lo que estuviera oculto.
+ *
+ * La regla que sostiene a `updateMenuItem`: **clave ausente = no lo toques**.
+ * Un default la vuelve presente, así que acá no puede haber ninguno.
+ */
+export const menuItemPatchSchema = z
+  .object({
+    name: z.string().trim().min(1, 'El platillo necesita un nombre.'),
+    price: priceSchema,
+    description: z
+      .string()
+      .trim()
+      .transform((v) => v || null),
+    section: z
+      .string()
+      .trim()
+      .transform((v) => v || null),
+    // null explícito = "quítala". Ver `updateMenuItem`.
+    image_url: z.string().trim().url('URL de foto inválida.').nullable(),
+    is_published: z.boolean(),
+    show_in_profile: z.boolean(),
+  })
+  .partial()
 export type MenuItemPatchInput = z.infer<typeof menuItemPatchSchema>
 
 // Los toggles de un bit escriben al toque (no esperan al botón de guardar):
