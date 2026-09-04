@@ -37,6 +37,12 @@ export const RESERVED_SLUGS = [
   // rutas raíz de los tabs de la app mobile (ver migration reserve_tab_slugs)
   'negocios',
   'comida',
+  // rutas estáticas top-level de un solo segmento en mobile/lib/core/router/app_router.dart
+  // (ver migration reserve_mobile_static_routes)
+  'splash',
+  'favoritos',
+  'filtro',
+  'omnibus-schedule',
 ] as const
 
 // Un slug válido: minúsculas, dígitos y guiones simples, sin guion al inicio/fin.
