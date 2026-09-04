@@ -43,6 +43,10 @@ export const RESERVED_SLUGS = [
   'favoritos',
   'filtro',
   'omnibus-schedule',
+  // raíz de los resultados de búsqueda compartibles: la landing sirve
+  // vichente.com/buscar/<termino> desde src/app/buscar/
+  // (ver migration reserve_buscar_slug)
+  'buscar',
 ] as const
 
 // Un slug válido: minúsculas, dígitos y guiones simples, sin guion al inicio/fin.
