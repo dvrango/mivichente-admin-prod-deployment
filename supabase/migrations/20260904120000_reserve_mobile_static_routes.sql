@@ -13,6 +13,12 @@
 -- con /:slug de un segmento y no se reservan.
 --
 -- Mantener en sync con RESERVED_SLUGS en admin/src/lib/slug.ts.
+--
+-- Verificado antes de aplicar (local y prod, 2026-09-04): ningún negocio usa
+-- splash, favoritos, filtro ni omnibus-schedule. Este migration no hace
+-- backfill de negocios existentes a propósito (fuera de scope de la tarea
+-- k4g0womz3) — si algún día deja de ser cierto, agregar el UPDATE que sí
+-- corre 20260710120000_add_business_slug.sql.
 
 create or replace function public.slug_is_reserved(candidate text)
 returns boolean
