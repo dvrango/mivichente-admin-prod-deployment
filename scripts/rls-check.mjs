@@ -127,6 +127,24 @@ async function main() {
     )
   ).rows[0].id
 
+  // Una solicitud de registro con su foto en el bucket privado. Van de fixture y
+  // no se dan por sentadas de la base de seed: `registration-photos` está vacío
+  // en local, así que ahí un `count(*) = 0` pasa sin probar nada. Ese vacío es
+  // justo cómo este harness dio verde el 2026-09-11 con la policy del bucket
+  // abierta a todo el staff en vez de sólo al admin.
+  await c.query(
+    `insert into business_registrations (business_name, phone, contact_name, municipio, photo_paths)
+     values ('RLS check', '6180000000', 'RLS check', $1, array['rls-check.webp'])`,
+    [suyo],
+  )
+  const fotoAlta = (
+    await c.query(
+      `insert into storage.objects (bucket_id, name, owner)
+       values ('registration-photos', 'rls-check.webp', $1) returning id`,
+      [admin.id],
+    )
+  ).rows[0].id
+
   // Cuenta recién registrada: el trigger handle_new_user() le crea el perfil.
   await c.query(
     `insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
@@ -164,6 +182,13 @@ async function main() {
 
     const delRep = await attempt(c, 'delete from business_reports where id = $1', [repSuyo])
     check('no borra reportes', delRep.rows === 0, `${delRep.outcome} (${delRep.rows} filas)`)
+
+    const delAlta = await attempt(c, 'delete from storage.objects where id = $1', [fotoAlta])
+    check(
+      'no borra registration-photos',
+      delAlta.rows === 0,
+      `${delAlta.outcome} (${delAlta.rows} filas)`,
+    )
 
     const st = await attempt(
       c,
@@ -246,6 +271,26 @@ async function main() {
       [reviewer.id],
     )
     check('sube a la raíz (negocio aún sin crear)', stRaiz.outcome === 'ok', stRaiz.outcome)
+
+    // Las solicitudes de registro son solo-admin, y eso incluye el bucket
+    // privado donde viven sus fotos. Son fotos que manda un negocio por el
+    // formulario público de la landing y que todavía no aprueba nadie: el
+    // reviewer no ve la solicitud en el panel, así que tampoco debe poder
+    // listar, firmar ni borrar sus archivos. Sin estos tres checks la policy
+    // se puede aflojar a is_staff() otra vez y el harness no se entera.
+    check('NO lee altas de negocio', (await n('select count(*) from business_registrations')) === 0)
+    check(
+      'NO lee registration-photos',
+      (await n("select count(*) from storage.objects where bucket_id = 'registration-photos'")) ===
+        0,
+    )
+
+    const delAlta = await attempt(c, 'delete from storage.objects where id = $1', [fotoAlta])
+    check(
+      'NO borra registration-photos',
+      delAlta.rows === 0,
+      `${delAlta.outcome} (${delAlta.rows})`,
+    )
   })
 
   console.log('\nadmin')
@@ -269,6 +314,17 @@ async function main() {
       [bizOtro, admin.id],
     )
     check('sube a cualquier carpeta', st.outcome === 'ok', st.outcome)
+
+    // La contraparte de los checks del reviewer: cerrar el bucket no debe
+    // romper /registrations, que es su único consumidor.
+    check('lee altas de negocio', (await n('select count(*) from business_registrations')) > 0)
+    check(
+      'lee registration-photos',
+      (await n("select count(*) from storage.objects where bucket_id = 'registration-photos'")) > 0,
+    )
+
+    const delAlta = await attempt(c, 'delete from storage.objects where id = $1', [fotoAlta])
+    check('borra registration-photos', delAlta.rows === 1, `${delAlta.outcome} (${delAlta.rows})`)
   })
 
   console.log('\nbucket business-photos')
