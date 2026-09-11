@@ -160,7 +160,21 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
-enable_signup = true
+#
+# Apagado a propósito (2026-09-11): ninguna app llama a `signUp()` — ni admin, ni
+# mobile, ni la landing — y las cuentas del equipo se dan de alta a mano desde el
+# dashboard de Supabase, que no pasa por este gate. Con esto encendido, cualquiera
+# con la anon key (que es pública por diseño, va en el bundle web) podía crear
+# filas ilimitadas en auth.users y profiles y disparar correos de confirmación a
+# costa del proyecto.
+#
+# Ojo: esto gobierna el entorno local. Lo que rige en producción es el toggle del
+# dashboard (Authentication → Providers → Email), y se comprueba con
+# `GET /auth/v1/settings`, que debe devolver `disable_signup: true`.
+#
+# No es lo que protege los permisos: de eso se encarga el rol `pending` de
+# `20260911120000_lock_down_authenticated_access`. Esto sólo cierra la puerta.
+enable_signup = false
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
@@ -195,7 +209,10 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = true
+# Apagado junto con [auth].enable_signup — ver la nota de allá arriba. Email es
+# el único proveedor habilitado, así que dejar éste en true reabriría el registro
+# entero aunque el de arriba diga false.
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
