@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button'
 import { signOut } from '@/features/auth/actions'
-import type { Role } from '@/features/auth/queries'
+import type { StaffRole } from '@/features/auth/queries'
 import { NavItems } from './nav-items'
 
 type Props = {
   userEmail: string | null
-  role: Role
+  role: StaffRole
 }
 
 export function Sidebar({ userEmail, role }: Props) {

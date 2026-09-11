@@ -1,5 +1,6 @@
 import type { Viewport } from 'next'
 import { redirect } from 'next/navigation'
+import { PendingAccountNotice } from '@/components/shared/pending-account-notice'
 import { getCurrentProfile } from '@/features/auth/queries'
 
 // Grupo de rutas hermano de (dashboard) a propósito: el modo campo se usa a una
@@ -18,6 +19,8 @@ export const viewport: Viewport = {
 export default async function FieldLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile()
   if (!profile) redirect('/login')
+
+  if (profile.role === 'pending') return <PendingAccountNotice />
 
   // Mismo callejón sin salida que en /businesses/new: sin municipio, todo insert
   // o update fallaría por RLS. Mejor decirlo aquí que al momento de guardar.

@@ -31,6 +31,7 @@ npm run db:push           # aplicar migrations pendientes en producción
 npm run db:types:local    # regenerar database.types.ts desde DB local
 npm run db:types:prod     # regenerar tipos desde Supabase remoto
 npm run db:reset:local    # resetear DB local desde cero (destructivo)
+npm run db:rls:check      # verificar las policies RLS contra la DB local (impersona y hace ROLLBACK)
 ```
 
 > **REGLA DE BASE DE DATOS (no la rompas):** el asistente **solo toca la DB

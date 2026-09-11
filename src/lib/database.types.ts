@@ -2146,9 +2146,14 @@ export type Database = {
         Args: { target_business_id: string }
         Returns: boolean
       }
+      can_write_business_photo: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
       immutable_unaccent: { Args: { '': string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_search_stopword: { Args: { term: string }; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
       qr_scan_channel_from_src: { Args: { p_src: string }; Returns: string }
       search_businesses: {
         Args: { search_query: string }
@@ -2261,7 +2266,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_17: {
+      messages_2026_09_05: {
         Row: {
           event: string | null
           extension: string
@@ -2294,7 +2299,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_18: {
+      messages_2026_09_06: {
         Row: {
           event: string | null
           extension: string
@@ -2327,7 +2332,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_19: {
+      messages_2026_09_07: {
         Row: {
           event: string | null
           extension: string
@@ -2360,7 +2365,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_20: {
+      messages_2026_09_08: {
         Row: {
           event: string | null
           extension: string
@@ -2393,7 +2398,73 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_08_21: {
+      messages_2026_09_09: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_09_10: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_09_11: {
         Row: {
           event: string | null
           extension: string

@@ -11,7 +11,14 @@ export async function getCurrentUser() {
   return user
 }
 
-export type Role = 'admin' | 'reviewer'
+// `pending` es el rol con el que nace toda cuenta nueva desde
+// `20260911120000_lock_down_authenticated_access`: existe en la tabla, no ve
+// nada, y espera a que un admin le asigne rol y municipio. Va en el union
+// porque es lo que puede venir de la DB, no porque el panel sepa pintarlo.
+export type Role = 'admin' | 'reviewer' | 'pending'
+
+/** Rol que sí tiene panel que mostrar. Lo que consumen sidebar, nav y guards. */
+export type StaffRole = Exclude<Role, 'pending'>
 
 export type Profile = {
   id: string

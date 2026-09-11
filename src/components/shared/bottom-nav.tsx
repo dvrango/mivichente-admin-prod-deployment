@@ -5,7 +5,7 @@ import { MoreHorizontal } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import type { Role } from '@/features/auth/queries'
+import type { StaffRole } from '@/features/auth/queries'
 import { cn } from '@/lib/utils'
 import { mobileNavForRole, type NavItem } from './nav-config'
 
@@ -17,7 +17,7 @@ import { mobileNavForRole, type NavItem } from './nav-config'
  * Sólo vive en `(dashboard)`. El modo campo (`(field)`) es pantalla completa a
  * propósito y NO lleva barra — sale con el botón explícito de su header.
  */
-export function BottomNav({ role }: { role: Role }) {
+export function BottomNav({ role }: { role: StaffRole }) {
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
   const { primary, more } = mobileNavForRole(role)
