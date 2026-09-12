@@ -6,6 +6,7 @@ import { ImagePlus, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { PHOTO_PICKER_ACCEPT } from '@/lib/images/photo-limits'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // REGLA DE LAYOUT DE ESTE ARCHIVO (no la rompas, ya costó un bug en prod):
@@ -321,10 +322,14 @@ export function MenuItemForm({
             )}
           </div>
         </div>
+        {/* Lista explícita en vez de `image/*`: el picker deja de ofrecer lo
+            que el bucket va a rechazar, y en iOS obliga a Safari a convertir el
+            HEIC a JPG al elegirlo. El criterio duro lo aplica igual
+            `uploadBusinessPhoto` — esto sólo evita el viaje en balde. */}
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept={PHOTO_PICKER_ACCEPT}
           hidden
           onChange={(e) => {
             pickFile(e.target.files)

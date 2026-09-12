@@ -194,7 +194,14 @@ export function FieldPhotos({
       </div>
 
       {/* Dos inputs separados: `capture` y `multiple` chocan — varios navegadores
-          ignoran multiple cuando hay capture. Cámara = una foto; galería = varias. */}
+          ignoran multiple cuando hay capture. Cámara = una foto; galería = varias.
+
+          Los dos se quedan en `image/*` A PROPÓSITO, aunque el editor de menú y
+          el form de escritorio sí usen la lista explícita de formatos: esto se
+          opera parado en la calle, y un picker que se pone raro con una lista de
+          mime types cuesta más que el archivo inválido ocasional. Lo que el
+          bucket no acepta lo detiene `uploadBusinessPhoto` antes de subir, y el
+          tile muestra el motivo con su botón de reintento. */}
       <input
         ref={cameraRef}
         type="file"

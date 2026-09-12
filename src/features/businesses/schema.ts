@@ -1,9 +1,7 @@
 import { z } from 'zod'
 import { mxPhoneSchema, optionalMxPhoneSchema } from '@/lib/validation/phone'
 import { SLUG_PATTERN, isReservedSlug, slugify } from '@/lib/slug'
-
-export const PHOTO_MAX_BYTES = 5 * 1024 * 1024
-export const PHOTO_ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const
+import { PHOTO_MAX_BYTES, PHOTO_PICKER_MIME } from '@/lib/images/photo-limits'
 
 // data_source no se edita desde el form: scraping/self_registered los pone un proceso
 // externo (script de scraping / auto-registro en la app); el admin panel siempre crea
@@ -27,11 +25,15 @@ export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
   admin: 'Admin',
 }
 
+// Camino de respaldo: el File llega crudo en el FormData, sin pasar por
+// compressImage, así que acá sí se exige uno de los tres formatos del picker —
+// los heic/heif que tolera el bucket sólo existen como fallback de la cámara.
+// La subida normal es desde el browser y la valida `photoUploadRejection`.
 export const photoFileSchema = z
   .custom<File>((v) => v instanceof File, 'Foto inválida')
   .refine((f) => f.size <= PHOTO_MAX_BYTES, 'La foto excede 5 MB.')
   .refine(
-    (f) => (PHOTO_ALLOWED_MIME as readonly string[]).includes(f.type),
+    (f) => (PHOTO_PICKER_MIME as readonly string[]).includes(f.type),
     'Formato inválido. Usa JPG, PNG o WEBP.',
   )
 

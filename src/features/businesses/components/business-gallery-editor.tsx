@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { PHOTO_ALLOWED_MIME } from '../schema'
+import { PHOTO_PICKER_ACCEPT } from '@/lib/images/photo-limits'
 import type { PhotoInput } from '../types'
 
 type Props = {
@@ -139,7 +139,7 @@ export function BusinessGalleryEditor({ value, onChange, disabled }: Props) {
       <input
         ref={fileInputRef}
         type="file"
-        accept={PHOTO_ALLOWED_MIME.join(',')}
+        accept={PHOTO_PICKER_ACCEPT}
         multiple
         className="hidden"
         onChange={(e) => {
