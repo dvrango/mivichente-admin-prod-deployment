@@ -89,6 +89,23 @@ function statsForWeek(events: SearchEventRow[], taps: TapRow[], contacts: Contac
   }
 }
 
+/**
+ * Por qué service role y no el cliente del usuario (revisado 2026-09-11,
+ * mikitasks `eantgj6l5`): las tres tablas que lee acá —`search_events`,
+ * `search_result_taps`, `business_contacts`— tienen **una sola policy cada una,
+ * y es de INSERT**. No existe policy de SELECT para nadie, ni siquiera para
+ * admin. Con el cliente normal esto devolvería cero filas siempre, así que el
+ * service role no es un atajo: hoy es el único camino.
+ *
+ * La consecuencia es que esta función corre por fuera de RLS y `db:rls:check`
+ * no la cubre — la autorización la pone entera `metrics/layout.tsx` con
+ * `requireAdmin()`. Quien la llame desde otro lado tiene que repetir ese guard.
+ *
+ * La alternativa —darle SELECT con `is_admin()` a esas tres tablas y usar el
+ * cliente de siempre— metería la regla donde vive el resto del proyecto y la
+ * volvería verificable por el harness. Cuesta una migración y un `db:push`, y
+ * se dejó fuera de este cambio a propósito.
+ */
 export async function getWeeklyMetrics(): Promise<WeeklyMetrics> {
   const supabase = createAdminClient()
   const now = Date.now()
