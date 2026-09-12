@@ -48,6 +48,19 @@ async function as(c, uid, fn) {
   }
 }
 
+// anon no lleva `request.jwt.claims`: es una petición sin sesión, y auth.uid()
+// devuelve null. Por eso no reusa `as()`, que sí los setea.
+async function asAnon(c, fn) {
+  await c.query('savepoint sp_anon')
+  await c.query('set local role anon')
+  try {
+    await fn()
+  } finally {
+    await c.query('rollback to savepoint sp_anon')
+    await c.query('reset role')
+  }
+}
+
 // Corre una escritura y clasifica el resultado. Ojo con la diferencia: un
 // INSERT bloqueado por RLS tira error, pero un DELETE bloqueado por RLS
 // simplemente no encuentra la fila y afecta 0 — las dos cosas son "denegado".
@@ -325,6 +338,34 @@ async function main() {
 
     const delAlta = await attempt(c, 'delete from storage.objects where id = $1', [fotoAlta])
     check('borra registration-photos', delAlta.rows === 1, `${delAlta.outcome} (${delAlta.rows})`)
+  })
+
+  // anon es el principal MÁS expuesto: su key va en el bundle web, o sea que
+  // cualquiera la tiene. Hoy sus policies están bien; lo que faltaba era la red
+  // que impida aflojarlas sin que nadie se entere.
+  console.log('\nanon (la key pública)')
+  await asAnon(c, async () => {
+    // A anon lo pueden frenar DOS cosas distintas, y las dos cuentan como
+    // "no ve": la policy de RLS (devuelve 0 filas) o el GRANT de tabla, que
+    // tira 42501 antes de llegar a RLS. `profiles` y `business_reports` son
+    // del segundo tipo. Tratar el error como falla haría fallar el harness por
+    // un permiso MÁS estricto, que es al revés de lo que queremos.
+    const noVe = async (label, sql) => {
+      const r = await attempt(c, sql)
+      if (r.outcome === 'denied') return check(label, true)
+      if (r.outcome !== 'ok') return check(label, false, r.outcome)
+      const filas = Number((await c.query(sql)).rows[0].count)
+      check(label, filas === 0, `${filas} filas`)
+    }
+
+    await noVe('solo ve negocios activos', 'select count(*) from businesses where is_active = false')
+    await noVe('no ve altas de negocio', 'select count(*) from business_registrations')
+    await noVe('no ve reportes de abuso', 'select count(*) from business_reports')
+    await noVe('no ve perfiles', 'select count(*) from profiles')
+    await noVe(
+      'no ve registration-photos',
+      "select count(*) from storage.objects where bucket_id = 'registration-photos'",
+    )
   })
 
   console.log('\nbucket business-photos')
