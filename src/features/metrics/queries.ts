@@ -1,5 +1,6 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/features/auth/queries'
 
 // device_id de pruebas del propio equipo — se excluye de todos los conteos,
 // mismo criterio que usa la Brújula del Producto al leer estas tablas a mano.
@@ -89,7 +90,28 @@ function statsForWeek(events: SearchEventRow[], taps: TapRow[], contacts: Contac
   }
 }
 
+/**
+ * Por qué service role y no el cliente del usuario (revisado 2026-09-11,
+ * mikitasks `eantgj6l5`): las tres tablas que lee acá —`search_events`,
+ * `search_result_taps`, `business_contacts`— tienen **una sola policy cada una,
+ * y es de INSERT**. No existe policy de SELECT para nadie, ni siquiera para
+ * admin. Con el cliente normal esto devolvería cero filas siempre, así que el
+ * service role no es un atajo: hoy es el único camino.
+ *
+ * La consecuencia es que esta función corre por fuera de RLS y `db:rls:check`
+ * no la cubre, así que el `requireAdmin()` va DENTRO de la función y no solo en
+ * `metrics/layout.tsx`: el layout da el redirect temprano, pero confiar la
+ * autorización a un módulo de arriba deja el único camino sin RLS del admin a
+ * merced de que el próximo consumidor se acuerde. No cuesta query extra,
+ * `getCurrentProfile` está memoizado por request con `cache()`.
+ *
+ * La alternativa —darle SELECT con `is_admin()` a esas tres tablas y usar el
+ * cliente de siempre— metería la regla donde vive el resto del proyecto y la
+ * volvería verificable por el harness. Cuesta una migración y un `db:push`, y
+ * se dejó fuera de este cambio a propósito.
+ */
 export async function getWeeklyMetrics(): Promise<WeeklyMetrics> {
+  await requireAdmin()
   const supabase = createAdminClient()
   const now = Date.now()
   const sinceIso = new Date(now - WEEKS * WINDOW_DAYS * DAY_MS).toISOString()

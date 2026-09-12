@@ -2,7 +2,11 @@
 // mayor ganancia de fricción: una foto de celular pesa 3–6 MB y sale de aquí en
 // 200–400 KB, o sea ~15× menos tiempo de subida sobre datos móviles. Vive acá
 // (y ya no bajo `features/field/`) porque el form de escritorio la usa igual.
-// De paso, nunca se choca con el límite de 5 MB que valida Zod.
+//
+// OJO: NO garantiza que lo que sale de aquí quepa en el bucket. Los tres
+// `return original` de abajo devuelven el archivo tal como llegó —tipo y tamaño
+// incluidos—, así que quien sube tiene que validar la SALIDA contra los límites
+// del bucket. Eso lo hace `upload-business-photo.ts` con `photoUploadRejection`.
 
 /** Lado largo al que se reescala antes de subir. */
 export const PHOTO_TARGET_LONG_EDGE = 1600
@@ -16,11 +20,25 @@ export type CompressedImage = {
   blob: Blob
   /** 'image/webp' o 'image/jpeg' — siempre uno que acepta el bucket. */
   type: string
-  extension: 'webp' | 'jpg'
+  extension: string
 }
 
-function extensionFor(mime: string): 'webp' | 'jpg' {
-  return mime === 'image/webp' ? 'webp' : 'jpg'
+// La extensión sale del mime REAL, no de un default. Antes esto mandaba a `jpg`
+// todo lo que no fuera webp, así que un HEIC que atraviesa la compresión sin
+// convertir (los `return original` de abajo) terminaba guardado como
+// `<uuid>.jpg` con mimetype `image/heic`: un archivo que miente sobre su
+// contenido y que no pinta ni la app, ni `next/image`, ni un navegador que no
+// sea de Apple — y sin error en ningún lado.
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'image/webp': 'webp',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+}
+
+function extensionFor(mime: string): string {
+  return EXTENSION_BY_MIME[mime] ?? 'jpg'
 }
 
 async function canvasToBlob(

@@ -8,6 +8,7 @@ import {
   BarChart3,
   type LucideIcon,
 } from 'lucide-react'
+import type { StaffRole } from '@/features/auth/queries'
 
 export type NavItem = {
   label: string
@@ -75,7 +76,7 @@ const MOBILE_PRIMARY_HREFS = ['/campo', '/businesses', '/registrations', '/repor
  * filtrados por rol. Un reviewer no ve /registrations ni /categories, así que su
  * barra queda con menos slots — se acomodan solos, no quedan huecos.
  */
-export function mobileNavForRole(role: 'admin' | 'reviewer'): {
+export function mobileNavForRole(role: StaffRole): {
   primary: NavItem[]
   more: NavItem[]
 } {
@@ -89,7 +90,7 @@ export function mobileNavForRole(role: 'admin' | 'reviewer'): {
 
 // Filtra grupos/items según rol: el reviewer sólo ve lo que no es adminOnly
 // (grupos que quedan vacíos se descartan).
-export function navGroupsForRole(role: 'admin' | 'reviewer'): NavGroup[] {
+export function navGroupsForRole(role: StaffRole): NavGroup[] {
   if (role === 'admin') return navGroups
   return navGroups
     .map((group) => ({ ...group, items: group.items.filter((item) => !item.adminOnly) }))
