@@ -20,11 +20,25 @@ export type CompressedImage = {
   blob: Blob
   /** 'image/webp' o 'image/jpeg' — siempre uno que acepta el bucket. */
   type: string
-  extension: 'webp' | 'jpg'
+  extension: string
 }
 
-function extensionFor(mime: string): 'webp' | 'jpg' {
-  return mime === 'image/webp' ? 'webp' : 'jpg'
+// La extensión sale del mime REAL, no de un default. Antes esto mandaba a `jpg`
+// todo lo que no fuera webp, así que un HEIC que atraviesa la compresión sin
+// convertir (los `return original` de abajo) terminaba guardado como
+// `<uuid>.jpg` con mimetype `image/heic`: un archivo que miente sobre su
+// contenido y que no pinta ni la app, ni `next/image`, ni un navegador que no
+// sea de Apple — y sin error en ningún lado.
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'image/webp': 'webp',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+}
+
+function extensionFor(mime: string): string {
+  return EXTENSION_BY_MIME[mime] ?? 'jpg'
 }
 
 async function canvasToBlob(
