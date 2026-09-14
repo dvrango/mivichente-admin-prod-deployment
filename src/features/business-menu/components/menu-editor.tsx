@@ -83,6 +83,16 @@ function formatPrice(price: number | null): string {
   return price.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
 }
 
+/**
+ * Con tamaños, `price` es el más barato de ellos y decir "$90" a secas es
+ * justo el engaño que esta pantalla vino a quitar: alguien lee el precio de la
+ * chica creyendo que es el de la pizza.
+ */
+function formatItemPrice(item: Pick<MenuItem, 'price' | 'variants'>): string {
+  const base = formatPrice(item.price)
+  return item.variants.length > 0 && item.price !== null ? `desde ${base}` : base
+}
+
 /** Los dos booleans de la fila -> la opción que muestra el formulario. */
 function toVisibility(item: Pick<MenuItem, 'is_published' | 'show_in_profile'>): MenuVisibility {
   if (!item.is_published) return 'oculto'
@@ -233,6 +243,7 @@ export function MenuEditor({
       // Un ítem nuevo no tiene valor previo que conservar, así que el 'oculto'
       // de un alta arranca con el perfil en sí.
       ...fromVisibility(draft.visibility, true),
+      variants: draft.variants,
     }
     const parsed = menuItemCreateSchema.safeParse(base)
     if (!parsed.success) {
@@ -272,6 +283,9 @@ export function MenuEditor({
       section: draft.section,
       description: draft.description,
       ...fromVisibility(draft.visibility, item.show_in_profile),
+      // Siempre presente en el patch: el form manda la lista completa, así que
+      // omitirla sólo serviría para no poder vaciarla nunca.
+      variants: draft.variants,
     }
     const parsed = menuItemPatchSchema.safeParse(base)
     if (!parsed.success) {
@@ -494,6 +508,7 @@ export function MenuEditor({
             initial={{
               name: '',
               price: '',
+              variants: [],
               section:
                 sectionFilter !== null && sectionFilter !== SIN_SECCION
                   ? sectionFilter
@@ -602,7 +617,7 @@ export function MenuEditor({
                   </div>
                 </div>
                 <span className="shrink-0 text-sm font-medium tabular-nums">
-                  {formatPrice(item.price)}
+                  {formatItemPrice(item)}
                 </span>
                 <ChevronDown
                   className={`text-muted-foreground size-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -617,7 +632,14 @@ export function MenuEditor({
                 <div className="space-y-3 border-t p-3">
                   {readOnly ? (
                     <dl className="space-y-2 text-sm">
-                      <Row label="Precio">{formatPrice(item.price)}</Row>
+                      <Row label="Precio">{formatItemPrice(item)}</Row>
+                      {item.variants.length > 0 && (
+                        <Row label="Tamaños">
+                          {item.variants
+                            .map((v) => `${v.name} ${formatPrice(v.price)}`)
+                            .join(' · ')}
+                        </Row>
+                      )}
                       <Row label="Sección">{(item.section ?? '').trim() || 'Sin sección'}</Row>
                       <Row label="Descripción">{item.description || '—'}</Row>
                       {/* Una sola fila, con el mismo texto que ve quien sí
@@ -636,6 +658,11 @@ export function MenuEditor({
                         initial={{
                           name: item.name,
                           price: priceToInput(item.price),
+                          variants: item.variants.map((v) => ({
+                            id: v.id,
+                            name: v.name,
+                            price: priceToInput(v.price),
+                          })),
                           section: (item.section ?? '').trim(),
                           description: item.description ?? '',
                           visibility: toVisibility(item),

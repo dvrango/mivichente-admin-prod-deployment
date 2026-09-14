@@ -1696,6 +1696,70 @@ export type Database = {
           },
         ]
       }
+      business_service_variants: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          order_index: number
+          price: number
+          service_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          price: number
+          service_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          price?: number
+          service_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_service_variants_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_variants_created_by_fkey'
+            columns: ['created_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_variants_service_id_fkey'
+            columns: ['service_id']
+            referencedRelation: 'business_services'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_variants_updated_by_fkey'
+            columns: ['updated_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       business_services: {
         Row: {
           business_id: string

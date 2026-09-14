@@ -11,6 +11,14 @@ import { createClient } from '@/lib/supabase/server'
  * el id — fue el bloqueo de entrada de todo el editor nuevo.
  * Mismo motivo por el que existe `getFieldPhotos` al lado de `getBusinessPhotos`.
  */
+/** Un tamaño o presentación del platillo, con su propio precio. */
+export type MenuVariant = {
+  id: string
+  name: string
+  price: number
+  order_index: number
+}
+
 export type MenuItem = {
   id: string
   name: string
@@ -18,6 +26,10 @@ export type MenuItem = {
    * PostgREST puede serializar `numeric` como string ("75.00") — el menú de
    * mesa lo documenta en landing/src/lib/menu-de-mesa.ts. Acá se normaliza a
    * number en la query para que la UI no tenga que adivinar.
+   *
+   * Cuando el ítem tiene `variants`, esto NO es "el precio" sino el MENOR de
+   * ellas — el "desde". Lo mantiene así el server en cada guardado; la UI no lo
+   * calcula ni lo manda.
    */
   price: number | null
   description: string | null
@@ -27,15 +39,37 @@ export type MenuItem = {
   is_published: boolean
   show_in_profile: boolean
   updated_at: string
+  variants: MenuVariant[]
 }
 
+// Las variantes vienen embebidas en la misma query: son 6 filas por platillo en
+// el peor caso real y traerlas aparte sería un round-trip por ítem.
+//
+// Va en UNA sola línea a propósito: el cliente de Supabase infiere el tipo del
+// resultado desde el literal, y si se parte con `+` pierde la forma del embed y
+// todo el select degrada a `GenericStringError`.
+// prettier-ignore
 export const MENU_ITEM_COLUMNS =
-  'id, name, price, description, image_url, section, order_index, is_published, show_in_profile, updated_at'
+  'id, name, price, description, image_url, section, order_index, is_published, show_in_profile, updated_at, business_service_variants(id, name, price, order_index)'
 
-type MenuItemRow = Omit<MenuItem, 'price'> & { price: number | string | null }
+type MenuVariantRow = Omit<MenuVariant, 'price'> & { price: number | string }
+
+type MenuItemRow = Omit<MenuItem, 'price' | 'variants'> & {
+  price: number | string | null
+  business_service_variants: MenuVariantRow[] | null
+}
 
 export function toMenuItem(row: MenuItemRow): MenuItem {
-  return { ...row, price: row.price === null ? null : Number(row.price) }
+  const { business_service_variants, ...rest } = row
+  return {
+    ...rest,
+    price: row.price === null ? null : Number(row.price),
+    // El embed de PostgREST no garantiza orden; se ordena acá para que el array
+    // sea el orden de despliegue, igual que en la galería de fotos.
+    variants: (business_service_variants ?? [])
+      .map((v) => ({ ...v, price: Number(v.price) }))
+      .sort((a, b) => a.order_index - b.order_index),
+  }
 }
 
 /**
