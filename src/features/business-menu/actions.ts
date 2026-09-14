@@ -10,6 +10,7 @@ import {
   menuItemPatchSchema,
   menuItemVisibilitySchema,
   menuMoveSchema,
+  type MenuVariantInput,
 } from './schema'
 import { MENU_ITEM_COLUMNS, toMenuItem, type MenuItem } from './queries'
 
@@ -162,6 +163,133 @@ function revalidateMenu(businessId: string) {
   revalidatePath(`/businesses/${businessId}`)
 }
 
+/**
+ * Deja las variantes (tamaños) de un platillo exactamente como las mandó el
+ * editor, conservando el id de las que ya existían.
+ *
+ * NO es delete-all-then-insert, aunque el form sí manda la colección completa.
+ * La razón es la misma por la que este archivo existe: regenerar ids en cada
+ * guardado hace que nada pueda apuntar a una variante de forma estable, y el
+ * pedido del MVP de delivery va a necesitar justo eso — saber qué tamaño pidió
+ * el cliente. Corregir "mediana $220" a "$230" tiene que dejar el mismo id.
+ *
+ * Las tres operaciones van sueltas, sin transacción: el cliente de Supabase no
+ * expone uno. Si el delete pasa y el insert falla, el platillo queda con menos
+ * tamaños de los que debía — visible en pantalla al recargar, no silencioso. Es
+ * el mismo trade-off que ya asumen `upsertPhotos` y `upsertHours`.
+ */
+async function syncVariants(
+  supabase: Supabase,
+  serviceId: string,
+  businessId: string,
+  variants: MenuVariantInput[],
+  actorId: string | null,
+): Promise<string | null> {
+  const { data: currentRows, error: readError } = await supabase
+    .from('business_service_variants')
+    .select('id')
+    .eq('service_id', serviceId)
+  if (readError) return readError.message
+
+  const currentIds = new Set((currentRows ?? []).map((r) => r.id))
+  const keptIds = new Set(variants.map((v) => v.id).filter((id): id is string => Boolean(id)))
+
+  // Un id que el cliente mandó pero que no existe en esta fila no se actualiza
+  // en silencio: sería una variante de otro platillo.
+  const unknown = [...keptIds].filter((id) => !currentIds.has(id))
+  if (unknown.length > 0) return 'Uno de los tamaños ya no existe. Recarga el menú.'
+
+  const toDelete = [...currentIds].filter((id) => !keptIds.has(id))
+  if (toDelete.length > 0) {
+    const { data: deleted, error } = await supabase
+      .from('business_service_variants')
+      .delete()
+      .in('id', toDelete)
+      .eq('service_id', serviceId)
+      .select('id')
+    const failure = affectedOne(deleted, error)
+    if (failure) return failure
+  }
+
+  for (const [index, variant] of variants.entries()) {
+    if (variant.id) {
+      const { data: rows, error } = await supabase
+        .from('business_service_variants')
+        .update({
+          name: variant.name,
+          price: variant.price,
+          order_index: index,
+          updated_by: actorId,
+        })
+        .eq('id', variant.id)
+        .eq('service_id', serviceId)
+        .select('id')
+      const failure = affectedOne(rows, error)
+      if (failure) return failure
+      continue
+    }
+
+    // `business_id` lo pisa el trigger `set_variant_business_id` con el del
+    // platillo padre; se manda porque la columna es NOT NULL.
+    const { error } = await supabase.from('business_service_variants').insert({
+      service_id: serviceId,
+      business_id: businessId,
+      name: variant.name,
+      price: variant.price,
+      order_index: index,
+      created_by: actorId,
+      updated_by: actorId,
+    })
+    if (error) return error.message
+  }
+
+  return null
+}
+
+/**
+ * `price` del platillo = el MENOR de sus variantes, o sea el "desde" que pintan
+ * las tres superficies. Sin variantes no se toca: ahí `price` sigue siendo el
+ * precio único, y vacío sigue significando "cotiza tu evento".
+ *
+ * Se calcula en el server a propósito. Si lo mandara el cliente, un editor
+ * viejo o una automatización podrían dejar un "desde" que no corresponde a
+ * ningún tamaño — que es exactamente el bug que esta tarea vino a cerrar.
+ */
+/**
+ * Relee el ítem después de tocar sus variantes. Hace falta porque el `.select()`
+ * del insert/update devuelve la fila ANTES de que `syncVariants` y
+ * `syncPriceFromVariants` corran, así que traería los tamaños viejos y el
+ * "desde" viejo.
+ */
+async function reloadMenuItem(
+  supabase: Supabase,
+  businessId: string,
+  itemId: string,
+): Promise<MenuItem | null> {
+  const { data } = await supabase
+    .from('business_services')
+    .select(MENU_ITEM_COLUMNS)
+    .eq('id', itemId)
+    .eq('business_id', businessId)
+    .maybeSingle()
+  return data ? toMenuItem(data) : null
+}
+
+async function syncPriceFromVariants(
+  supabase: Supabase,
+  serviceId: string,
+  businessId: string,
+  variants: MenuVariantInput[],
+): Promise<void> {
+  if (variants.length === 0) return
+  const min = Math.min(...variants.map((v) => v.price))
+  await supabase
+    .from('business_services')
+    .update({ price: min })
+    .eq('id', serviceId)
+    .eq('business_id', businessId)
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Alta
 // ─────────────────────────────────────────────────────────────────────────────
@@ -222,8 +350,29 @@ export async function createMenuItem(businessId: string, input: unknown): Promis
     return { error: error?.message ?? BLOCKED, item: null }
   }
 
+  if (parsed.data.variants.length > 0) {
+    const failure = await syncVariants(
+      supabase,
+      inserted.id,
+      businessId,
+      parsed.data.variants,
+      actorId,
+    )
+    // El platillo YA entró y no se borra: perderlo sería peor que dejarlo sin
+    // tamaños. Pero el editor sólo sabe mostrar "no se pudo guardar", y con ese
+    // mensaje alguien volvería a capturarlo y terminaría con el platillo
+    // duplicado. Por eso el error dice explícitamente que ya existe.
+    if (failure) {
+      return {
+        error: `El platillo se guardó, pero sus tamaños no: ${failure} Recarga el menú y edítalo — no lo captures de nuevo.`,
+        item: null,
+      }
+    }
+    await syncPriceFromVariants(supabase, inserted.id, businessId, parsed.data.variants)
+  }
+
   revalidateMenu(businessId)
-  return { error: null, item: toMenuItem(inserted) }
+  return { error: null, item: await reloadMenuItem(supabase, businessId, inserted.id) }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -290,8 +439,9 @@ export async function updateMenuItem(
     return { error: null, item: data ? toMenuItem(data) : null }
   }
 
+  const actorId = (await getCurrentProfile())?.id ?? null
   const values: TablesUpdate<'business_services'> = {
-    updated_by: (await getCurrentProfile())?.id ?? null,
+    updated_by: actorId,
   }
   if ('name' in parsed.data) values.name = parsed.data.name
   if ('price' in parsed.data) values.price = parsed.data.price
@@ -324,8 +474,22 @@ export async function updateMenuItem(
   // Recién ahora: la fila ya no apunta al archivo viejo.
   if (photoChanged) await removeStoredPhoto(supabase, current.image_url)
 
+  // Clave ausente = no toques los tamaños. Array vacío sí es una instrucción:
+  // "quítalos todos y vuelve a precio único".
+  if ('variants' in parsed.data && parsed.data.variants) {
+    const variantFailure = await syncVariants(
+      supabase,
+      itemId,
+      businessId,
+      parsed.data.variants,
+      actorId,
+    )
+    if (variantFailure) return { error: variantFailure, item: null }
+    await syncPriceFromVariants(supabase, itemId, businessId, parsed.data.variants)
+  }
+
   revalidateMenu(businessId)
-  return { error: null, item: toMenuItem(rows[0]) }
+  return { error: null, item: await reloadMenuItem(supabase, businessId, itemId) }
 }
 
 /**

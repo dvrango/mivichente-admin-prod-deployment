@@ -49,6 +49,20 @@ export type PhotoIntent = { kind: 'keep' } | { kind: 'remove' } | { kind: 'new';
  */
 export type MenuVisibility = 'ambos' | 'solo_qr' | 'oculto'
 
+/**
+ * Un tamaño del platillo. `id` presente = ya existía en la base y conserva su
+ * identidad al guardar; ausente = recién agregado en esta edición.
+ *
+ * El precio viaja como string igual que el del platillo: es lo que hay en un
+ * `<input>`, y convertirlo acá obligaría a inventar qué significa "" antes de
+ * que el schema lo valide.
+ */
+export type MenuVariantDraft = {
+  id?: string
+  name: string
+  price: string
+}
+
 export type MenuDraft = {
   name: string
   price: string
@@ -56,6 +70,7 @@ export type MenuDraft = {
   description: string
   visibility: MenuVisibility
   photo: PhotoIntent
+  variants: MenuVariantDraft[]
 }
 
 export type MenuDraftInitial = {
@@ -65,6 +80,7 @@ export type MenuDraftInitial = {
   description: string
   visibility: MenuVisibility
   imageUrl: string | null
+  variants: MenuVariantDraft[]
 }
 
 const SIN_SECCION = ''
@@ -113,6 +129,7 @@ export function MenuItemForm({
   const [section, setSection] = useState(initial.section)
   const [description, setDescription] = useState(initial.description)
   const [visibility, setVisibility] = useState<MenuVisibility>(initial.visibility)
+  const [variants, setVariants] = useState<MenuVariantDraft[]>(initial.variants)
 
   // La sección tecleada a mano sólo aparece cuando se pide: con 13 secciones ya
   // capturadas, teclear es la excepción y elegir es la regla — y teclear es
@@ -156,13 +173,31 @@ export function MenuItemForm({
     setPhotoRemoved(true)
   }
 
+  // El orden del array ES el orden en que se muestran los tamaños, igual que en
+  // la galería de fotos.
+  function addVariant() {
+    setVariants((prev) => [...prev, { name: '', price: '' }])
+  }
+
+  function setVariantField(index: number, field: 'name' | 'price', value: string) {
+    setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, [field]: value } : v)))
+  }
+
+  function removeVariant(index: number) {
+    setVariants((prev) => prev.filter((_, i) => i !== index))
+  }
+
   function submit() {
     const photo: PhotoIntent = file
       ? { kind: 'new', file }
       : photoRemoved
         ? { kind: 'remove' }
         : { kind: 'keep' }
-    onSave({ name, price, section, description, visibility, photo })
+    // Las filas en blanco se descartan al guardar en vez de bloquear el submit:
+    // quedan al agregar un tamaño y arrepentirse, y exigir que se borren a mano
+    // es fricción sin propósito.
+    const limpias = variants.filter((v) => v.name.trim() !== '' || v.price.trim() !== '')
+    onSave({ name, price, section, description, visibility, photo, variants: limpias })
   }
 
   return (
@@ -201,9 +236,79 @@ export function MenuItemForm({
           step="0.01"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          placeholder="Déjalo vacío si varía"
-          disabled={saving}
+          placeholder={variants.length > 0 ? 'Lo calculan los tamaños' : 'Déjalo vacío si varía'}
+          disabled={saving || variants.length > 0}
+          readOnly={variants.length > 0}
         />
+        {variants.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Con tamaños, aquí se muestra el más barato y se calcula solo.
+          </p>
+        )}
+      </div>
+
+      {/* Tamaños. Cada uno es su propio bloque: los dos inputs comparten fila
+          dentro de un grid de columnas IGUALES (50/50), que es lo que la regla
+          de arriba permite — ninguno reclama píxeles fijos, así que a 360px se
+          reparten el ancho en vez de aplastarse. El botón de quitar va con
+          texto y en su propia línea, nunca como ícono al lado del input. */}
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Tamaños</label>
+        <p className="text-xs text-muted-foreground">
+          Solo si el mismo platillo se vende en varias medidas y cada una cuesta distinto. Si tiene
+          un precio único, deja esto vacío.
+        </p>
+
+        {variants.length > 0 && (
+          <div className="space-y-2 pt-1">
+            {variants.map((variant, index) => (
+              <div key={variant.id ?? `nuevo-${index}`} className="space-y-2 rounded-md border p-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    className="h-11 md:h-9"
+                    value={variant.name}
+                    onChange={(e) => setVariantField(index, 'name', e.target.value)}
+                    placeholder="Ej. chica"
+                    aria-label={`Nombre del tamaño ${index + 1}`}
+                    disabled={saving}
+                  />
+                  <Input
+                    className="h-11 md:h-9"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={variant.price}
+                    onChange={(e) => setVariantField(index, 'price', e.target.value)}
+                    placeholder="Precio"
+                    aria-label={`Precio del tamaño ${index + 1}`}
+                    disabled={saving}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-0 text-muted-foreground"
+                  onClick={() => removeVariant(index)}
+                  disabled={saving}
+                >
+                  Quitar tamaño
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 w-full md:h-9"
+          onClick={addVariant}
+          disabled={saving}
+        >
+          Agregar tamaño
+        </Button>
       </div>
 
       {/* Sección: se ELIGE de las que ya existen. Teclear queda tras "Otra". */}
