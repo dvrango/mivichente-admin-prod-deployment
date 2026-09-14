@@ -119,8 +119,9 @@ export type BusinessFormInput = z.infer<typeof businessFormSchema>
 // validación de los servicios cuando viajaban dentro del FormData de este form.
 // El menú ya no se guarda desde acá: su schema es
 // `features/business-menu/schema.ts`, que valida UN ítem a la vez.
-// `services_label` (arriba, el título "Menú"/"Servicios") sí sigue siendo del
-// form: es un dato del negocio, no del menú.
+// `services_label` (arriba, el título "Menú"/"Servicios") ya NO lo decide el
+// form: lo calcula el trigger `businesses_set_services_label` a partir del tipo
+// de la categoría principal, y lo que mande el cliente se ignora.
 
 // Galería (business_photos). Viaja como JSON con el orden final; cada entrada
 // es una foto con `url` (ya guardada, o recién subida por el cliente antes de
