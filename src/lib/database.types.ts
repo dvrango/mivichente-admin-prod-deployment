@@ -2152,6 +2152,10 @@ export type Database = {
       }
       immutable_unaccent: { Args: { '': string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
+      is_food: {
+        Args: { b: Database['public']['Tables']['businesses']['Row'] }
+        Returns: boolean
+      }
       is_search_stopword: { Args: { term: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
       qr_scan_channel_from_src: { Args: { p_src: string }; Returns: string }
