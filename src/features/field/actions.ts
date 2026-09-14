@@ -113,8 +113,9 @@ export async function setFieldHours(id: string, hours: unknown): Promise<FieldAc
  * cosas no obvias: business_categories no tiene policy UPDATE en RLS (va con
  * delete+insert) y no puede quedar más de una primaria.
  *
- * Además deriva `services_label` del tipo de categoría, igual que hace el form
- * de escritorio al enviar (comida → "Menú").
+ * Ya no hace falta derivar `services_label` aquí: lo calcula el trigger
+ * `businesses_set_services_label` al cambiar `category_id`. El cálculo que
+ * quedaba en esta función es trabajo muerto.
  */
 export async function setFieldPrimaryCategory(
   id: string,

@@ -53,10 +53,24 @@ update public.categories
 --
 -- Mira businesses.category_id (la principal denormalizada), no
 -- business_categories, que es donde viven también las secundarias.
+-- `security definer` a propósito, igual que is_staff() / can_edit_business().
+-- Como invoker, el `exists` pasaría por las RLS de `categories`, y la policy de
+-- anon es `categories_public_read ... using (is_active = true)`
+-- (20260704120000_add_profiles_and_roles.sql:138). O sea que desactivar una
+-- categoría de comida —un clic en `toggleCategoryActive`, sin aviso de cuántos
+-- negocios la usan— haría que is_food devolviera false para todos sus negocios
+-- solo para el cliente anónimo, mientras el admin sigue viendo true. El carrito
+-- desaparecería sin un solo error en ningún lado. El criterio no puede depender
+-- de quién pregunta.
+--
+-- La función no expone nada sensible: lee `categories.type` por id y devuelve un
+-- booleano.
 create or replace function public.is_food(b public.businesses)
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $function$
   select exists (
     select 1
@@ -69,12 +83,20 @@ $function$;
 comment on function public.is_food(public.businesses) is
   'Si el negocio ofrece comida pedible: su categoría PRINCIPAL es de tipo food. Criterio único para mostrar el carrito. No usar services_label, que es solo display.';
 
+grant execute on function public.is_food(public.businesses) to anon, authenticated;
+
 -- 3. services_label deja de poder divergir.
 --
 -- El campo sigue siendo lo que siempre fue —el título de la sección en el
--- perfil— pero se vuelve derivado en vez de escrito por el cliente. Un trigger
--- cierra de una vez los cuatro caminos de desincronización en lugar de parchear
--- cada call site, que es lo que dejaría entrar al quinto.
+-- perfil— pero se vuelve derivado en vez de escrito por el cliente. Dos triggers
+-- en lugar de parchear cada call site, que es lo que dejaría entrar al quinto
+-- escritor:
+--   - uno en `businesses`, para cuando cambia la categoría del negocio;
+--   - otro en `categories`, para cuando cambia el `type` de la categoría. Este
+--     hace falta porque el primero no lo cubre: `updateCategory` no toca
+--     ninguna fila de `businesses`, así que nada dispararía. Es exactamente lo
+--     que pasó al corregir "Fotografía" — sus 10 negocios se habrían quedado
+--     diciendo 'Menú'.
 create or replace function public.set_services_label()
 returns trigger
 language plpgsql
@@ -108,6 +130,32 @@ create trigger businesses_set_services_label
   on public.businesses
   for each row
   execute function public.set_services_label();
+
+-- Cuando cambia el `type` de una categoría, reescribe el label de sus negocios.
+-- El `set services_label = services_label` parece un no-op pero no lo es: mete a
+-- `services_label` en la lista de columnas actualizadas, lo que dispara el
+-- trigger de arriba y recalcula el valor correcto.
+create or replace function public.resync_services_label_on_category_type()
+returns trigger
+language plpgsql
+as $function$
+begin
+  update public.businesses
+     set services_label = services_label
+   where category_id = new.id;
+
+  return null;
+end;
+$function$;
+
+drop trigger if exists categories_resync_services_label on public.categories;
+
+create trigger categories_resync_services_label
+  after update of type
+  on public.categories
+  for each row
+  when (old.type is distinct from new.type)
+  execute function public.resync_services_label_on_category_type();
 
 -- 4. Backfill: alinear lo que ya estaba escrito (o sin escribir).
 update public.businesses b

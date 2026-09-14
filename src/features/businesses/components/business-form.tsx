@@ -93,7 +93,7 @@ type Props = {
 }
 
 // Estos campos NO los maneja react-hook-form: aliases/offerings/secondary_category_ids
-// son estado local, y services_label se deriva del tipo de categoría en el submit.
+// son estado local, y services_label lo calcula un trigger en la DB.
 // Se omiten del schema del cliente — si no, el resolver los exigiría (services_label
 // quedaría undefined) y bloquearía el submit en silencio (sin error ni request).
 const clientSchema = businessFormSchema.omit({
@@ -301,13 +301,14 @@ export function BusinessForm({
       fd.set('aliases', JSON.stringify(aliases))
       fd.set('offerings', JSON.stringify(offerings))
       fd.set('hours', JSON.stringify(hours))
-      // El título de la sección se deriva del tipo de la categoría principal (no
-      // hay input): comida → "Menú", el resto → "Servicios".
+      // El título de la sección (comida → "Menú", el resto → "Servicios") lo
+      // calcula el trigger `businesses_set_services_label`, que pisa lo que
+      // llegue aquí. Se sigue mandando solo para que el valor optimista de la UI
+      // coincida con lo que la DB va a escribir; no es la fuente de verdad.
       const submitType = categories.find((c) => c.id === values.primary_category_id)?.type
       fd.set('services_label', submitType === 'food' ? 'Menú' : 'Servicios')
       // El menú NO viaja en este FormData: se edita en /businesses/[id]/menu,
-      // ítem por ítem. `services_label` sí se sigue derivando acá (es un dato
-      // del negocio, no del menú, y esa pantalla sólo lo lee).
+      // ítem por ítem.
       // La galería viaja como metadata en orden. Las fotos nuevas ya son URLs
       // (se subieron arriba), marcadas con `justUploaded` para que el server
       // las borre del bucket si el guardado falla.
