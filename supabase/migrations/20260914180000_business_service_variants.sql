@@ -156,7 +156,7 @@ with bloque as (
   select
     s.id as service_id,
     s.business_id,
-    substring(s.description from 'Tama[nñ]os:\s*([^.]*)') as lista
+    substring(s.description from '(?i)Tama[nñ]os:\s*([^.]*)') as lista
   from public.business_services s
   where s.description ~* 'Tama[nñ]os:'
 ),
@@ -181,12 +181,42 @@ from partes p;
 
 -- Quita el fragmento "Tamaños: ..." de la descripción ahora que vive en su
 -- tabla. "Contiene: ..." se queda: los ingredientes siguen siendo texto.
+--
+-- El `exists` NO es decorativo: sin él, una fila cuya ortografía el insert de
+-- arriba no hubiera capturado igual perdería el texto, y los precios se irían
+-- por las dos puntas a la vez, en silencio. Solo se limpia lo que ya quedó
+-- guardado en la tabla nueva.
 update public.business_services s
    set description = nullif(
          trim(regexp_replace(s.description, 'Tama[nñ]os:[^.]*\.?\s*', '', 'gi')),
          ''
        )
- where s.description ~* 'Tama[nñ]os:';
+ where s.description ~* 'Tama[nñ]os:'
+   and exists (
+     select 1 from public.business_service_variants v where v.service_id = s.id
+   );
+
+-- Fail-loud: si el parseo no capturó todo lo que la descripción anunciaba, la
+-- migración aborta en vez de dejar filas a medias. El conteo no se fija a 138 a
+-- propósito — lo que se exige es que ningún platillo que diga "Tamaños:" se
+-- quede sin variantes, así siga sirviendo si mañana entra otro negocio.
+do $$
+declare
+  huerfanos integer;
+begin
+  select count(*) into huerfanos
+    from public.business_services s
+   where s.description ~* 'Tama[nñ]os:'
+     and not exists (
+       select 1 from public.business_service_variants v where v.service_id = s.id
+     );
+
+  if huerfanos > 0 then
+    raise exception
+      'Backfill de tamaños incompleto: % platillos anuncian "Tamaños:" en la descripción y no se les pudo parsear ninguna variante.',
+      huerfanos;
+  end if;
+end $$;
 
 -- `price` del platillo pasa a ser el menor de sus variantes, o sea el "desde"
 -- que las tres superficies van a etiquetar como tal. Hoy ya guardaba el de la

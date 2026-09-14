@@ -247,11 +247,15 @@ export function MenuItemForm({
         )}
       </div>
 
-      {/* Tamaños. Cada uno es su propio bloque: los dos inputs comparten fila
-          dentro de un grid de columnas IGUALES (50/50), que es lo que la regla
-          de arriba permite — ninguno reclama píxeles fijos, así que a 360px se
-          reparten el ancho en vez de aplastarse. El botón de quitar va con
-          texto y en su propia línea, nunca como ícono al lado del input. */}
+      {/* Tamaños. Cada uno es su propio bloque con borde, y DENTRO del bloque
+          cada campo va en su propia fila completa — igual que el resto del
+          formulario.
+          La regla de arriba permite compartir fila SOLO a botones con texto, no
+          a campos que se teclean. Un `grid-cols-2` con los dos inputs no
+          reproduce el bug de ~0px, pero a 360px los deja en ~150px cada uno y
+          abre justo la excepción que la regla dice que no se abra. El borde del
+          bloque ya agrupa visualmente el par, así que la fila compartida no
+          compraba nada. */}
       <div className="space-y-1">
         <label className="text-sm font-medium">Tamaños</label>
         <p className="text-xs text-muted-foreground">
@@ -263,7 +267,7 @@ export function MenuItemForm({
           <div className="space-y-2 pt-1">
             {variants.map((variant, index) => (
               <div key={variant.id ?? `nuevo-${index}`} className="space-y-2 rounded-md border p-2">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
                   <Input
                     className="h-11 md:h-9"
                     value={variant.name}

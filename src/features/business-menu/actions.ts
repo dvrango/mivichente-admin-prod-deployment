@@ -275,19 +275,32 @@ async function reloadMenuItem(
   return data ? toMenuItem(data) : null
 }
 
+/**
+ * Deja `price` en el MENOR de los tamaños: el "desde" que las tres superficies
+ * etiquetan como tal.
+ *
+ * Va con `.select()` + `affectedOne()` como el resto del archivo. Por RLS es
+ * inalcanzable —si `syncVariants` pasó, `can_edit_business` es true para este
+ * mismo negocio— pero un fallo de transporte o una fila borrada en concurrencia
+ * dejarían el "desde" viejo mientras la action devuelve éxito. Un "desde" que
+ * no corresponde a ningún tamaño es justo el bug que esta tarea vino a cerrar,
+ * así que no se calla.
+ */
 async function syncPriceFromVariants(
   supabase: Supabase,
   serviceId: string,
   businessId: string,
   variants: MenuVariantInput[],
-): Promise<void> {
-  if (variants.length === 0) return
+): Promise<string | null> {
+  if (variants.length === 0) return null
   const min = Math.min(...variants.map((v) => v.price))
-  await supabase
+  const { data, error } = await supabase
     .from('business_services')
     .update({ price: min })
     .eq('id', serviceId)
     .eq('business_id', businessId)
+    .select('id')
+  return affectedOne(data, error)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -363,12 +376,25 @@ export async function createMenuItem(businessId: string, input: unknown): Promis
     // mensaje alguien volvería a capturarlo y terminaría con el platillo
     // duplicado. Por eso el error dice explícitamente que ya existe.
     if (failure) {
+      revalidateMenu(businessId)
       return {
         error: `El platillo se guardó, pero sus tamaños no: ${failure} Recarga el menú y edítalo — no lo captures de nuevo.`,
         item: null,
       }
     }
-    await syncPriceFromVariants(supabase, inserted.id, businessId, parsed.data.variants)
+    const priceFailure = await syncPriceFromVariants(
+      supabase,
+      inserted.id,
+      businessId,
+      parsed.data.variants,
+    )
+    if (priceFailure) {
+      revalidateMenu(businessId)
+      return {
+        error: `El platillo y sus tamaños se guardaron, pero el precio "desde" no se actualizó: ${priceFailure} Recarga el menú y vuelve a guardarlo — no lo captures de nuevo.`,
+        item: null,
+      }
+    }
   }
 
   revalidateMenu(businessId)
@@ -484,8 +510,20 @@ export async function updateMenuItem(
       parsed.data.variants,
       actorId,
     )
-    if (variantFailure) return { error: variantFailure, item: null }
-    await syncPriceFromVariants(supabase, itemId, businessId, parsed.data.variants)
+    if (variantFailure) {
+      revalidateMenu(businessId)
+      return { error: variantFailure, item: null }
+    }
+    const priceFailure = await syncPriceFromVariants(
+      supabase,
+      itemId,
+      businessId,
+      parsed.data.variants,
+    )
+    if (priceFailure) {
+      revalidateMenu(businessId)
+      return { error: priceFailure, item: null }
+    }
   }
 
   revalidateMenu(businessId)
