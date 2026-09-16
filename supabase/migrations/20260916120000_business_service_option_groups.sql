@@ -96,7 +96,15 @@ create table public.business_service_option_groups (
   constraint business_service_option_groups_select_range check (
     min_select >= 0
     and (max_select is null or max_select >= greatest(min_select, 1))
-  )
+  ),
+  -- Un grupo con el encabezado en blanco deja al cliente eligiendo entre cosas
+  -- sin saber de qué, y el índice único de abajo hace trim pero no exige
+  -- contenido. Lo que este check NO puede cubrir es la otra mitad del mismo
+  -- problema: nada aquí ata min_select al número de opciones que el grupo tiene
+  -- de verdad, así que un grupo obligatorio y vacío se guarda sin ruido y el
+  -- síntoma sale hasta el carrito. Ese guard vive en el Zod del editor
+  -- (`sqknppnyb`): un grupo a medio capturar es legítimo mientras se captura.
+  constraint business_service_option_groups_name_no_vacio check (length(trim(name)) > 0)
 );
 
 comment on table public.business_service_option_groups is
@@ -140,7 +148,8 @@ create table public.business_service_options (
   created_by  uuid references public.profiles(id) on delete set null,
   updated_by  uuid references public.profiles(id) on delete set null,
 
-  constraint business_service_options_price_delta_no_negativo check (price_delta >= 0)
+  constraint business_service_options_price_delta_no_negativo check (price_delta >= 0),
+  constraint business_service_options_name_no_vacio check (length(trim(name)) > 0)
 );
 
 comment on table public.business_service_options is
@@ -213,6 +222,7 @@ $function$;
 create or replace function public.reject_size_option_group()
 returns trigger
 language plpgsql
+set search_path = public
 as $function$
 declare
   normalizado text;
@@ -359,5 +369,13 @@ create policy business_service_options_delete
 -- Las policies no bastan sin el grant a nivel tabla.
 grant select on public.business_service_option_groups to anon;
 grant select on public.business_service_options to anon;
-grant all on public.business_service_option_groups to authenticated;
-grant all on public.business_service_options to authenticated;
+
+-- Las cuatro operaciones enumeradas, NO `grant all`: `all` incluye TRUNCATE, y
+-- TRUNCATE no pasa por RLS. Con `grant all`, cualquier sesión autenticada
+-- —incluida una cuenta en rol `pending`, que las policies dejan sin ver una
+-- sola fila— puede vaciar la tabla entera, y `... cascade` sobre los grupos se
+-- lleva también las opciones. El `grant all` heredado sigue en
+-- business_services, business_photos y business_service_variants; limpiarlo es
+-- otra migración, pero no es razón para meter dos tablas más al agujero.
+grant select, insert, update, delete on public.business_service_option_groups to authenticated;
+grant select, insert, update, delete on public.business_service_options to authenticated;

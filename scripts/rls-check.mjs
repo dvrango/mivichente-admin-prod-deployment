@@ -221,6 +221,41 @@ async function main() {
     )
   ).rows[0].id
 
+  // Tercer fixture: platillo PUBLICADO de un negocio INACTIVO. Sin él, los
+  // checks de anon de arriba sólo ejercen la pata `is_published` de la policy y
+  // pasarían igual de verde si alguien quitara el join a `businesses` con
+  // `b.is_active = true` — que es el mismo vacío de fixture que estos checks
+  // dicen estar evitando, movido un renglón más abajo.
+  const bizInactivo = (await c.query('select id from businesses where is_active = false limit 1'))
+    .rows[0]?.id
+
+  if (!bizInactivo) {
+    console.error(
+      'No hay ningún negocio inactivo en la base local: la pata is_active no se prueba.',
+    )
+    process.exit(1)
+  }
+
+  const svcInactivo = (
+    await c.query(
+      `insert into business_services (business_id, name, price, is_published)
+       values ($1, 'RLS check negocio inactivo', 40, true) returning id`,
+      [bizInactivo],
+    )
+  ).rows[0].id
+  const grupoInactivo = (
+    await c.query(
+      `insert into business_service_option_groups (service_id, business_id, name)
+       values ($1, $2, 'Sabor') returning id`,
+      [svcInactivo, bizInactivo],
+    )
+  ).rows[0].id
+  await c.query(
+    `insert into business_service_options (group_id, business_id, name, price_delta)
+     values ($1, $2, 'Capuchino', 0)`,
+    [grupoInactivo, bizInactivo],
+  )
+
   // Cuenta recién registrada: el trigger handle_new_user() le crea el perfil.
   await c.query(
     `insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
@@ -389,6 +424,51 @@ async function main() {
     )
     check('inserta opción en su municipio', opcionSuya.outcome === 'ok', opcionSuya.outcome)
 
+    // La suplantación también tiene que estar cerrada por UPDATE, no sólo por
+    // INSERT: el trigger es `before insert or update of service_id,
+    // business_id`. Si alguien lo acotara a `before insert`, un reviewer podría
+    // mover un grupo suyo al platillo de otro municipio con un update y el
+    // harness seguiría verde.
+    const mueveGrupo = await attempt(
+      c,
+      'update business_service_option_groups set service_id = $1 where id = $2',
+      [svcOtro, grupoPub],
+    )
+    check(
+      'NO mueve un grupo suyo a un platillo de otro municipio',
+      mueveGrupo.outcome === 'denied' || mueveGrupo.rows === 0,
+      `${mueveGrupo.outcome} (${mueveGrupo.rows})`,
+    )
+
+    const mueveOpcion = await attempt(
+      c,
+      'update business_service_options set group_id = $1 where group_id = $2',
+      [grupoInactivo, grupoPub],
+    )
+    check(
+      'NO mueve una opción suya a un grupo de otro negocio',
+      mueveOpcion.outcome === 'denied' || mueveOpcion.rows === 0,
+      `${mueveOpcion.outcome} (${mueveOpcion.rows})`,
+    )
+
+    // TRUNCATE no pasa por RLS: lo único que lo detiene es el grant de tabla.
+    // Por eso las dos tablas se otorgan operación por operación en vez de con
+    // `grant all`, y por eso este check existe — un `grant all` que vuelva a
+    // colarse no cambiaría ninguna policy y ningún otro check lo vería.
+    const truncGrupos = await attempt(c, 'truncate business_service_option_groups cascade')
+    check(
+      'NO puede truncar los grupos de opciones',
+      truncGrupos.outcome === 'denied',
+      truncGrupos.outcome,
+    )
+
+    const truncOpciones = await attempt(c, 'truncate business_service_options')
+    check(
+      'NO puede truncar las opciones',
+      truncOpciones.outcome === 'denied',
+      truncOpciones.outcome,
+    )
+
     const delGrupoOtro = await attempt(
       c,
       'delete from business_service_option_groups where service_id = $1',
@@ -541,6 +621,18 @@ async function main() {
       'NO ve la opción de un platillo en borrador',
       'select count(*) from business_service_options where group_id = $1',
       [grupoDraft],
+      0,
+    )
+    await ve(
+      'NO ve el grupo de un platillo publicado de un negocio inactivo',
+      'select count(*) from business_service_option_groups where service_id = $1',
+      [svcInactivo],
+      0,
+    )
+    await ve(
+      'NO ve la opción de un platillo publicado de un negocio inactivo',
+      'select count(*) from business_service_options where group_id = $1',
+      [grupoInactivo],
       0,
     )
 
