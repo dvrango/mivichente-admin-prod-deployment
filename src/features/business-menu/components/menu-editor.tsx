@@ -709,7 +709,7 @@ export function MenuEditor({
                               name: o.name,
                               // 0 se muestra vacío: "sin costo" es el caso normal
                               // y un "0" tecleado en cada opción es ruido.
-                              priceDelta: o.price_delta === 0 ? '' : priceToInput(o.price_delta),
+                              price_delta: o.price_delta === 0 ? '' : priceToInput(o.price_delta),
                             })),
                           })),
                           section: (item.section ?? '').trim(),

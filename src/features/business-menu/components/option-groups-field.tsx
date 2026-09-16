@@ -30,14 +30,26 @@ import { Chip } from './chip'
  * Una opción dentro de un grupo. `id` presente = ya existía en la base y
  * conserva su identidad al guardar; ausente = recién agregada.
  *
- * `priceDelta` viaja como string por lo mismo que los demás precios del
+ * `price_delta` viaja como string por lo mismo que los demás precios del
  * formulario: es lo que hay en un `<input>`, y convertirlo acá obligaría a
  * inventar qué significa "" antes de que el schema lo valide. Vacío = sin costo.
+ *
+ * SE LLAMA `price_delta` Y NO `priceDelta` A PROPÓSITO, aunque desentone: el
+ * borrador se manda tal cual a la server action, y ahí lo parsea `schema.ts`,
+ * que espera el nombre de la columna. Nada cruza los dos tipos estáticamente
+ * —el payload viaja como `unknown`—, así que renombrarlo a camelCase compila
+ * perfecto y falla al guardar con "Invalid input: expected string, received
+ * undefined". Pasó en el QA de esta tarea.
+ *
+ * La regla que queda: el campo que ES una columna lleva el nombre de la columna;
+ * el que es una pregunta inventada por la UI (`required`, `maxSelect`) va en
+ * camelCase, porque no existe del otro lado hasta que `toOptionGroupRow` lo
+ * traduce.
  */
 export type MenuOptionDraft = {
   id?: string
   name: string
-  priceDelta: string
+  price_delta: string
 }
 
 /** `maxSelect` null = las que quiera. Ver la traducción en `schema.ts`. */
@@ -83,7 +95,7 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
 
   function addOption(groupIndex: number) {
     const group = groups[groupIndex]
-    updateGroup(groupIndex, { options: [...group.options, { name: '', priceDelta: '' }] })
+    updateGroup(groupIndex, { options: [...group.options, { name: '', price_delta: '' }] })
   }
 
   function updateOption(groupIndex: number, optionIndex: number, patch: Partial<MenuOptionDraft>) {
@@ -238,9 +250,9 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
                       inputMode="decimal"
                       min="0"
                       step="0.01"
-                      value={option.priceDelta}
+                      value={option.price_delta}
                       onChange={(e) =>
-                        updateOption(groupIndex, optionIndex, { priceDelta: e.target.value })
+                        updateOption(groupIndex, optionIndex, { price_delta: e.target.value })
                       }
                       placeholder="Cuesta extra (déjalo vacío si no)"
                       aria-label={`Costo extra de la opción ${optionIndex + 1} del grupo ${groupIndex + 1}`}
@@ -356,7 +368,7 @@ export function limpiarGrupos(groups: MenuOptionGroupDraft[]): MenuOptionGroupDr
   return groups
     .map((group) => ({
       ...group,
-      options: group.options.filter((o) => o.name.trim() !== '' || o.priceDelta.trim() !== ''),
+      options: group.options.filter((o) => o.name.trim() !== '' || o.price_delta.trim() !== ''),
     }))
     .filter((group) => group.name.trim() !== '' || group.options.length > 0)
 }
