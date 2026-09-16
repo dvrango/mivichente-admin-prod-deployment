@@ -59,6 +59,171 @@ export const menuVariantsSchema = z
     'Hay dos tamaños con el mismo nombre.',
   )
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Grupos de opciones: lo que el cliente ELIGE del platillo además del tamaño.
+//
+// La frontera con las variantes es qué le hacen al precio: el tamaño lo FIJA
+// ("Grande $50"), la opción lo SUMA ("shot de espresso +$12"). Esa diferencia
+// la razona la migración 20260916120000; acá sólo se valida.
+//
+// Estas reglas son el criterio de aceptación de la tarea, no adorno: quien
+// captura es Sandra, y un grupo mal armado no truena en el admin — truena en el
+// carrito, donde el cliente ve "elige 1 sabor" sin sabores y no puede pedir el
+// platillo, sin ninguna señal de vuelta hacia acá.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Vacío = 0, NO error: la opción sin costo es el caso normal (de los grupos que
+// necesita K-fféss, casi todos son elecciones que no cobran). Al revés que el
+// precio de una variante, que sí es obligatorio.
+//
+// No-negativo porque la DB también lo prohíbe: un signo mal capturado bajaría el
+// total sin síntoma en pantalla y el negocio lo descubriría al cobrar.
+const priceDeltaSchema = z
+  .string()
+  .trim()
+  .refine(
+    (v) => v === '' || (Number.isFinite(Number(v)) && Number(v) >= 0),
+    'El costo extra tiene que ser un número de 0 en adelante.',
+  )
+  .refine((v) => v === '' || Number(v) < PRICE_MAX, 'El costo extra es demasiado grande.')
+  .transform((v) => (v === '' ? 0 : Number(v)))
+
+export const menuOptionSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1, 'Cada opción necesita un nombre.'),
+  price_delta: priceDeltaSchema,
+})
+export type MenuOptionInput = z.infer<typeof menuOptionSchema>
+
+/** Compara como comparaba el índice único que se quitó: sin mayúsculas ni espacios de sobra. */
+function nameKey(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es-MX')
+}
+
+/** El primer nombre que aparece dos veces, o null. Se devuelve para poder NOMBRARLO. */
+function firstDuplicate(names: string[]): string | null {
+  const seen = new Set<string>()
+  for (const name of names) {
+    const key = nameKey(name)
+    if (!key) continue
+    if (seen.has(key)) return name.trim()
+    seen.add(key)
+  }
+  return null
+}
+
+/**
+ * Los nombres que el trigger `business_service_option_groups_reject_size`
+ * rechaza en la DB. Se repiten acá para que el mensaje llegue ANTES de intentar
+ * guardar, no para sustituir al trigger: la garantía sigue siendo suya.
+ *
+ * Si allá se agrega un nombre, se agrega acá. Normalizado igual que el trigger:
+ * sin acentos, sin mayúsculas, con los espacios colapsados.
+ */
+const NOMBRES_DE_TAMANO = ['tamano', 'tamanos', 'size', 'sizes', 'presentacion', 'presentaciones']
+
+function esNombreDeTamano(name: string): boolean {
+  const normalizado = name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/[áéíóúüñ]/g, (c) => 'aeiouun'['áéíóúüñ'.indexOf(c)])
+  return NOMBRES_DE_TAMANO.includes(normalizado)
+}
+
+const optionsSchema = z
+  .array(menuOptionSchema, { message: 'Opciones inválidas.' })
+  .max(30, 'Demasiadas opciones para un solo grupo.')
+
+/**
+ * Un grupo. `required` y `maxSelect` son lo que el formulario sabe preguntar;
+ * la traducción a las columnas `min_select` / `max_select` la hace
+ * `toOptionGroupRow` al escribir, no la UI.
+ *
+ * `maxSelect` null = sin tope. El mínimo nunca pasa de 1 desde el admin: la DB
+ * admite "elige al menos 2", ningún menú lo ha pedido, y ofrecerlo cobraría
+ * claridad a todos los demás. Está anotado como fuera de scope en la tarea.
+ */
+export const menuOptionGroupSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Cada grupo de opciones necesita un nombre.')
+      .refine(
+        (name) => !esNombreDeTamano(name),
+        'Los tamaños se capturan arriba, en Tamaños, no como grupo de opciones. Si no es un tamaño, ponle otro nombre.',
+      ),
+    required: z.boolean(),
+    maxSelect: z
+      .number()
+      .int('El máximo tiene que ser un número entero.')
+      .min(1, 'El máximo tiene que ser 1 o más.')
+      .max(30, 'El máximo es demasiado grande.')
+      .nullable(),
+    options: optionsSchema,
+  })
+  .superRefine((group, ctx) => {
+    const etiqueta = group.name.trim() || 'sin nombre'
+
+    // Un grupo obligatorio y vacío se guarda sin ruido en la DB (a propósito:
+    // mientras se captura es legítimo) y el síntoma sale hasta el carrito, donde
+    // el platillo queda imposible de pedir. Acá es donde se corta.
+    if (group.required && group.options.length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `El grupo "${etiqueta}" es obligatorio, así que necesita al menos una opción.`,
+      })
+    }
+
+    if (group.maxSelect !== null && group.maxSelect > group.options.length) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `En "${etiqueta}" dejas elegir hasta ${group.maxSelect}, pero sólo hay ${group.options.length} ${group.options.length === 1 ? 'opción' : 'opciones'}.`,
+      })
+    }
+
+    const repetida = firstDuplicate(group.options.map((o) => o.name))
+    if (repetida) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `En "${etiqueta}" hay dos opciones que se llaman "${repetida}".`,
+      })
+    }
+  })
+export type MenuOptionGroupInput = z.infer<typeof menuOptionGroupSchema>
+
+/**
+ * El orden del array ES el `order_index`, igual que en tamaños y fotos.
+ *
+ * La unicidad de nombre se valida acá y NO en la base: la migración
+ * 20260916160000 quitó los índices únicos justo para que intercambiar los
+ * nombres de dos grupos en un guardado no reviente a media escritura. El precio
+ * de moverla es que hay que decir cuál se repite — que es, de todas formas, lo
+ * que un índice único nunca pudo decir.
+ */
+export const menuOptionGroupsSchema = z
+  .array(menuOptionGroupSchema, { message: 'Grupos de opciones inválidos.' })
+  .max(20, 'Demasiados grupos de opciones para un solo platillo.')
+  .superRefine((groups, ctx) => {
+    const repetido = firstDuplicate(groups.map((g) => g.name))
+    if (repetido) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Hay dos grupos de opciones que se llaman "${repetido}".`,
+      })
+    }
+  })
+
+/** Lo que el formulario captura -> lo que tienen las columnas. Ver `menuOptionGroupSchema`. */
+export function toOptionGroupRow(group: MenuOptionGroupInput): {
+  min_select: number
+  max_select: number | null
+} {
+  return { min_select: group.required ? 1 : 0, max_select: group.maxSelect }
+}
+
 // Los campos que el editor de menú puede escribir. `order_index` NO está a
 // propósito: el orden se mueve con `moveMenuItem` (intercambio entre dos filas),
 // nunca mandando un número desde el cliente — un índice tecleado desde la UI es
@@ -92,6 +257,10 @@ const menuItemFields = {
   // pasa a ser el menor de ellas, o sea el "desde" que se pinta en las tres
   // superficies; el server lo recalcula, no se confía al cliente.
   variants: menuVariantsSchema.default([]),
+  // Lo que el cliente elige además del tamaño. Vacío es el caso de casi todo el
+  // catálogo; no afecta `price`, porque un extra SUMA en la línea del pedido y
+  // no puede mover el "desde" que anuncia la card del menú.
+  option_groups: menuOptionGroupsSchema.default([]),
 }
 
 export const menuItemCreateSchema = z.object(menuItemFields)
@@ -130,6 +299,10 @@ export const menuItemPatchSchema = z
     show_in_profile: z.boolean(),
     // Clave ausente = no toques los tamaños. Array vacío = quítalos todos.
     variants: menuVariantsSchema,
+    // Mismo contrato de tres estados que los tamaños, y por el mismo motivo:
+    // sin `.default()`, o la clave ausente dejaría de significar "no lo toques"
+    // y cada guardado borraría los grupos de quien no los editó.
+    option_groups: menuOptionGroupsSchema,
   })
   .partial()
 export type MenuItemPatchInput = z.infer<typeof menuItemPatchSchema>

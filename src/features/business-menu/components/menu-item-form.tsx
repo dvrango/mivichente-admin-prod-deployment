@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { PHOTO_PICKER_ACCEPT } from '@/lib/images/photo-limits'
+import { Chip } from './chip'
+import { OptionGroupsField, limpiarGrupos, type MenuOptionGroupDraft } from './option-groups-field'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // REGLA DE LAYOUT DE ESTE ARCHIVO (no la rompas, ya costó un bug en prod):
@@ -71,6 +73,7 @@ export type MenuDraft = {
   visibility: MenuVisibility
   photo: PhotoIntent
   variants: MenuVariantDraft[]
+  optionGroups: MenuOptionGroupDraft[]
 }
 
 export type MenuDraftInitial = {
@@ -81,6 +84,7 @@ export type MenuDraftInitial = {
   visibility: MenuVisibility
   imageUrl: string | null
   variants: MenuVariantDraft[]
+  optionGroups: MenuOptionGroupDraft[]
 }
 
 const SIN_SECCION = ''
@@ -130,6 +134,7 @@ export function MenuItemForm({
   const [description, setDescription] = useState(initial.description)
   const [visibility, setVisibility] = useState<MenuVisibility>(initial.visibility)
   const [variants, setVariants] = useState<MenuVariantDraft[]>(initial.variants)
+  const [optionGroups, setOptionGroups] = useState<MenuOptionGroupDraft[]>(initial.optionGroups)
 
   // La sección tecleada a mano sólo aparece cuando se pide: con 13 secciones ya
   // capturadas, teclear es la excepción y elegir es la regla — y teclear es
@@ -197,7 +202,16 @@ export function MenuItemForm({
     // quedan al agregar un tamaño y arrepentirse, y exigir que se borren a mano
     // es fricción sin propósito.
     const limpias = variants.filter((v) => v.name.trim() !== '' || v.price.trim() !== '')
-    onSave({ name, price, section, description, visibility, photo, variants: limpias })
+    onSave({
+      name,
+      price,
+      section,
+      description,
+      visibility,
+      photo,
+      variants: limpias,
+      optionGroups: limpiarGrupos(optionGroups),
+    })
   }
 
   return (
@@ -314,6 +328,17 @@ export function MenuItemForm({
           Agregar tamaño
         </Button>
       </div>
+
+      {/* Opciones para elegir. Va DESPUÉS de Tamaños y antes de Sección: las dos
+          contestan "de qué formas se vende esto", y la diferencia entre ellas es
+          qué le hacen al precio — el tamaño lo fija, la opción le suma. Ponerlas
+          juntas es lo que hace visible esa frontera al capturar. */}
+      <OptionGroupsField
+        word={word}
+        groups={optionGroups}
+        onChange={setOptionGroups}
+        saving={saving}
+      />
 
       {/* Sección: se ELIGE de las que ya existen. Teclear queda tras "Otra". */}
       <div className="space-y-1.5">
@@ -502,31 +527,5 @@ export function MenuItemForm({
         </Button>
       </div>
     </div>
-  )
-}
-
-function Chip({
-  active,
-  disabled,
-  onClick,
-  children,
-}: {
-  active: boolean
-  disabled?: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      aria-pressed={active}
-      className={`min-h-9 rounded-full border px-3 py-1.5 text-sm disabled:opacity-50 ${
-        active ? 'bg-primary text-primary-foreground border-transparent' : 'border-input'
-      }`}
-    >
-      {children}
-    </button>
   )
 }

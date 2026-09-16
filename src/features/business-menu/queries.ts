@@ -19,6 +19,41 @@ export type MenuVariant = {
   order_index: number
 }
 
+/**
+ * Una opción elegible dentro de un grupo: "Capuchino", "Deslactosada",
+ * "Shot de espresso".
+ *
+ * `price_delta` es lo que SUMA al precio de la línea; nunca lo fija ni lo baja.
+ * 0 es el caso normal — de los grupos que necesita K-fféss, casi todos son
+ * elecciones sin costo.
+ */
+export type MenuOption = {
+  id: string
+  name: string
+  price_delta: number
+  order_index: number
+}
+
+/**
+ * Un grupo de opciones del platillo: "Sabor", "Leche", "Extra".
+ *
+ * `min_select` / `max_select` son los nombres de la DB y acá se conservan tal
+ * cual. La traducción a lo que lee quien captura ("¿tiene que elegir?",
+ * "¿cuántas puede elegir?") vive en el formulario, que es donde se lee.
+ *
+ * Obligatorio es `min_select >= 1`: no hay columna `is_required` a propósito,
+ * porque tener las dos permitiría capturar un grupo "obligatorio" con
+ * `min_select = 0`, que se contradice a sí mismo. `max_select` null = sin tope.
+ */
+export type MenuOptionGroup = {
+  id: string
+  name: string
+  min_select: number
+  max_select: number | null
+  order_index: number
+  options: MenuOption[]
+}
+
 export type MenuItem = {
   id: string
   name: string
@@ -40,27 +75,46 @@ export type MenuItem = {
   show_in_profile: boolean
   updated_at: string
   variants: MenuVariant[]
+  /**
+   * Lo que el cliente ELIGE del platillo además del tamaño. Vacío es el caso de
+   * casi todo el catálogo: sólo los menús de comida con sabores y extras los
+   * usan.
+   */
+  option_groups: MenuOptionGroup[]
 }
 
-// Las variantes vienen embebidas en la misma query: son 6 filas por platillo en
-// el peor caso real y traerlas aparte sería un round-trip por ítem.
+// Las variantes y los grupos de opciones vienen embebidos en la misma query:
+// son pocas filas por platillo en el peor caso real (K-fféss, el menú con más
+// opciones, tiene 3 grupos en su platillo más cargado) y traerlos aparte sería
+// un round-trip por ítem.
 //
 // Va en UNA sola línea a propósito: el cliente de Supabase infiere el tipo del
 // resultado desde el literal, y si se parte con `+` pierde la forma del embed y
-// todo el select degrada a `GenericStringError`.
+// todo el select degrada a `GenericStringError`. Vale igual para el embed
+// anidado de dos niveles (grupo -> opciones) que se agregó después.
 // prettier-ignore
 export const MENU_ITEM_COLUMNS =
-  'id, name, price, description, image_url, section, order_index, is_published, show_in_profile, updated_at, business_service_variants(id, name, price, order_index)'
+  'id, name, price, description, image_url, section, order_index, is_published, show_in_profile, updated_at, business_service_variants(id, name, price, order_index), business_service_option_groups(id, name, min_select, max_select, order_index, business_service_options(id, name, price_delta, order_index))'
 
 type MenuVariantRow = Omit<MenuVariant, 'price'> & { price: number | string }
 
-type MenuItemRow = Omit<MenuItem, 'price' | 'variants'> & {
-  price: number | string | null
-  business_service_variants: MenuVariantRow[] | null
+type MenuOptionRow = Omit<MenuOption, 'price_delta'> & { price_delta: number | string }
+
+type MenuOptionGroupRow = Omit<MenuOptionGroup, 'options'> & {
+  business_service_options: MenuOptionRow[] | null
 }
 
+type MenuItemRow = Omit<MenuItem, 'price' | 'variants' | 'option_groups'> & {
+  price: number | string | null
+  business_service_variants: MenuVariantRow[] | null
+  business_service_option_groups: MenuOptionGroupRow[] | null
+}
+
+const byOrderIndex = (a: { order_index: number }, b: { order_index: number }) =>
+  a.order_index - b.order_index
+
 export function toMenuItem(row: MenuItemRow): MenuItem {
-  const { business_service_variants, ...rest } = row
+  const { business_service_variants, business_service_option_groups, ...rest } = row
   return {
     ...rest,
     price: row.price === null ? null : Number(row.price),
@@ -68,7 +122,17 @@ export function toMenuItem(row: MenuItemRow): MenuItem {
     // sea el orden de despliegue, igual que en la galería de fotos.
     variants: (business_service_variants ?? [])
       .map((v) => ({ ...v, price: Number(v.price) }))
-      .sort((a, b) => a.order_index - b.order_index),
+      .sort(byOrderIndex),
+    // Mismo tratamiento un nivel más abajo: el orden de las opciones dentro del
+    // grupo también es de despliegue, no incidental.
+    option_groups: (business_service_option_groups ?? [])
+      .map(({ business_service_options, ...group }) => ({
+        ...group,
+        options: (business_service_options ?? [])
+          .map((o) => ({ ...o, price_delta: Number(o.price_delta) }))
+          .sort(byOrderIndex),
+      }))
+      .sort(byOrderIndex),
   }
 }
 
