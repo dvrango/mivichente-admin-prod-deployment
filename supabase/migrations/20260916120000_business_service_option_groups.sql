@@ -371,11 +371,16 @@ grant select on public.business_service_option_groups to anon;
 grant select on public.business_service_options to anon;
 
 -- Las cuatro operaciones enumeradas, NO `grant all`: `all` incluye TRUNCATE, y
--- TRUNCATE no pasa por RLS. Con `grant all`, cualquier sesión autenticada
--- —incluida una cuenta en rol `pending`, que las policies dejan sin ver una
--- sola fila— puede vaciar la tabla entera, y `... cascade` sobre los grupos se
--- lleva también las opciones. El `grant all` heredado sigue en
--- business_services, business_photos y business_service_variants; limpiarlo es
--- otra migración, pero no es razón para meter dos tablas más al agujero.
+-- TRUNCATE no pasa por RLS.
+--
+-- CORRECCIÓN (2026-09-16, después del db:push): enumerar aquí NO cerró el
+-- hueco. Supabase trae default privileges que otorgan `arwdDxtm` —TRUNCATE
+-- incluido— a `anon` y `authenticated` sobre toda tabla nueva de `public`, y un
+-- `grant` acotado no revoca lo que el default ya dio: sólo un `revoke` lo hace.
+-- Verificado en prod tras aplicar esta migración: `has_table_privilege('anon',
+-- …, 'TRUNCATE')` seguía en `true`. El revoke de verdad, más el cierre del
+-- default para las tablas futuras, vive en
+-- `20260916140000_revoke_truncate_publico.sql`. Estas dos líneas se quedan como
+-- están: no hacen daño y documentan lo que la tabla sí necesita.
 grant select, insert, update, delete on public.business_service_option_groups to authenticated;
 grant select, insert, update, delete on public.business_service_options to authenticated;
