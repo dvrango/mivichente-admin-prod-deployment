@@ -158,6 +158,69 @@ async function main() {
     )
   ).rows[0].id
 
+  // Opciones de un platillo (sabor, extras). Dos platillos del MISMO negocio,
+  // uno publicado y otro en borrador: lo que separa lo que anon ve de lo que no
+  // es `is_published`, no el negocio. El negocio se elige activo a propósito —
+  // sobre uno inactivo anon no vería nada y los checks pasarían sin probar
+  // nada, que es el mismo vacío que dejó pasar la policy del bucket el
+  // 2026-09-11.
+  const bizActivo = (
+    await c.query('select id from businesses where municipio = $1 and is_active limit 1', [suyo])
+  ).rows[0]?.id
+
+  if (!bizActivo) {
+    console.error(`No hay un negocio activo en "${suyo}": los checks de anon no probarían nada.`)
+    process.exit(1)
+  }
+
+  const svcPub = (
+    await c.query(
+      `insert into business_services (business_id, name, price, is_published)
+       values ($1, 'RLS check publicado', 40, true) returning id`,
+      [bizActivo],
+    )
+  ).rows[0].id
+  const svcDraft = (
+    await c.query(
+      `insert into business_services (business_id, name, price, is_published)
+       values ($1, 'RLS check borrador', 40, false) returning id`,
+      [bizActivo],
+    )
+  ).rows[0].id
+
+  const grupoPub = (
+    await c.query(
+      `insert into business_service_option_groups (service_id, business_id, name)
+       values ($1, $2, 'Sabor') returning id`,
+      [svcPub, bizActivo],
+    )
+  ).rows[0].id
+  const grupoDraft = (
+    await c.query(
+      `insert into business_service_option_groups (service_id, business_id, name)
+       values ($1, $2, 'Sabor') returning id`,
+      [svcDraft, bizActivo],
+    )
+  ).rows[0].id
+  await c.query(
+    `insert into business_service_options (group_id, business_id, name, price_delta)
+     values ($1, $2, 'Capuchino', 0)`,
+    [grupoPub, bizActivo],
+  )
+  await c.query(
+    `insert into business_service_options (group_id, business_id, name, price_delta)
+     values ($1, $2, 'Capuchino', 0)`,
+    [grupoDraft, bizActivo],
+  )
+
+  const svcOtro = (
+    await c.query(
+      `insert into business_services (business_id, name, price, is_published)
+       values ($1, 'RLS check otro municipio', 40, true) returning id`,
+      [bizOtro],
+    )
+  ).rows[0].id
+
   // Cuenta recién registrada: el trigger handle_new_user() le crea el perfil.
   await c.query(
     `insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
@@ -176,6 +239,11 @@ async function main() {
     check('no lee servicios', (await n('select count(*) from business_services')) === 0)
     check('no lee reportes', (await n('select count(*) from business_reports')) === 0)
     check('no lee horarios', (await n('select count(*) from business_hours')) === 0)
+    check(
+      'no lee grupos de opciones',
+      (await n('select count(*) from business_service_option_groups')) === 0,
+    )
+    check('no lee opciones', (await n('select count(*) from business_service_options')) === 0)
     check('no lee altas de negocio', (await n('select count(*) from business_registrations')) === 0)
     check(
       'no lee registration-photos',
@@ -202,6 +270,20 @@ async function main() {
       delAlta.rows === 0,
       `${delAlta.outcome} (${delAlta.rows} filas)`,
     )
+
+    const insGrupo = await attempt(
+      c,
+      "insert into business_service_option_groups (service_id, business_id, name) values ($1, $2, 'Hack')",
+      [svcPub, bizActivo],
+    )
+    check('no inserta grupos de opciones', insGrupo.outcome === 'denied', insGrupo.outcome)
+
+    const insOpcion = await attempt(
+      c,
+      "insert into business_service_options (group_id, business_id, name, price_delta) values ($1, $2, 'Hack', 99)",
+      [grupoPub, bizActivo],
+    )
+    check('no inserta opciones', insOpcion.outcome === 'denied', insOpcion.outcome)
 
     const st = await attempt(
       c,
@@ -260,6 +342,62 @@ async function main() {
       'NO descarta reporte de otro municipio',
       rOtro.rows === 0,
       `${rOtro.outcome} (${rOtro.rows})`,
+    )
+
+    // Grupos de opciones: mismo scope por municipio que el resto del menú. El
+    // reviewer lee los de todos (incluido el borrador, que anon no ve) pero
+    // sólo escribe en los suyos.
+    check(
+      'lee grupos de opciones de platillos en borrador',
+      (await n('select count(*) from business_service_option_groups where service_id = $1', [
+        svcDraft,
+      ])) === 1,
+    )
+
+    const grupoSuyo = await attempt(
+      c,
+      "insert into business_service_option_groups (service_id, business_id, name) values ($1, $2, 'Leche')",
+      [svcPub, bizActivo],
+    )
+    check('inserta grupo en su municipio', grupoSuyo.outcome === 'ok', grupoSuyo.outcome)
+
+    const grupoOtro = await attempt(
+      c,
+      "insert into business_service_option_groups (service_id, business_id, name) values ($1, $2, 'Leche')",
+      [svcOtro, bizOtro],
+    )
+    check('NO inserta grupo en otro municipio', grupoOtro.outcome === 'denied', grupoOtro.outcome)
+
+    // El business_id se lo pone el trigger desde el platillo padre, así que
+    // mandar el de un negocio propio no alcanza para colar un grupo en un
+    // platillo ajeno: la policy ve el business_id ya corregido.
+    const grupoSuplantado = await attempt(
+      c,
+      "insert into business_service_option_groups (service_id, business_id, name) values ($1, $2, 'Suplantado')",
+      [svcOtro, bizActivo],
+    )
+    check(
+      'NO cuela un grupo en un platillo ajeno mandando su propio business_id',
+      grupoSuplantado.outcome === 'denied',
+      grupoSuplantado.outcome,
+    )
+
+    const opcionSuya = await attempt(
+      c,
+      "insert into business_service_options (group_id, business_id, name, price_delta) values ($1, $2, 'Deslactosada', 0)",
+      [grupoPub, bizActivo],
+    )
+    check('inserta opción en su municipio', opcionSuya.outcome === 'ok', opcionSuya.outcome)
+
+    const delGrupoOtro = await attempt(
+      c,
+      'delete from business_service_option_groups where service_id = $1',
+      [svcOtro],
+    )
+    check(
+      'NO borra grupos de otro municipio',
+      delGrupoOtro.rows === 0,
+      `${delGrupoOtro.outcome} (${delGrupoOtro.rows})`,
     )
 
     const stSuyo = await attempt(
@@ -358,13 +496,77 @@ async function main() {
       check(label, filas === 0, `${filas} filas`)
     }
 
-    await noVe('solo ve negocios activos', 'select count(*) from businesses where is_active = false')
+    await noVe(
+      'solo ve negocios activos',
+      'select count(*) from businesses where is_active = false',
+    )
     await noVe('no ve altas de negocio', 'select count(*) from business_registrations')
     await noVe('no ve reportes de abuso', 'select count(*) from business_reports')
     await noVe('no ve perfiles', 'select count(*) from profiles')
     await noVe(
       'no ve registration-photos',
       "select count(*) from storage.objects where bucket_id = 'registration-photos'",
+    )
+
+    // Opciones: anon las ve sólo si vería el platillo. Los dos platillos son
+    // del mismo negocio activo, así que lo único que los separa es
+    // `is_published` — si la policy se aflojara a "existe el platillo", el
+    // borrador se colaría y este check es lo único que lo diría.
+    const ve = async (label, sql, params, esperado) => {
+      const r = await attempt(c, sql, params)
+      if (r.outcome !== 'ok') return check(label, false, r.outcome)
+      const filas = Number((await c.query(sql, params)).rows[0].count)
+      check(label, filas === esperado, `${filas} filas`)
+    }
+
+    await ve(
+      've el grupo de un platillo publicado',
+      'select count(*) from business_service_option_groups where service_id = $1',
+      [svcPub],
+      1,
+    )
+    await ve(
+      'NO ve el grupo de un platillo en borrador',
+      'select count(*) from business_service_option_groups where service_id = $1',
+      [svcDraft],
+      0,
+    )
+    await ve(
+      've la opción de un platillo publicado',
+      'select count(*) from business_service_options where group_id = $1',
+      [grupoPub],
+      1,
+    )
+    await ve(
+      'NO ve la opción de un platillo en borrador',
+      'select count(*) from business_service_options where group_id = $1',
+      [grupoDraft],
+      0,
+    )
+
+    const insGrupo = await attempt(
+      c,
+      "insert into business_service_option_groups (service_id, business_id, name) values ($1, $2, 'Hack')",
+      [svcPub, bizActivo],
+    )
+    check('no inserta grupos de opciones', insGrupo.outcome === 'denied', insGrupo.outcome)
+
+    const insOpcion = await attempt(
+      c,
+      "insert into business_service_options (group_id, business_id, name, price_delta) values ($1, $2, 'Hack', 99)",
+      [grupoPub, bizActivo],
+    )
+    check('no inserta opciones', insOpcion.outcome === 'denied', insOpcion.outcome)
+
+    const upOpcion = await attempt(
+      c,
+      'update business_service_options set price_delta = 0 where group_id = $1',
+      [grupoPub],
+    )
+    check(
+      'no cambia el precio de una opción',
+      upOpcion.rows === 0,
+      `${upOpcion.outcome} (${upOpcion.rows})`,
     )
   })
 
