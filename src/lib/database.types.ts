@@ -1696,6 +1696,137 @@ export type Database = {
           },
         ]
       }
+      business_service_option_groups: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          max_select: number | null
+          min_select: number
+          name: string
+          order_index: number
+          service_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          max_select?: number | null
+          min_select?: number
+          name: string
+          order_index?: number
+          service_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          max_select?: number | null
+          min_select?: number
+          name?: string
+          order_index?: number
+          service_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_service_option_groups_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_option_groups_created_by_fkey'
+            columns: ['created_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_option_groups_service_id_fkey'
+            columns: ['service_id']
+            referencedRelation: 'business_services'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_option_groups_updated_by_fkey'
+            columns: ['updated_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      business_service_options: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          group_id: string
+          id: string
+          name: string
+          order_index: number
+          price_delta: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          group_id: string
+          id?: string
+          name: string
+          order_index?: number
+          price_delta?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          group_id?: string
+          id?: string
+          name?: string
+          order_index?: number
+          price_delta?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_service_options_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_options_created_by_fkey'
+            columns: ['created_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_options_group_id_fkey'
+            columns: ['group_id']
+            referencedRelation: 'business_service_option_groups'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_service_options_updated_by_fkey'
+            columns: ['updated_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       business_service_variants: {
         Row: {
           business_id: string
