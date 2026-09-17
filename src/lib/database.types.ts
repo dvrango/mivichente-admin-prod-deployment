@@ -2416,6 +2416,10 @@ export type Database = {
           type: string
         }[]
       }
+      sync_business_service_option_groups: {
+        Args: { p_groups: Json; p_service_id: string }
+        Returns: boolean
+      }
       unaccent: { Args: { '': string }; Returns: string }
       unique_business_slug: {
         Args: { base: string; exclude_id?: string }

@@ -37,7 +37,7 @@ import {
   updateMenuItem,
 } from '../actions'
 import { menuItemCreateSchema, menuItemPatchSchema } from '../schema'
-import type { MenuItem } from '../queries'
+import type { MenuItem, MenuOptionGroup } from '../queries'
 import {
   MenuItemForm,
   visibilityLabel,
@@ -91,6 +91,28 @@ function formatPrice(price: number | null): string {
 function formatItemPrice(item: Pick<MenuItem, 'price' | 'variants'>): string {
   const base = formatPrice(item.price)
   return item.variants.length > 0 && item.price !== null ? `desde ${base}` : base
+}
+
+/**
+ * Un grupo de opciones en una línea, para la vista de sólo lectura.
+ *
+ * Traduce las columnas al lenguaje del formulario — `min_select >= 1` es
+ * "obligatorio", `max_select` null es "las que quiera" — porque quien lee esto
+ * es la misma persona que captura, sólo que sin permiso de editar este negocio.
+ */
+function describeGroup(group: MenuOptionGroup): string {
+  const cuantas =
+    group.max_select === null
+      ? 'las que quiera'
+      : group.max_select === 1
+        ? 'una'
+        : `hasta ${group.max_select}`
+  const regla = `${group.min_select >= 1 ? 'Obligatorio' : 'Opcional'}, ${cuantas}`
+  if (group.options.length === 0) return `${regla} · sin opciones capturadas`
+  const opciones = group.options
+    .map((o) => (o.price_delta > 0 ? `${o.name} +${formatPrice(o.price_delta)}` : o.name))
+    .join(', ')
+  return `${regla} · ${opciones}`
 }
 
 /** Los dos booleans de la fila -> la opción que muestra el formulario. */
@@ -244,6 +266,7 @@ export function MenuEditor({
       // de un alta arranca con el perfil en sí.
       ...fromVisibility(draft.visibility, true),
       variants: draft.variants,
+      option_groups: draft.optionGroups,
     }
     const parsed = menuItemCreateSchema.safeParse(base)
     if (!parsed.success) {
@@ -284,8 +307,10 @@ export function MenuEditor({
       description: draft.description,
       ...fromVisibility(draft.visibility, item.show_in_profile),
       // Siempre presente en el patch: el form manda la lista completa, así que
-      // omitirla sólo serviría para no poder vaciarla nunca.
+      // omitirla sólo serviría para no poder vaciarla nunca. Vale igual para los
+      // grupos de opciones, que tienen el mismo contrato de tres estados.
       variants: draft.variants,
+      option_groups: draft.optionGroups,
     }
     const parsed = menuItemPatchSchema.safeParse(base)
     if (!parsed.success) {
@@ -509,6 +534,7 @@ export function MenuEditor({
               name: '',
               price: '',
               variants: [],
+              optionGroups: [],
               section:
                 sectionFilter !== null && sectionFilter !== SIN_SECCION
                   ? sectionFilter
@@ -640,6 +666,13 @@ export function MenuEditor({
                             .join(' · ')}
                         </Row>
                       )}
+                      {/* Una fila por grupo, con el mismo lenguaje que lee quien
+                          sí puede editar: "obligatorio", no "min_select 1". */}
+                      {item.option_groups.map((group) => (
+                        <Row key={group.id} label={group.name}>
+                          {describeGroup(group)}
+                        </Row>
+                      ))}
                       <Row label="Sección">{(item.section ?? '').trim() || 'Sin sección'}</Row>
                       <Row label="Descripción">{item.description || '—'}</Row>
                       {/* Una sola fila, con el mismo texto que ve quien sí
@@ -662,6 +695,31 @@ export function MenuEditor({
                             id: v.id,
                             name: v.name,
                             price: priceToInput(v.price),
+                          })),
+                          // `min_select >= 1` es lo que la DB llama obligatorio;
+                          // el formulario lo pregunta en español y `schema.ts`
+                          // lo traduce de vuelta al guardar.
+                          optionGroups: item.option_groups.map((g) => ({
+                            id: g.id,
+                            name: g.name,
+                            required: g.min_select >= 1,
+                            // La columna vuelve a ser la respuesta que el
+                            // formulario sabe hacer: null = las que quiera,
+                            // 1 = solo una, y cualquier otro número = hasta N.
+                            maxMode:
+                              g.max_select === null
+                                ? 'todas'
+                                : g.max_select === 1
+                                  ? 'una'
+                                  : 'hasta',
+                            maxSelect: g.max_select === null ? '2' : String(g.max_select),
+                            options: g.options.map((o) => ({
+                              id: o.id,
+                              name: o.name,
+                              // 0 se muestra vacío: "sin costo" es el caso normal
+                              // y un "0" tecleado en cada opción es ruido.
+                              price_delta: o.price_delta === 0 ? '' : priceToInput(o.price_delta),
+                            })),
                           })),
                           section: (item.section ?? '').trim(),
                           description: item.description ?? '',

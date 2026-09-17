@@ -10,6 +10,8 @@ import {
   menuItemPatchSchema,
   menuItemVisibilitySchema,
   menuMoveSchema,
+  toOptionGroupRow,
+  type MenuOptionGroupInput,
   type MenuVariantInput,
 } from './schema'
 import { MENU_ITEM_COLUMNS, toMenuItem, type MenuItem } from './queries'
@@ -42,9 +44,15 @@ import { MENU_ITEM_COLUMNS, toMenuItem, type MenuItem } from './queries'
 //   DELETE rechazado -> HTTP 200 con []  (cero filas, `error` null)
 //
 // O sea: sin detectar "0 filas afectadas" el editor le diría "guardado" a un
-// reviewer que no guardó nada. Por eso TODA escritura de acá va con `.select()`
-// y pasa por `affectedOne()`. Es el mismo motivo por el que `deleteBusiness`
-// lleva su guard explícito (ver comentarios en businesses/actions.ts).
+// reviewer que no guardó nada. Las escrituras directas de acá van con
+// `.select()` y pasan por `affectedOne()`; la sincronización anidada de grupos
+// usa `sync_business_service_option_groups`, que cuenta filas dentro de una
+// transacción SQL y revierte todo si una policy bloquea algo. Es el mismo
+// motivo por el que `deleteBusiness` lleva su guard explícito (ver comentarios
+// en businesses/actions.ts).
+//
+// La asimetría de arriba (el INSERT sí grita, el resto no) es de PostgREST, no
+// un contrato nuestro: no se usa para ahorrarse el `.select()` en los inserts.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type MenuActionResult = { error: string | null }
@@ -251,6 +259,10 @@ async function syncVariants(
  * las tres superficies. Sin variantes no se toca: ahí `price` sigue siendo el
  * precio único, y vacío sigue significando "cotiza tu evento".
  *
+ * Los grupos de opciones NO entran en este cálculo: un `price_delta` suma en la
+ * línea del pedido, no en el "desde". Si lo moviera, la card del menú anunciaría
+ * un precio que nadie paga.
+ *
  * Se calcula en el server a propósito. Si lo mandara el cliente, un editor
  * viejo o una automatización podrían dejar un "desde" que no corresponde a
  * ningún tamaño — que es exactamente el bug que esta tarea vino a cerrar.
@@ -273,6 +285,39 @@ async function reloadMenuItem(
     .eq('business_id', businessId)
     .maybeSingle()
   return data ? toMenuItem(data) : null
+}
+
+/**
+ * Sincroniza grupos y opciones con una sola llamada RPC. La función SQL corre
+ * todas las escrituras dentro de una transacción y sigue siendo SECURITY
+ * INVOKER, así que RLS conserva el límite por municipio.
+ */
+async function syncOptionGroups(
+  supabase: Supabase,
+  serviceId: string,
+  groups: MenuOptionGroupInput[],
+): Promise<string | null> {
+  const payload = groups.map((group) => {
+    const { min_select, max_select } = toOptionGroupRow(group)
+    return {
+      id: group.id ?? null,
+      name: group.name,
+      min_select,
+      max_select,
+      options: group.options.map((option) => ({
+        id: option.id ?? null,
+        name: option.name,
+        price_delta: option.price_delta,
+      })),
+    }
+  })
+
+  const { data, error } = await supabase.rpc('sync_business_service_option_groups', {
+    p_service_id: serviceId,
+    p_groups: payload,
+  })
+  if (error) return error.message
+  return data === true ? null : BLOCKED
 }
 
 /**
@@ -392,6 +437,20 @@ export async function createMenuItem(businessId: string, input: unknown): Promis
       revalidateMenu(businessId)
       return {
         error: `El platillo y sus tamaños se guardaron, pero el precio "desde" no se actualizó: ${priceFailure} Recarga el menú y vuelve a guardarlo — no lo captures de nuevo.`,
+        item: null,
+      }
+    }
+  }
+
+  if (parsed.data.option_groups.length > 0) {
+    const failure = await syncOptionGroups(supabase, inserted.id, parsed.data.option_groups)
+    // Mismo criterio que con los tamaños: el platillo YA entró y no se borra.
+    // El mensaje dice que ya existe porque, con un "no se pudo guardar" a secas,
+    // quien captura lo vuelve a teclear y termina con el platillo duplicado.
+    if (failure) {
+      revalidateMenu(businessId)
+      return {
+        error: `El platillo se guardó, pero sus opciones no: ${failure} Recarga el menú y edítalo — no lo captures de nuevo.`,
         item: null,
       }
     }
@@ -523,6 +582,16 @@ export async function updateMenuItem(
     if (priceFailure) {
       revalidateMenu(businessId)
       return { error: priceFailure, item: null }
+    }
+  }
+
+  // Mismo contrato de tres estados que los tamaños: clave ausente = no los
+  // toques, array vacío = quítalos todos.
+  if ('option_groups' in parsed.data && parsed.data.option_groups) {
+    const groupFailure = await syncOptionGroups(supabase, itemId, parsed.data.option_groups)
+    if (groupFailure) {
+      revalidateMenu(businessId)
+      return { error: groupFailure, item: null }
     }
   }
 
