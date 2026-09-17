@@ -703,7 +703,16 @@ export function MenuEditor({
                             id: g.id,
                             name: g.name,
                             required: g.min_select >= 1,
-                            maxSelect: g.max_select,
+                            // La columna vuelve a ser la respuesta que el
+                            // formulario sabe hacer: null = las que quiera,
+                            // 1 = solo una, y cualquier otro número = hasta N.
+                            maxMode:
+                              g.max_select === null
+                                ? 'todas'
+                                : g.max_select === 1
+                                  ? 'una'
+                                  : 'hasta',
+                            maxSelect: g.max_select === null ? '2' : String(g.max_select),
                             options: g.options.map((o) => ({
                               id: o.id,
                               name: o.name,

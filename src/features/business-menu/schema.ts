@@ -136,13 +136,29 @@ const optionsSchema = z
   .max(30, 'Demasiadas opciones para un solo grupo.')
 
 /**
- * Un grupo. `required` y `maxSelect` son lo que el formulario sabe preguntar;
- * la traducción a las columnas `min_select` / `max_select` la hace
- * `toOptionGroupRow` al escribir, no la UI.
+ * El tope que va a la columna `max_select`, a partir de lo que respondió el
+ * formulario. null = sin tope.
  *
- * `maxSelect` null = sin tope. El mínimo nunca pasa de 1 desde el admin: la DB
- * admite "elige al menos 2", ningún menú lo ha pedido, y ofrecerlo cobraría
- * claridad a todos los demás. Está anotado como fuera de scope en la tarea.
+ * "Hasta…" con un número inválido devuelve null acá, pero no se cuela: el
+ * `superRefine` ya emitió su propio error y el parseo no llega a `transform`.
+ */
+function maxSelectDe(group: {
+  maxMode: 'una' | 'hasta' | 'todas'
+  maxSelect: string
+}): number | null {
+  if (group.maxMode === 'una') return 1
+  if (group.maxMode === 'todas') return null
+  return /^\d+$/.test(group.maxSelect.trim()) ? Number(group.maxSelect) : null
+}
+
+/**
+ * Un grupo. `required`, `maxMode` y `maxSelect` son las RESPUESTAS que el
+ * formulario sabe pedir; la traducción a las columnas `min_select` /
+ * `max_select` la hace `toOptionGroupRow` al escribir, no la UI.
+ *
+ * El mínimo nunca pasa de 1 desde el admin: la DB admite "elige al menos 2",
+ * ningún menú lo ha pedido, y ofrecerlo cobraría claridad a todos los demás.
+ * Está anotado como fuera de scope en la tarea.
  */
 export const menuOptionGroupSchema = z
   .object({
@@ -156,16 +172,34 @@ export const menuOptionGroupSchema = z
         'Los tamaños se capturan arriba, en Tamaños, no como grupo de opciones. Si no es un tamaño, ponle otro nombre.',
       ),
     required: z.boolean(),
-    maxSelect: z
-      .number()
-      .int('El máximo tiene que ser un número entero.')
-      .min(1, 'El máximo tiene que ser 1 o más.')
-      .max(30, 'El máximo es demasiado grande.')
-      .nullable(),
+    // `maxMode` es la respuesta que da el formulario; `maxSelect` sólo se mira
+    // cuando esa respuesta es 'hasta'. Llega como string por lo mismo que
+    // `price_delta`: es lo que hay en un `<input>`, y mientras se teclea pasa
+    // por estados que no son un número válido.
+    maxMode: z.enum(['una', 'hasta', 'todas'], { message: 'Falta decir cuántas puede elegir.' }),
+    maxSelect: z.string().trim(),
     options: optionsSchema,
   })
   .superRefine((group, ctx) => {
     const etiqueta = group.name.trim() || 'sin nombre'
+
+    // El número sólo se exige cuando la respuesta fue "hasta…"; en los otros dos
+    // modos el campo ni se muestra y lo que traiga es irrelevante.
+    if (group.maxMode === 'hasta') {
+      if (!/^\d+$/.test(group.maxSelect)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `En "${etiqueta}" falta decir hasta cuántas opciones puede elegir.`,
+        })
+      } else if (Number(group.maxSelect) < 1) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `En "${etiqueta}" tiene que poder elegir al menos una.`,
+        })
+      } else if (Number(group.maxSelect) > 30) {
+        ctx.addIssue({ code: 'custom', message: `El máximo de "${etiqueta}" es demasiado grande.` })
+      }
+    }
 
     // Un grupo obligatorio y vacío se guarda sin ruido en la DB (a propósito:
     // mientras se captura es legítimo) y el síntoma sale hasta el carrito, donde
@@ -177,10 +211,18 @@ export const menuOptionGroupSchema = z
       })
     }
 
-    if (group.maxSelect !== null && group.maxSelect > group.options.length) {
+    // El tope sólo se compara contra las opciones cuando hay opciones. Sin este
+    // guard, un grupo OPCIONAL a medio capturar pasaba o rebotaba según un chip
+    // que no viene al caso: "opcional / las que quiera / sin opciones" se
+    // guardaba y "opcional / solo una / sin opciones" no, con un mensaje que
+    // hablaba del máximo en vez de las opciones que faltan. El grupo opcional
+    // vacío es aceptable —quien lo lee lo ignora en vez de bloquear el
+    // platillo—; el obligatorio vacío lo corta el refine de arriba.
+    const tope = maxSelectDe(group)
+    if (group.options.length > 0 && tope !== null && tope > group.options.length) {
       ctx.addIssue({
         code: 'custom',
-        message: `En "${etiqueta}" dejas elegir hasta ${group.maxSelect}, pero sólo hay ${group.options.length} ${group.options.length === 1 ? 'opción' : 'opciones'}.`,
+        message: `En "${etiqueta}" dejas elegir hasta ${tope}, pero sólo hay ${group.options.length} ${group.options.length === 1 ? 'opción' : 'opciones'}.`,
       })
     }
 
@@ -221,7 +263,7 @@ export function toOptionGroupRow(group: MenuOptionGroupInput): {
   min_select: number
   max_select: number | null
 } {
-  return { min_select: group.required ? 1 : 0, max_select: group.maxSelect }
+  return { min_select: group.required ? 1 : 0, max_select: maxSelectDe(group) }
 }
 
 // Los campos que el editor de menú puede escribir. `order_index` NO está a

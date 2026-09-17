@@ -44,9 +44,15 @@ import { MENU_ITEM_COLUMNS, toMenuItem, type MenuItem } from './queries'
 //   DELETE rechazado -> HTTP 200 con []  (cero filas, `error` null)
 //
 // O sea: sin detectar "0 filas afectadas" el editor le diría "guardado" a un
-// reviewer que no guardó nada. Por eso TODA escritura de acá va con `.select()`
-// y pasa por `affectedOne()`. Es el mismo motivo por el que `deleteBusiness`
-// lleva su guard explícito (ver comentarios en businesses/actions.ts).
+// reviewer que no guardó nada. Las escrituras directas de acá van con
+// `.select()` y pasan por `affectedOne()`; la sincronización anidada de grupos
+// usa `sync_business_service_option_groups`, que cuenta filas dentro de una
+// transacción SQL y revierte todo si una policy bloquea algo. Es el mismo
+// motivo por el que `deleteBusiness` lleva su guard explícito (ver comentarios
+// en businesses/actions.ts).
+//
+// La asimetría de arriba (el INSERT sí grita, el resto no) es de PostgREST, no
+// un contrato nuestro: no se usa para ahorrarse el `.select()` en los inserts.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type MenuActionResult = { error: string | null }
@@ -249,182 +255,6 @@ async function syncVariants(
 }
 
 /**
- * Deja los grupos de opciones de un platillo como los mandó el editor,
- * conservando el id de los grupos y de las opciones que ya existían.
- *
- * Calcada de `syncVariants` y por la MISMA razón, que acá pesa todavía más: el
- * carrito de la Etapa 1 guarda en memoria qué opción eligió el cliente, y
- * revalida antes de armar el mensaje de WhatsApp. Si un guardado regenerara las
- * filas, esa revalidación vería la opción como desaparecida y se la quitaría del
- * pedido sin decir por qué. Corregir "+$12" a "+$15" tiene que dejar el mismo id.
- *
- * Tampoco hay transacción acá (el cliente de Supabase no expone una): si el
- * delete pasa y el insert falla, el platillo queda con menos grupos de los que
- * debía — visible al recargar, no silencioso. Mismo trade-off que `syncVariants`,
- * `upsertPhotos` y `upsertHours`.
- *
- * Nota sobre el orden de las escrituras: hasta la migración 20260916160000
- * intercambiar los nombres de dos grupos en un mismo guardado FALLABA acá,
- * porque un índice único por nombre veía el estado intermedio. Esa migración lo
- * quitó y la unicidad se valida ahora en el Zod del editor, así que actualizar
- * fila por fila volvió a ser seguro.
- */
-async function syncOptionGroups(
-  supabase: Supabase,
-  serviceId: string,
-  businessId: string,
-  groups: MenuOptionGroupInput[],
-  actorId: string | null,
-): Promise<string | null> {
-  const { data: currentGroups, error: readError } = await supabase
-    .from('business_service_option_groups')
-    .select('id, business_service_options(id)')
-    .eq('service_id', serviceId)
-  if (readError) return readError.message
-
-  const currentGroupIds = new Set((currentGroups ?? []).map((g) => g.id))
-  const keptGroupIds = new Set(groups.map((g) => g.id).filter((id): id is string => Boolean(id)))
-
-  // Un id que el cliente mandó y que no cuelga de ESTE platillo sería un grupo
-  // de otro; no se actualiza en silencio. Mismo guard que en `syncVariants`.
-  const unknownGroups = [...keptGroupIds].filter((id) => !currentGroupIds.has(id))
-  if (unknownGroups.length > 0) {
-    return 'Uno de los grupos de opciones ya no existe. Recarga el menú.'
-  }
-
-  const groupsToDelete = [...currentGroupIds].filter((id) => !keptGroupIds.has(id))
-  if (groupsToDelete.length > 0) {
-    // Las opciones se van solas por el `on delete cascade` del grupo.
-    const { data: deleted, error } = await supabase
-      .from('business_service_option_groups')
-      .delete()
-      .in('id', groupsToDelete)
-      .eq('service_id', serviceId)
-      .select('id')
-    const failure = affectedOne(deleted, error)
-    if (failure) return failure
-  }
-
-  for (const [index, group] of groups.entries()) {
-    const { min_select, max_select } = toOptionGroupRow(group)
-    let groupId = group.id
-
-    if (groupId) {
-      const { data: rows, error } = await supabase
-        .from('business_service_option_groups')
-        .update({
-          name: group.name,
-          min_select,
-          max_select,
-          order_index: index,
-          updated_by: actorId,
-        })
-        .eq('id', groupId)
-        .eq('service_id', serviceId)
-        .select('id')
-      const failure = affectedOne(rows, error)
-      if (failure) return failure
-    } else {
-      // `business_id` lo pisa el trigger `set_option_group_business_id` con el
-      // del platillo padre; se manda porque la columna es NOT NULL.
-      const { data: inserted, error } = await supabase
-        .from('business_service_option_groups')
-        .insert({
-          service_id: serviceId,
-          business_id: businessId,
-          name: group.name,
-          min_select,
-          max_select,
-          order_index: index,
-          created_by: actorId,
-          updated_by: actorId,
-        })
-        .select('id')
-        .single()
-      if (error || !inserted) return error?.message ?? BLOCKED
-      groupId = inserted.id
-    }
-
-    const existingOptionIds = new Set(
-      (currentGroups ?? [])
-        .find((g) => g.id === groupId)
-        ?.business_service_options.map((o) => o.id),
-    )
-    const failure = await syncOptions(
-      supabase,
-      groupId,
-      businessId,
-      group.options,
-      existingOptionIds,
-      actorId,
-    )
-    if (failure) return failure
-  }
-
-  return null
-}
-
-/** Las opciones de UN grupo. Se separa sólo para que `syncOptionGroups` se lea. */
-async function syncOptions(
-  supabase: Supabase,
-  groupId: string,
-  businessId: string,
-  options: MenuOptionGroupInput['options'],
-  existingIds: Set<string>,
-  actorId: string | null,
-): Promise<string | null> {
-  const keptIds = new Set(options.map((o) => o.id).filter((id): id is string => Boolean(id)))
-
-  const unknown = [...keptIds].filter((id) => !existingIds.has(id))
-  if (unknown.length > 0) return 'Una de las opciones ya no existe. Recarga el menú.'
-
-  const toDelete = [...existingIds].filter((id) => !keptIds.has(id))
-  if (toDelete.length > 0) {
-    const { data: deleted, error } = await supabase
-      .from('business_service_options')
-      .delete()
-      .in('id', toDelete)
-      .eq('group_id', groupId)
-      .select('id')
-    const failure = affectedOne(deleted, error)
-    if (failure) return failure
-  }
-
-  for (const [index, option] of options.entries()) {
-    if (option.id) {
-      const { data: rows, error } = await supabase
-        .from('business_service_options')
-        .update({
-          name: option.name,
-          price_delta: option.price_delta,
-          order_index: index,
-          updated_by: actorId,
-        })
-        .eq('id', option.id)
-        .eq('group_id', groupId)
-        .select('id')
-      const failure = affectedOne(rows, error)
-      if (failure) return failure
-      continue
-    }
-
-    // `business_id` lo pisa `set_option_business_id`; va porque es NOT NULL.
-    const { error } = await supabase.from('business_service_options').insert({
-      group_id: groupId,
-      business_id: businessId,
-      name: option.name,
-      price_delta: option.price_delta,
-      order_index: index,
-      created_by: actorId,
-      updated_by: actorId,
-    })
-    if (error) return error.message
-  }
-
-  return null
-}
-
-/**
  * `price` del platillo = el MENOR de sus variantes, o sea el "desde" que pintan
  * las tres superficies. Sin variantes no se toca: ahí `price` sigue siendo el
  * precio único, y vacío sigue significando "cotiza tu evento".
@@ -455,6 +285,39 @@ async function reloadMenuItem(
     .eq('business_id', businessId)
     .maybeSingle()
   return data ? toMenuItem(data) : null
+}
+
+/**
+ * Sincroniza grupos y opciones con una sola llamada RPC. La función SQL corre
+ * todas las escrituras dentro de una transacción y sigue siendo SECURITY
+ * INVOKER, así que RLS conserva el límite por municipio.
+ */
+async function syncOptionGroups(
+  supabase: Supabase,
+  serviceId: string,
+  groups: MenuOptionGroupInput[],
+): Promise<string | null> {
+  const payload = groups.map((group) => {
+    const { min_select, max_select } = toOptionGroupRow(group)
+    return {
+      id: group.id ?? null,
+      name: group.name,
+      min_select,
+      max_select,
+      options: group.options.map((option) => ({
+        id: option.id ?? null,
+        name: option.name,
+        price_delta: option.price_delta,
+      })),
+    }
+  })
+
+  const { data, error } = await supabase.rpc('sync_business_service_option_groups', {
+    p_service_id: serviceId,
+    p_groups: payload,
+  })
+  if (error) return error.message
+  return data === true ? null : BLOCKED
 }
 
 /**
@@ -580,13 +443,7 @@ export async function createMenuItem(businessId: string, input: unknown): Promis
   }
 
   if (parsed.data.option_groups.length > 0) {
-    const failure = await syncOptionGroups(
-      supabase,
-      inserted.id,
-      businessId,
-      parsed.data.option_groups,
-      actorId,
-    )
+    const failure = await syncOptionGroups(supabase, inserted.id, parsed.data.option_groups)
     // Mismo criterio que con los tamaños: el platillo YA entró y no se borra.
     // El mensaje dice que ya existe porque, con un "no se pudo guardar" a secas,
     // quien captura lo vuelve a teclear y termina con el platillo duplicado.
@@ -731,13 +588,7 @@ export async function updateMenuItem(
   // Mismo contrato de tres estados que los tamaños: clave ausente = no los
   // toques, array vacío = quítalos todos.
   if ('option_groups' in parsed.data && parsed.data.option_groups) {
-    const groupFailure = await syncOptionGroups(
-      supabase,
-      itemId,
-      businessId,
-      parsed.data.option_groups,
-      actorId,
-    )
+    const groupFailure = await syncOptionGroups(supabase, itemId, parsed.data.option_groups)
     if (groupFailure) {
       revalidateMenu(businessId)
       return { error: groupFailure, item: null }

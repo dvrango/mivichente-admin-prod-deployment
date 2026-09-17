@@ -52,12 +52,27 @@ export type MenuOptionDraft = {
   price_delta: string
 }
 
-/** `maxSelect` null = las que quiera. Ver la traducción en `schema.ts`. */
+/**
+ * `maxMode` es la respuesta a "¿cuántas puede elegir?" y `maxSelect` sólo
+ * importa cuando esa respuesta es `'hasta'`. La traducción a la columna
+ * `max_select` la hace `schema.ts`: `'una'` -> 1, `'todas'` -> null, `'hasta'`
+ * -> el número tecleado.
+ *
+ * EL MODO NO SE DEDUCE DEL NÚMERO, aunque "hasta 1" y "solo una" signifiquen lo
+ * mismo. Deducirlo hacía desaparecer el campo a media edición: quien iba a
+ * escribir 15 tecleaba el "1", el modo se releía como "solo una" y el input se
+ * ocultaba antes del segundo dígito.
+ *
+ * `maxSelect` es string y no number por lo mismo que `price_delta`: es lo que
+ * hay en un `<input>`, y mientras se teclea pasa por estados que no son un
+ * número válido — el campo vacío, un "1" que va camino a "15".
+ */
 export type MenuOptionGroupDraft = {
   id?: string
   name: string
   required: boolean
-  maxSelect: number | null
+  maxMode: 'una' | 'hasta' | 'todas'
+  maxSelect: string
   options: MenuOptionDraft[]
 }
 
@@ -78,7 +93,7 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
     // Arranca obligatorio y de una sola opción: es lo que pide la mayoría de los
     // menús reales (el sabor de un café, la leche, la fruta de una crepa). Quien
     // captura un extra opcional lo cambia con un toque.
-    onChange([...groups, { name: '', required: true, maxSelect: 1, options: [] }])
+    onChange([...groups, { name: '', required: true, maxMode: 'una', maxSelect: '2', options: [] }])
   }
 
   function removeGroup(index: number) {
@@ -176,28 +191,28 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
                 <p className="text-sm font-medium">¿Cuántas puede elegir?</p>
                 <div className="flex flex-wrap gap-1.5">
                   <Chip
-                    active={group.maxSelect === 1}
+                    active={group.maxMode === 'una'}
                     disabled={saving}
-                    onClick={() => updateGroup(groupIndex, { maxSelect: 1 })}
+                    onClick={() => updateGroup(groupIndex, { maxMode: 'una' })}
                   >
                     Solo una
                   </Chip>
                   <Chip
-                    active={group.maxSelect !== null && group.maxSelect > 1}
+                    active={group.maxMode === 'hasta'}
                     disabled={saving}
-                    onClick={() => updateGroup(groupIndex, { maxSelect: 2 })}
+                    onClick={() => updateGroup(groupIndex, { maxMode: 'hasta' })}
                   >
                     Hasta…
                   </Chip>
                   <Chip
-                    active={group.maxSelect === null}
+                    active={group.maxMode === 'todas'}
                     disabled={saving}
-                    onClick={() => updateGroup(groupIndex, { maxSelect: null })}
+                    onClick={() => updateGroup(groupIndex, { maxMode: 'todas' })}
                   >
                     Las que quiera
                   </Chip>
                 </div>
-                {group.maxSelect !== null && group.maxSelect > 1 && (
+                {group.maxMode === 'hasta' && (
                   <Input
                     className="h-11 md:h-9"
                     type="number"
@@ -205,15 +220,10 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
                     min="2"
                     step="1"
                     value={group.maxSelect}
-                    onChange={(e) => {
-                      // Vacío o no numérico vuelve a 2 en vez de dejar NaN en el
-                      // borrador: el chip ya dijo "más de una", así que 2 es el
-                      // piso de esa respuesta.
-                      const parsed = Number.parseInt(e.target.value, 10)
-                      updateGroup(groupIndex, {
-                        maxSelect: Number.isFinite(parsed) && parsed > 1 ? parsed : 2,
-                      })
-                    }}
+                    // Se guarda TAL CUAL, sin coaccionar en cada tecla, y el
+                    // campo no depende de lo que diga: el modo lo fija el chip.
+                    // Lo valida `schema.ts` al guardar.
+                    onChange={(e) => updateGroup(groupIndex, { maxSelect: e.target.value })}
                     aria-label={`Cuántas opciones puede elegir del grupo ${groupIndex + 1}`}
                     disabled={saving}
                   />
