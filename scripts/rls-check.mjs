@@ -114,6 +114,17 @@ async function main() {
   const bizOtro = (await c.query('select id from businesses where municipio = $1 limit 1', [otro]))
     .rows[0].id
 
+  // Una fila real evita que los checks de lectura/update/delete de la nueva
+  // telemetría pasen por vacío. Se crea como postgres y el rollback final la
+  // elimina junto con el resto de fixtures.
+  const eventoPedido = (
+    await c.query(
+      `insert into order_funnel_events (device_id, business_id, step)
+       values ('rls-check', $1, 'menu_viewed') returning id`,
+      [bizSuyo],
+    )
+  ).rows[0].id
+
   // --- fixtures ----------------------------------------------------------
   const fotoSuyo = (
     await c.query(
@@ -583,6 +594,8 @@ async function main() {
     await noVe('no ve altas de negocio', 'select count(*) from business_registrations')
     await noVe('no ve reportes de abuso', 'select count(*) from business_reports')
     await noVe('no ve perfiles', 'select count(*) from profiles')
+    await noVe('no ve eventos del embudo de pedido', 'select count(*) from order_funnel_events')
+    await noVe('no ve dispositivos excluidos', 'select count(*) from excluded_devices')
     await noVe(
       'no ve registration-photos',
       "select count(*) from storage.objects where bucket_id = 'registration-photos'",
@@ -649,6 +662,44 @@ async function main() {
       [grupoPub, bizActivo],
     )
     check('no inserta opciones', insOpcion.outcome === 'denied', insOpcion.outcome)
+
+    const insEvento = await attempt(
+      c,
+      `insert into order_funnel_events (device_id, business_id, step)
+       values ('rls-check-anon', $1, 'item_added')`,
+      [bizActivo],
+    )
+    check('inserta eventos del embudo de pedido', insEvento.outcome === 'ok', insEvento.outcome)
+
+    const cambiaEvento = await attempt(
+      c,
+      "update order_funnel_events set step = 'checkout_started' where id = $1",
+      [eventoPedido],
+    )
+    check(
+      'no cambia eventos del embudo de pedido',
+      cambiaEvento.outcome === 'denied' || cambiaEvento.rows === 0,
+      `${cambiaEvento.outcome} (${cambiaEvento.rows})`,
+    )
+
+    const borraEvento = await attempt(c, 'delete from order_funnel_events where id = $1', [
+      eventoPedido,
+    ])
+    check(
+      'no borra eventos del embudo de pedido',
+      borraEvento.outcome === 'denied' || borraEvento.rows === 0,
+      `${borraEvento.outcome} (${borraEvento.rows})`,
+    )
+
+    const insExcluido = await attempt(
+      c,
+      "insert into excluded_devices (device_id, label) values ('hack', 'Hack')",
+    )
+    check(
+      'no administra dispositivos excluidos',
+      insExcluido.outcome === 'denied',
+      insExcluido.outcome,
+    )
 
     const upOpcion = await attempt(
       c,
