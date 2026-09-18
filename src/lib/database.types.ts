@@ -2155,6 +2155,61 @@ export type Database = {
         }
         Relationships: []
       }
+      excluded_devices: {
+        Row: {
+          created_at: string
+          device_id: string
+          label: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          label: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          label?: string
+        }
+        Relationships: []
+      }
+      order_funnel_events: {
+        Row: {
+          business_id: string
+          created_at: string
+          device_id: string
+          id: string
+          item_count: number | null
+          step: string
+          total_cents: number | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          device_id: string
+          id?: string
+          item_count?: number | null
+          step: string
+          total_cents?: number | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          item_count?: number | null
+          step?: string
+          total_cents?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'order_funnel_events_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

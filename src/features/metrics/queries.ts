@@ -2,10 +2,6 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/features/auth/queries'
 
-// device_id de pruebas del propio equipo — se excluye de todos los conteos,
-// mismo criterio que usa la Brújula del Producto al leer estas tablas a mano.
-const TEST_DEVICE_ID = '76be25ff-1906-45ff-a829-46fbc828eecd'
-
 const WINDOW_DAYS = 7
 // Semanas de historia para la tendencia. 6 alcanza para ver si sube/baja/se
 // estanca sin volverse ruido — con este volumen no tiene caso ver más atrás.
@@ -42,8 +38,8 @@ export type WeeklyMetrics = {
 }
 
 type SearchEventRow = { device_id: string; query: string; result_count: number; created_at: string }
-type TapRow = { created_at: string }
-type ContactRow = { channel: string; source: string; created_at: string }
+type TapRow = { device_id: string; created_at: string }
+type ContactRow = { device_id: string; channel: string; source: string; created_at: string }
 
 function weekIndexOf(createdAt: string, now: number): number {
   // 0 = semana actual (últimos 7 días), WEEKS-1 = la más vieja del rango.
@@ -91,12 +87,11 @@ function statsForWeek(events: SearchEventRow[], taps: TapRow[], contacts: Contac
 }
 
 /**
- * Por qué service role y no el cliente del usuario (revisado 2026-09-11,
- * mikitasks `eantgj6l5`): las tres tablas que lee acá —`search_events`,
- * `search_result_taps`, `business_contacts`— tienen **una sola policy cada una,
- * y es de INSERT**. No existe policy de SELECT para nadie, ni siquiera para
- * admin. Con el cliente normal esto devolvería cero filas siempre, así que el
- * service role no es un atajo: hoy es el único camino.
+ * Por qué service role y no el cliente del usuario (revisado 2026-09-18,
+ * mikitasks `eantgj6l5` y `06yzbwbcc`): las tres tablas de métricas y
+ * `excluded_devices` no dan SELECT a clientes. Con el cliente normal esto
+ * devolvería cero filas siempre, así que el service role no es un atajo: hoy
+ * es el único camino.
  *
  * La consecuencia es que esta función corre por fuera de RLS y `db:rls:check`
  * no la cubre, así que el `requireAdmin()` va DENTRO de la función y no solo en
@@ -116,31 +111,34 @@ export async function getWeeklyMetrics(): Promise<WeeklyMetrics> {
   const now = Date.now()
   const sinceIso = new Date(now - WEEKS * WINDOW_DAYS * DAY_MS).toISOString()
 
-  const [searchEvents, taps, contacts] = await Promise.all([
+  const [searchEvents, taps, contacts, excludedDevices] = await Promise.all([
     supabase
       .from('search_events')
       .select('device_id, query, result_count, created_at')
-      .neq('device_id', TEST_DEVICE_ID)
       .gte('created_at', sinceIso),
-    supabase
-      .from('search_result_taps')
-      .select('created_at')
-      .neq('device_id', TEST_DEVICE_ID)
-      .gte('created_at', sinceIso),
+    supabase.from('search_result_taps').select('device_id, created_at').gte('created_at', sinceIso),
     supabase
       .from('business_contacts')
-      .select('channel, source, created_at')
-      .neq('device_id', TEST_DEVICE_ID)
+      .select('device_id, channel, source, created_at')
       .gte('created_at', sinceIso),
+    supabase.from('excluded_devices').select('device_id'),
   ])
 
   if (searchEvents.error) throw searchEvents.error
   if (taps.error) throw taps.error
   if (contacts.error) throw contacts.error
+  if (excludedDevices.error) throw excludedDevices.error
 
-  const events = (searchEvents.data ?? []) as SearchEventRow[]
-  const tapRows = (taps.data ?? []) as TapRow[]
-  const contactRows = (contacts.data ?? []) as ContactRow[]
+  const excludedDeviceIds = new Set((excludedDevices.data ?? []).map((row) => row.device_id))
+  const events = ((searchEvents.data ?? []) as SearchEventRow[]).filter(
+    (row) => !excludedDeviceIds.has(row.device_id),
+  )
+  const tapRows = ((taps.data ?? []) as TapRow[]).filter(
+    (row) => !excludedDeviceIds.has(row.device_id),
+  )
+  const contactRows = ((contacts.data ?? []) as ContactRow[]).filter(
+    (row) => !excludedDeviceIds.has(row.device_id),
+  )
 
   const buckets: { events: SearchEventRow[]; taps: TapRow[]; contacts: ContactRow[] }[] =
     Array.from({ length: WEEKS }, () => ({ events: [], taps: [], contacts: [] }))
