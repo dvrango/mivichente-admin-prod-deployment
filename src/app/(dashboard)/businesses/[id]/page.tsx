@@ -7,6 +7,7 @@ import { formatDateLong } from '@/lib/date'
 import { getCurrentProfile } from '@/features/auth/queries'
 import { updateBusiness, type BusinessFormState } from '@/features/businesses/actions'
 import { BusinessForm } from '@/features/businesses/components/business-form'
+import { ToggleAcceptsOrdersButton } from '@/features/businesses/components/toggle-accepts-orders-button'
 import { ToggleActiveButton } from '@/features/businesses/components/toggle-active-button'
 import { ToggleDeliveryButton } from '@/features/businesses/components/toggle-delivery-button'
 import { ToggleFeaturedButton } from '@/features/businesses/components/toggle-featured-button'
@@ -100,6 +101,12 @@ export default async function EditBusinessPage({
               <Badge variant="outline">Solo lectura · {business.municipio}</Badge>
             ) : (
               <>
+                {profile?.role === 'admin' && (
+                  <ToggleAcceptsOrdersButton
+                    id={business.id}
+                    acceptsOrders={business.accepts_orders}
+                  />
+                )}
                 <ToggleVerifiedButton id={business.id} isVerified={business.is_verified} />
                 <ToggleFeaturedButton id={business.id} isFeatured={business.is_featured} />
                 <ToggleDeliveryButton id={business.id} hasDelivery={business.has_delivery} />

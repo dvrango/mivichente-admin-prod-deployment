@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { BUSINESS_PHOTOS_BUCKET, pathFromPublicUrl } from '@/lib/storage'
-import { getCurrentProfile } from '@/features/auth/queries'
+import { getCurrentProfile, requireAdmin } from '@/features/auth/queries'
 import {
   bulkCategorySchema,
   bulkIdsSchema,
@@ -12,6 +12,7 @@ import {
   parseBusinessForm,
   parseCoordinates,
   photoFileSchema,
+  toggleBusinessAcceptsOrdersSchema,
   type GalleryValues,
 } from './schema'
 import type { WeeklyHours } from './types'
@@ -450,6 +451,30 @@ export async function toggleBusinessDelivery(id: string, nextHasDelivery: boolea
 
   revalidatePath('/businesses')
   revalidatePath(`/businesses/${id}`)
+}
+
+export async function toggleBusinessAcceptsOrders(id: string, acceptsOrders: boolean) {
+  const parsed = toggleBusinessAcceptsOrdersSchema.safeParse({ id, acceptsOrders })
+  if (!parsed.success) throw new Error(firstIssue(parsed.error))
+
+  // El trigger de DB es la protección real ante escrituras directas. Este
+  // guard evita que una llamada manual al Server Action llegue siquiera al
+  // update cuando la sesión no es admin.
+  await requireAdmin()
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({
+      accepts_orders: parsed.data.acceptsOrders,
+      updated_by: await currentUserId(supabase),
+    })
+    .eq('id', parsed.data.id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/businesses')
+  revalidatePath(`/businesses/${parsed.data.id}`)
 }
 
 export type BulkCategoryResult = { error: string | null; updated: number }
