@@ -113,6 +113,11 @@ export const businessFormSchema = z.object({
     .nullable(),
 })
 
+export const toggleBusinessAcceptsOrdersSchema = z.object({
+  id: z.string().uuid('Negocio inválido.'),
+  acceptsOrders: z.boolean(),
+})
+
 export type BusinessFormInput = z.infer<typeof businessFormSchema>
 
 // NOTA (2026-09-02): acá vivían `serviceSchema` / `servicesSchema`, la

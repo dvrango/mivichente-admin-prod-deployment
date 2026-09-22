@@ -1991,6 +1991,7 @@ export type Database = {
       }
       businesses: {
         Row: {
+          accepts_orders: boolean
           address: string | null
           aliases: string[]
           category_id: string | null
@@ -2029,6 +2030,7 @@ export type Database = {
           whatsapp_phone: string | null
         }
         Insert: {
+          accepts_orders?: boolean
           address?: string | null
           aliases?: string[]
           category_id?: string | null
@@ -2067,6 +2069,7 @@ export type Database = {
           whatsapp_phone?: string | null
         }
         Update: {
+          accepts_orders?: boolean
           address?: string | null
           aliases?: string[]
           category_id?: string | null
@@ -2348,6 +2351,7 @@ export type Database = {
       businesses_open_now: {
         Args: never
         Returns: {
+          accepts_orders: boolean
           address: string | null
           aliases: string[]
           category_id: string | null
@@ -2412,6 +2416,7 @@ export type Database = {
       search_businesses: {
         Args: { search_query: string }
         Returns: {
+          accepts_orders: boolean
           address: string | null
           aliases: string[]
           category_id: string | null
