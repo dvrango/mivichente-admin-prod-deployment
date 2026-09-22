@@ -61,6 +61,19 @@ async function asAnon(c, fn) {
   }
 }
 
+// service_role normalmente salta RLS. Este bloque existe para comprobar las
+// barreras de columna que también deben aplicarle, como accepts_orders.
+async function asServiceRole(c, fn) {
+  await c.query('savepoint sp_service_role')
+  await c.query('set local role service_role')
+  try {
+    await fn()
+  } finally {
+    await c.query('rollback to savepoint sp_service_role')
+    await c.query('reset role')
+  }
+}
+
 // Corre una escritura y clasifica el resultado. Ojo con la diferencia: un
 // INSERT bloqueado por RLS tira error, pero un DELETE bloqueado por RLS
 // simplemente no encuentra la fila y afecta 0 — las dos cosas son "denegado".
@@ -135,6 +148,20 @@ async function main() {
       [bizSuyo],
     )
   ).rows[0].id
+
+  console.log('service_role')
+  await asServiceRole(c, async () => {
+    const permisoPedidos = await attempt(
+      c,
+      'update businesses set accepts_orders = true where id = $1',
+      [bizSuyo],
+    )
+    check(
+      'NO cambia si un negocio acepta pedidos',
+      permisoPedidos.outcome === 'denied',
+      permisoPedidos.outcome,
+    )
+  })
 
   // --- fixtures ----------------------------------------------------------
   const fotoSuyo = (

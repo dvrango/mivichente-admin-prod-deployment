@@ -21,7 +21,10 @@ begin
     or (tg_op = 'UPDATE' and old.accepts_orders is distinct from new.accepts_orders)
   ) and not (
     public.is_admin()
-    or current_user in ('postgres', 'service_role')
+    -- `postgres` es infraestructura (migraciones/SQL editor), no una identidad
+    -- de la aplicación. `service_role` sí puede usarse desde un cliente y no
+    -- recibe esta excepción: el acuerdo comercial lo cambia sólo un admin.
+    or current_user = 'postgres'
   ) then
     raise exception 'permission denied: only admin can change businesses.accepts_orders'
       using errcode = '42501';
@@ -39,4 +42,4 @@ before insert or update of accepts_orders on public.businesses
 for each row execute function public.guard_business_accepts_orders_admin();
 
 comment on function public.guard_business_accepts_orders_admin() is
-  'Impide que reviewer u otra cuenta authenticated active o desactive pedidos. Permite admin, postgres y service_role.';
+  'Impide que cualquier identidad de aplicación distinta de admin active o desactive pedidos. Solo exceptúa postgres para operación de infraestructura.';
