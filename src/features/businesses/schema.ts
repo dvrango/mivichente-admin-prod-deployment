@@ -37,7 +37,44 @@ export const photoFileSchema = z
     'Formato inválido. Usa JPG, PNG o WEBP.',
   )
 
+export const DELIVERY_FEE_MODES = {
+  confirm: 'Por confirmar con el negocio',
+  free: 'Envío gratis',
+  fixed: 'Costo fijo',
+} as const
+
+export const deliveryFeeSchema = z
+  .object({
+    mode: z.enum(['confirm', 'free', 'fixed']),
+    amount: z.string(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.mode !== 'fixed') return
+    const amount = value.amount.trim()
+    if (!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0 || Number(amount) > 99999999.99) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['amount'],
+        message: 'Captura un importe en MXN mayor a $0, con máximo dos decimales.',
+      })
+    }
+  })
+
+// Solo se usa con el resultado validado del schema anterior.
+export function deliveryFeeValue(delivery: z.infer<typeof deliveryFeeSchema>): number | null {
+  return delivery.mode === 'confirm' ? null : delivery.mode === 'free' ? 0 : Number(delivery.amount)
+}
+
+export function initialDeliveryFee(value?: number | null): z.infer<typeof deliveryFeeSchema> {
+  return {
+    mode: value == null ? 'confirm' : value === 0 ? 'free' : 'fixed',
+    amount: value == null || value === 0 ? '' : String(value),
+  }
+}
+
 export const businessFormSchema = z.object({
+  // Omitido por clientes anteriores: no modificar una tarifa ya capturada.
+  delivery: deliveryFeeSchema.optional(),
   name: z.string().trim().min(1, 'El nombre es requerido.'),
   // URL root-level tipo IG. Vacío = la DB lo autogenera del nombre (trigger).
   // Si se escribe, se normaliza y se valida contra formato + blocklist; la
@@ -258,6 +295,9 @@ export function parseBusinessForm(formData: FormData) {
   const secondaryRaw = parseJsonArray(formData, 'secondary_category_ids')
   const primary = formData.get('primary_category_id')
   const raw = {
+    delivery: formData.has('delivery_mode')
+      ? { mode: formData.get('delivery_mode'), amount: formData.get('delivery_amount') ?? '' }
+      : undefined,
     name: formData.get('name'),
     slug: formData.get('slug') ?? '',
     primary_category_id: primary,

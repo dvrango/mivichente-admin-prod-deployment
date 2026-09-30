@@ -32,7 +32,13 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import type { BusinessFormState } from '../actions'
-import { businessFormSchema, MUNICIPIOS, type BusinessFormInput } from '../schema'
+import {
+  businessFormSchema,
+  DELIVERY_FEE_MODES,
+  initialDeliveryFee,
+  MUNICIPIOS,
+  type BusinessFormInput,
+} from '../schema'
 import type { CategoryOption, PhotoInput, WeeklyHours } from '../types'
 import { WHATSAPP_MODES, initialWhatsappMode, type WhatsappMode } from '../whatsapp'
 import { BusinessGalleryEditor } from './business-gallery-editor'
@@ -75,6 +81,8 @@ type Props = {
     owner_contact_note?: string | null
     latitude?: number | null
     longitude?: number | null
+    delivery_fee?: number | null
+    has_delivery?: boolean
   }
   defaultHours?: WeeklyHours
   defaultPhotos?: PhotoInput[]
@@ -215,6 +223,7 @@ export function BusinessForm({
   const form = useForm<ClientFormInput>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
+      delivery: initialDeliveryFee(defaults?.delivery_fee),
       name: defaults?.name ?? '',
       slug: defaults?.slug ?? '',
       primary_category_id: defaults?.primary_category_id ?? '',
@@ -251,6 +260,7 @@ export function BusinessForm({
   }
 
   const watchedName = useWatch({ control: form.control, name: 'name' })
+  const deliveryMode = useWatch({ control: form.control, name: 'delivery.mode' })
   useEffect(() => {
     if (!slugTouched) form.setValue('slug', slugify(watchedName ?? ''))
   }, [watchedName, slugTouched, form])
@@ -278,6 +288,10 @@ export function BusinessForm({
       }
 
       const fd = new FormData()
+      if (values.delivery) {
+        fd.set('delivery_mode', values.delivery.mode)
+        fd.set('delivery_amount', values.delivery.amount)
+      }
       fd.set('name', values.name)
       fd.set('slug', values.slug ?? '')
       fd.set('primary_category_id', values.primary_category_id)
@@ -366,6 +380,66 @@ export function BusinessForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-2xl space-y-4">
         <fieldset disabled={readOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
+          <div className="space-y-3 rounded-lg border p-4">
+            <FormField
+              control={form.control}
+              name="delivery.mode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Condición del envío</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isPending || readOnly}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue>{DELIVERY_FEE_MODES[field.value ?? 'confirm']}</SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(DELIVERY_FEE_MODES).map(([mode, label]) => (
+                        <SelectItem key={mode} value={mode}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {deliveryMode === 'fixed' && (
+              <FormField
+                control={form.control}
+                name="delivery.amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Costo fijo (MXN)</FormLabel>
+                    <FormControl>
+                      <Input
+                        inputMode="decimal"
+                        placeholder="Ej. 25.75"
+                        disabled={isPending}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            <p className="text-muted-foreground text-sm">
+              Costo fijo solo aplica si el negocio cobra lo mismo en todas las entregas que acepta.
+              Si cambia por colonia, distancia o ubicación, elige “Por confirmar con el negocio”.
+            </p>
+            {defaults?.has_delivery === false && (
+              <p className="text-muted-foreground text-sm">
+                El envío a domicilio está desactivado. La condición se conserva y se ignorará hasta
+                que vuelvas a activarlo.
+              </p>
+            )}
+          </div>
           <FormField
             control={form.control}
             name="name"

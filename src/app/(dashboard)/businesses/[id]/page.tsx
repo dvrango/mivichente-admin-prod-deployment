@@ -140,6 +140,8 @@ export default async function EditBusinessPage({
         lockedMunicipio={lockedMunicipio}
         readOnly={readOnly}
         defaults={{
+          delivery_fee: business.delivery_fee,
+          has_delivery: business.has_delivery,
           name: business.name,
           slug: business.slug,
           primary_category_id: categoryIds.primaryId ?? business.category_id,

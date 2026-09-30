@@ -8,6 +8,7 @@ import { getCurrentProfile, requireAdmin } from '@/features/auth/queries'
 import {
   bulkCategorySchema,
   bulkIdsSchema,
+  deliveryFeeValue,
   gallerySchema,
   parseBusinessForm,
   parseCoordinates,
@@ -237,7 +238,7 @@ export async function createBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
+  const { primary_category_id, secondary_category_ids, slug, delivery, ...data } = parsed.data
   const coordinates = parseCoordinates(formData)
   if (!coordinates.success) return { error: firstIssue(coordinates.error) }
   const hours = parseHours(formData)
@@ -261,6 +262,7 @@ export async function createBusiness(
     .from('businesses')
     .insert({
       ...data,
+      ...(delivery ? { delivery_fee: deliveryFeeValue(delivery) } : {}),
       ...coordinates.data,
       // slug vacío → se omite para que el trigger de la DB lo autogenere del nombre.
       ...(slug ? { slug } : {}),
@@ -316,7 +318,7 @@ export async function updateBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { primary_category_id, secondary_category_ids, slug, ...data } = parsed.data
+  const { primary_category_id, secondary_category_ids, slug, delivery, ...data } = parsed.data
   // Se valida antes de subir nada: si coordenadas o galería traen error se
   // corta aquí y no quedan archivos huérfanos en el bucket.
   const coordinates = parseCoordinates(formData)
@@ -355,6 +357,7 @@ export async function updateBusiness(
     .from('businesses')
     .update({
       ...data,
+      ...(delivery ? { delivery_fee: deliveryFeeValue(delivery) } : {}),
       ...coordinates.data,
       // slug vacío → se omite para NO tocar el slug existente (que ya circula
       // en links compartidos). Sólo se actualiza si el admin escribió uno.
