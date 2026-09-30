@@ -418,7 +418,11 @@ export function BusinessForm({
                     <FormLabel>Costo fijo (MXN)</FormLabel>
                     <FormControl>
                       <Input
+                        type="number"
                         inputMode="decimal"
+                        min="0.01"
+                        max="99999999.99"
+                        step="0.01"
                         placeholder="Ej. 25.75"
                         disabled={isPending}
                         {...field}
