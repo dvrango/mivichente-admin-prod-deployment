@@ -17,7 +17,7 @@ describe('condición del envío', () => {
     expect(initialDeliveryFee(fee).mode).toBe(mode)
   })
 
-  it.each(['', '0', '-1', 'NaN', 'Infinity', '1.001', '1e2', '100000000', '25,75'])(
+  it.each(['', '0', '-1', 'NaN', 'Infinity', '1.001', '1e2', '100000000', '25,75', '$25.75'])(
     'rechaza costo fijo inválido: %s',
     (amount) => {
       expect(deliveryFeeSchema.safeParse({ mode: 'fixed', amount }).success).toBe(false)

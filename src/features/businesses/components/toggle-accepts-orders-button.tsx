@@ -21,7 +21,7 @@ export function ToggleAcceptsOrdersButton({
       disabled={pending}
       onClick={() => startTransition(() => toggleBusinessAcceptsOrders(id, !acceptsOrders))}
     >
-      {pending ? '…' : acceptsOrders ? 'Desactivar pedidos' : 'Activar pedidos'}
+      {pending ? '…' : acceptsOrders ? 'Desactivar compras' : 'Activar compras'}
     </Button>
   )
 }
