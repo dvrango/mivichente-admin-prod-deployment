@@ -316,6 +316,71 @@ async function main() {
   const rolNuevo = (await c.query('select role from profiles where id = $1', [PENDING_ID])).rows[0]
   check('nace en rol pending', rolNuevo?.role === 'pending', `rol = ${rolNuevo?.role}`)
 
+  // Fixtures y escrituras reales de tarifa: el rollback final conserva la DB.
+  const feeBiz = (
+    await c.query(
+      "insert into businesses (name, phone, municipio, is_active) values ('RLS check tarifa', '6180000000', $1, true) returning id, delivery_fee",
+      [suyo],
+    )
+  ).rows[0]
+  check('tarifa nueva nace por confirmar, no gratis', feeBiz.delivery_fee === null)
+  for (const [label, actor, id, allowed] of [
+    ['admin', admin.id, bizOtro, true],
+    ['reviewer propio', reviewer.id, bizSuyo, true],
+    ['reviewer ajeno', reviewer.id, bizOtro, false],
+    ['pending', PENDING_ID, bizSuyo, false],
+  ]) {
+    await as(c, actor, async () => {
+      const write = await attempt(c, 'update businesses set delivery_fee = 25.75 where id = $1', [
+        id,
+      ])
+      check(
+        `tarifa: ${label} ${allowed ? 'permitido' : 'denegado'}`,
+        allowed
+          ? write.outcome === 'ok' && write.rows === 1
+          : write.outcome === 'denied' || (write.outcome === 'ok' && write.rows === 0),
+        write.outcome,
+      )
+    })
+  }
+  await asAnon(c, async () => {
+    const write = await attempt(c, 'update businesses set delivery_fee = 0 where id = $1', [
+      feeBiz.id,
+    ])
+    check(
+      'anon no cambia tarifa',
+      write.outcome === 'denied' || (write.outcome === 'ok' && write.rows === 0),
+      write.outcome,
+    )
+  })
+  for (const fee of [null, '0.00', '25.75']) {
+    await c.query('update businesses set delivery_fee = $1 where id = $2', [fee, feeBiz.id])
+    await asAnon(c, async () => {
+      const read = (await c.query('select delivery_fee from businesses where id = $1', [feeBiz.id]))
+        .rows[0]
+      check(`anon lee tarifa publicada ${fee ?? 'null'}`, read?.delivery_fee === fee)
+    })
+  }
+  await c.query('update businesses set has_delivery = false where id = $1', [feeBiz.id])
+  check(
+    'apagar entrega conserva tarifa',
+    (await c.query('select delivery_fee from businesses where id = $1', [feeBiz.id])).rows[0]
+      .delivery_fee === '25.75',
+  )
+  await c.query('update businesses set has_delivery = true where id = $1', [feeBiz.id])
+  check(
+    'reactivar entrega conserva tarifa',
+    (await c.query('select delivery_fee from businesses where id = $1', [feeBiz.id])).rows[0]
+      .delivery_fee === '25.75',
+  )
+  for (const invalid of ['-1', 'NaN', 'Infinity', '100000000']) {
+    const write = await attempt(c, 'update businesses set delivery_fee = $1 where id = $2', [
+      invalid,
+      feeBiz.id,
+    ])
+    check(`DB rechaza tarifa ${invalid}`, write.outcome !== 'ok', write.outcome)
+  }
+
   await as(c, PENDING_ID, async () => {
     const n = (q) => c.query(q).then((r) => Number(r.rows[0].count))
     check('no lee negocios', (await n('select count(*) from businesses')) === 0)
