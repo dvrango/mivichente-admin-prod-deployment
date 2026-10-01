@@ -380,70 +380,67 @@ export function BusinessForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-2xl space-y-4">
         <fieldset disabled={readOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
-          <div className="space-y-3 rounded-lg border p-4">
-            <FormField
-              control={form.control}
-              name="delivery.mode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Condición del envío</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={isPending || readOnly}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue>{DELIVERY_FEE_MODES[field.value ?? 'confirm']}</SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.entries(DELIVERY_FEE_MODES).map(([mode, label]) => (
-                        <SelectItem key={mode} value={mode}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {deliveryMode === 'fixed' && (
+          {defaults?.has_delivery === true && (
+            <div className="space-y-3 rounded-lg border p-4">
               <FormField
                 control={form.control}
-                name="delivery.amount"
+                name="delivery.mode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Costo fijo (MXN)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min="0.01"
-                        max="99999999.99"
-                        step="0.01"
-                        placeholder="Ej. 25.75"
-                        disabled={isPending}
-                        {...field}
-                      />
-                    </FormControl>
+                    <FormLabel>Condición del envío</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={isPending || readOnly}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue>{DELIVERY_FEE_MODES[field.value ?? 'confirm']}</SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {Object.entries(DELIVERY_FEE_MODES).map(([mode, label]) => (
+                          <SelectItem key={mode} value={mode}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
-            <p className="text-muted-foreground text-sm">
-              Costo fijo solo aplica si el negocio cobra lo mismo en todas las entregas que acepta.
-              Si cambia por colonia, distancia o ubicación, elige “Por confirmar con el negocio”.
-            </p>
-            {defaults?.has_delivery === false && (
+              {deliveryMode === 'fixed' && (
+                <FormField
+                  control={form.control}
+                  name="delivery.amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Costo fijo (MXN)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          min="0.01"
+                          max="99999999.99"
+                          step="0.01"
+                          placeholder="Ej. 25.75"
+                          disabled={isPending}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <p className="text-muted-foreground text-sm">
-                El envío a domicilio está desactivado. La condición se conserva y se ignorará hasta
-                que vuelvas a activarlo.
+                Costo fijo solo aplica si el negocio cobra lo mismo en todas las entregas que
+                acepta. Si cambia por colonia, distancia o ubicación, elige “Por confirmar con el
+                negocio”.
               </p>
-            )}
-          </div>
+            </div>
+          )}
           <FormField
             control={form.control}
             name="name"
