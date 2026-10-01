@@ -1,6 +1,13 @@
 import type { Tables } from '@/lib/database.types'
 
 export type Business = Tables<'businesses'>
+
+// Contacto interno del dueño. Vive en `business_owner_contacts`, fuera de
+// `businesses`, porque esa tabla la lee anon (tarea yekdqmi27).
+export type BusinessOwnerContact = Pick<
+  Tables<'business_owner_contacts'>,
+  'owner' | 'owner_phone' | 'owner_contact_note'
+>
 export type Category = Tables<'categories'>
 
 export type ActorProfile = { email: string | null } | null

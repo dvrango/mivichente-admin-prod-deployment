@@ -1555,6 +1555,46 @@ export type Database = {
           },
         ]
       }
+      business_owner_contacts: {
+        Row: {
+          business_id: string
+          owner: string | null
+          owner_contact_note: string | null
+          owner_phone: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          business_id: string
+          owner?: string | null
+          owner_contact_note?: string | null
+          owner_phone?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          business_id?: string
+          owner?: string | null
+          owner_contact_note?: string | null
+          owner_phone?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_owner_contacts_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_owner_contacts_updated_by_fkey'
+            columns: ['updated_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       business_photos: {
         Row: {
           business_id: string
@@ -2016,9 +2056,6 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
-          owner: string | null
-          owner_contact_note: string | null
-          owner_phone: string | null
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
@@ -2056,9 +2093,6 @@ export type Database = {
           name: string
           name_normalized?: string | null
           offerings?: string[]
-          owner?: string | null
-          owner_contact_note?: string | null
-          owner_phone?: string | null
           phone: string
           phone_is_whatsapp?: boolean
           photo_url?: string | null
@@ -2096,9 +2130,6 @@ export type Database = {
           name?: string
           name_normalized?: string | null
           offerings?: string[]
-          owner?: string | null
-          owner_contact_note?: string | null
-          owner_phone?: string | null
           phone?: string
           phone_is_whatsapp?: boolean
           photo_url?: string | null
@@ -2379,9 +2410,6 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
-          owner: string | null
-          owner_contact_note: string | null
-          owner_phone: string | null
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
@@ -2445,9 +2473,6 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
-          owner: string | null
-          owner_contact_note: string | null
-          owner_phone: string | null
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null

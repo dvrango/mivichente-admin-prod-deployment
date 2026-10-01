@@ -17,6 +17,7 @@ import {
   type GalleryValues,
 } from './schema'
 import type { WeeklyHours } from './types'
+import { saveOwnerContact, splitOwnerContact } from './owner-contact'
 
 export type BusinessFormState = { error: string | null }
 
@@ -238,7 +239,9 @@ export async function createBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { primary_category_id, secondary_category_ids, slug, delivery, ...data } = parsed.data
+  const { primary_category_id, secondary_category_ids, slug, delivery, ...fields } = parsed.data
+  // Los datos del dueño no van a `businesses` (la lee anon): van a su tabla.
+  const { owner: ownerContact, rest: data } = splitOwnerContact(fields)
   const coordinates = parseCoordinates(formData)
   if (!coordinates.success) return { error: firstIssue(coordinates.error) }
   const hours = parseHours(formData)
@@ -290,6 +293,8 @@ export async function createBusiness(
     )
     await upsertHours(supabase, inserted.id, hours)
     await upsertPhotos(supabase, inserted.id, photos)
+    const ownerError = await saveOwnerContact(supabase, inserted.id, ownerContact)
+    if (ownerError) throw new Error(`Error guardando el contacto del dueño: ${ownerError}`)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }
@@ -318,7 +323,9 @@ export async function updateBusiness(
 ): Promise<BusinessFormState> {
   const parsed = parseBusinessForm(formData)
   if (!parsed.success) return { error: firstIssue(parsed.error) }
-  const { primary_category_id, secondary_category_ids, slug, delivery, ...data } = parsed.data
+  const { primary_category_id, secondary_category_ids, slug, delivery, ...fields } = parsed.data
+  // Los datos del dueño no van a `businesses` (la lee anon): van a su tabla.
+  const { owner: ownerContact, rest: data } = splitOwnerContact(fields)
   // Se valida antes de subir nada: si coordenadas o galería traen error se
   // corta aquí y no quedan archivos huérfanos en el bucket.
   const coordinates = parseCoordinates(formData)
@@ -379,6 +386,8 @@ export async function updateBusiness(
     await upsertBusinessCategories(supabase, id, primary_category_id, secondary_category_ids)
     await upsertHours(supabase, id, hours)
     await upsertPhotos(supabase, id, photos)
+    const ownerError = await saveOwnerContact(supabase, id, ownerContact)
+    if (ownerError) throw new Error(`Error guardando el contacto del dueño: ${ownerError}`)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error guardando datos del negocio.' }
   }

@@ -36,6 +36,7 @@ export default async function CampoBusinessPage({ params }: { params: Promise<{ 
   return (
     <FieldCapture
       business={business}
+      ownerContact={business.owner_contact}
       photos={photos}
       categories={categories}
       primaryCategoryId={categoryIds.primaryId ?? business.category_id}
