@@ -5,6 +5,7 @@ import type {
   ActorProfile,
   Business,
   BusinessCategoryIds,
+  BusinessOwnerContact,
   BusinessWithCategory,
   CategoryOption,
   PhotoInput,
@@ -213,6 +214,9 @@ export async function getBusinessStats(municipio?: string): Promise<BusinessStat
 export type BusinessWithAuthors = Business & {
   created_by_profile?: ActorProfile
   updated_by_profile?: ActorProfile
+  // Contacto interno del dueño (`business_owner_contacts`). null si no hay fila
+  // o si RLS no deja leerla (reviewer de otro municipio).
+  owner_contact: BusinessOwnerContact | null
 }
 
 export async function getBusinessById(id: string): Promise<BusinessWithAuthors | null> {
@@ -220,7 +224,7 @@ export async function getBusinessById(id: string): Promise<BusinessWithAuthors |
   const { data, error } = await supabase
     .from('businesses')
     .select(
-      '*, created_by_profile:profiles!businesses_created_by_fkey(email), updated_by_profile:profiles!businesses_updated_by_fkey(email)',
+      '*, created_by_profile:profiles!businesses_created_by_fkey(email), updated_by_profile:profiles!businesses_updated_by_fkey(email), owner_contact:business_owner_contacts(owner, owner_phone, owner_contact_note)',
     )
     .eq('id', id)
     .single()
@@ -228,7 +232,14 @@ export async function getBusinessById(id: string): Promise<BusinessWithAuthors |
     if (error.code === 'PGRST116') return null
     throw error
   }
-  return data
+  // La PK de business_owner_contacts es la FK a businesses, así que PostgREST
+  // lo embebe como to-one (objeto o null). Se normaliza por si llegara como
+  // arreglo: los tipos generados no marcan la relación como uno a uno.
+  const raw = (data as { owner_contact?: unknown }).owner_contact
+  const owner_contact = (
+    Array.isArray(raw) ? (raw[0] ?? null) : (raw ?? null)
+  ) as BusinessOwnerContact | null
+  return { ...data, owner_contact } as BusinessWithAuthors
 }
 
 export async function getActiveCategoryOptions(): Promise<CategoryOption[]> {

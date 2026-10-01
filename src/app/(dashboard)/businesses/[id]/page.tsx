@@ -160,9 +160,9 @@ export default async function EditBusinessPage({
           facebook_url: business.facebook_url,
           instagram_url: business.instagram_url,
           offerings: business.offerings,
-          owner: business.owner,
-          owner_phone: business.owner_phone,
-          owner_contact_note: business.owner_contact_note,
+          owner: business.owner_contact?.owner ?? null,
+          owner_phone: business.owner_contact?.owner_phone ?? null,
+          owner_contact_note: business.owner_contact?.owner_contact_note ?? null,
           latitude: business.latitude,
           longitude: business.longitude,
         }}

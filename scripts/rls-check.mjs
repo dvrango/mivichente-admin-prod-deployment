@@ -865,6 +865,133 @@ async function main() {
     )
   })
 
+  // Datos del dueño (tarea yekdqmi27). Antes vivían en `businesses` y anon los
+  // leía con `select *` y con las RPC `setof businesses`. Ahora viven en
+  // `business_owner_contacts`: anon no tiene grant, y el staff lee/escribe con
+  // el mismo criterio que `businesses_update` (admin todo, reviewer su municipio).
+  console.log('\ndatos del dueño (business_owner_contacts)')
+  const ownerCols = (
+    await c.query(
+      `select column_name from information_schema.columns
+       where table_schema = 'public' and table_name = 'businesses'
+         and column_name in ('owner', 'owner_phone', 'owner_contact_note')`,
+    )
+  ).rows
+  check(
+    'businesses ya no tiene columnas del dueño',
+    ownerCols.length === 0,
+    ownerCols.map((r) => r.column_name).join(', '),
+  )
+  await c.query(
+    `insert into business_owner_contacts (business_id, owner, owner_phone)
+     values ($1, 'Dueño suyo', '6180000001'), ($2, 'Dueño otro', '6180000002')
+     on conflict (business_id) do update set owner = excluded.owner, owner_phone = excluded.owner_phone`,
+    [bizSuyo, bizOtro],
+  )
+
+  await asAnon(c, async () => {
+    const lee = await attempt(c, 'select count(*) from business_owner_contacts')
+    if (lee.outcome === 'denied') check('anon no lee contactos del dueño', true)
+    else {
+      const filas = Number(
+        (await c.query('select count(*) from business_owner_contacts')).rows[0].count,
+      )
+      check('anon no lee contactos del dueño', filas === 0, `${filas} filas`)
+    }
+    const escribe = await attempt(
+      c,
+      "insert into business_owner_contacts (business_id, owner) values ($1, 'hack')",
+      [bizSuyo],
+    )
+    check('anon no escribe contactos del dueño', escribe.outcome === 'denied', escribe.outcome)
+
+    // Lo que ve la app que ya está en Play: `select *` y las RPC siguen
+    // regresando filas, pero sin datos del dueño.
+    const sinDueno = (row) => row && !('owner' in row) && !('owner_phone' in row)
+    const fila = (await c.query('select * from businesses where is_active limit 1')).rows[0]
+    check('anon: select * de businesses sigue funcionando sin dueño', sinDueno(fila))
+    const busca = await attempt(c, "select * from search_businesses('a') limit 1")
+    check('anon: search_businesses responde', busca.outcome === 'ok', busca.outcome)
+    if (busca.outcome === 'ok') {
+      const r = (await c.query("select * from search_businesses('a') limit 1")).rows[0]
+      check('anon: search_businesses no trae dueño', !r || sinDueno(r))
+    }
+    const abierto = await attempt(c, 'select * from businesses_open_now() limit 1')
+    check('anon: businesses_open_now responde', abierto.outcome === 'ok', abierto.outcome)
+    if (abierto.outcome === 'ok') {
+      const r = (await c.query('select * from businesses_open_now() limit 1')).rows[0]
+      check('anon: businesses_open_now no trae dueño', !r || sinDueno(r))
+    }
+  })
+
+  await as(c, PENDING_ID, async () => {
+    const filas = Number(
+      (await c.query('select count(*) from business_owner_contacts')).rows[0].count,
+    )
+    check('cuenta pendiente no lee contactos del dueño', filas === 0, `${filas} filas`)
+    const escribe = await attempt(
+      c,
+      "update business_owner_contacts set owner = 'hack' where business_id = $1",
+      [bizSuyo],
+    )
+    check('cuenta pendiente no edita contactos del dueño', escribe.rows === 0, escribe.outcome)
+  })
+
+  await as(c, reviewer.id, async () => {
+    const n = (q, p) => c.query(q, p).then((r) => Number(r.rows[0].count))
+    const cuenta = 'select count(*) from business_owner_contacts where business_id = $1'
+    check('reviewer lee el dueño de su municipio', (await n(cuenta, [bizSuyo])) === 1)
+    check('reviewer NO lee el dueño de otro municipio', (await n(cuenta, [bizOtro])) === 0)
+    const upSuyo = await attempt(
+      c,
+      "update business_owner_contacts set owner_contact_note = 'ok' where business_id = $1",
+      [bizSuyo],
+    )
+    check('reviewer edita el dueño de su municipio', upSuyo.rows === 1, upSuyo.outcome)
+    const upOtro = await attempt(
+      c,
+      "update business_owner_contacts set owner = 'hack' where business_id = $1",
+      [bizOtro],
+    )
+    check('reviewer NO edita el dueño de otro municipio', upOtro.rows === 0, upOtro.outcome)
+    // Upsert como el que hace el admin: la rama insert debe chocar con RLS.
+    const insOtro = await attempt(
+      c,
+      `insert into business_owner_contacts (business_id, owner) values ($1, 'hack')
+       on conflict (business_id) do update set owner = excluded.owner`,
+      [bizOtro],
+    )
+    check(
+      'reviewer NO hace upsert del dueño de otro municipio',
+      insOtro.outcome === 'denied',
+      insOtro.outcome,
+    )
+    const delSuyo = await attempt(c, 'delete from business_owner_contacts where business_id = $1', [
+      bizSuyo,
+    ])
+    check('reviewer NO borra contactos del dueño', delSuyo.rows === 0, delSuyo.outcome)
+  })
+
+  await as(c, admin.id, async () => {
+    const n = (q, p) => c.query(q, p).then((r) => Number(r.rows[0].count))
+    check(
+      'admin lee el dueño de cualquier municipio',
+      (await n('select count(*) from business_owner_contacts where business_id = any($1)', [
+        [bizSuyo, bizOtro],
+      ])) === 2,
+    )
+    const upOtro = await attempt(
+      c,
+      "update business_owner_contacts set owner = 'Admin' where business_id = $1",
+      [bizOtro],
+    )
+    check('admin edita el dueño de cualquier municipio', upOtro.rows === 1, upOtro.outcome)
+    const del = await attempt(c, 'delete from business_owner_contacts where business_id = $1', [
+      bizOtro,
+    ])
+    check('admin borra contactos del dueño', del.rows === 1, del.outcome)
+  })
+
   console.log('\nbucket business-photos')
   const bucket = (
     await c.query(

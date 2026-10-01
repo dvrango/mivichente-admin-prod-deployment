@@ -8,6 +8,7 @@ import { weeklyHoursSchema } from '@/features/businesses/schema'
 import { fieldCreateSchema, fieldPatchSchema, fieldPhotoSchema, photoKindSchema } from './schema'
 import { PHOTO_KIND_LABELS } from './constants'
 import type { FieldPhoto } from './queries'
+import { saveOwnerContact, splitOwnerContact } from '@/features/businesses/owner-contact'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Por qué existe este archivo en vez de reusar `businesses/actions.ts`:
@@ -53,11 +54,14 @@ export async function patchBusinessFields(id: string, patch: unknown): Promise<F
   if (!parsed.success) return { error: firstIssue(parsed.error) }
   if (Object.keys(parsed.data).length === 0) return OK
 
+  // Los datos del dueño no van a `businesses` (la lee anon): van a su tabla.
+  const { owner: ownerContact, rest } = splitOwnerContact(parsed.data)
+
   const supabase = await createClient()
   const { error } = await supabase
     .from('businesses')
     .update({
-      ...parsed.data,
+      ...rest,
       // Pasó por revisión humana en la calle (ver notas de data_source).
       data_source: 'admin',
       updated_by: await currentUserId(supabase),
@@ -65,6 +69,9 @@ export async function patchBusinessFields(id: string, patch: unknown): Promise<F
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  const ownerError = await saveOwnerContact(supabase, id, ownerContact)
+  if (ownerError) return { error: ownerError }
 
   revalidatePath('/businesses')
   return OK

@@ -8,6 +8,7 @@ import {
 } from '@/lib/registration-photos'
 import { createClient } from '@/lib/supabase/server'
 import { normalizeMxPhone } from '@/lib/validation/phone'
+import { saveOwnerContact, type OwnerContact } from '@/features/businesses/owner-contact'
 
 export type RegistrationActionState = { error: string | null }
 
@@ -121,7 +122,7 @@ export async function approveRegistration(
   const { data: business, error: bizFetchErr } = await supabase
     .from('businesses')
     .select(
-      'id, phone, description, offerings, owner, owner_phone, owner_contact_note, photo_url, address, facebook_url, instagram_url',
+      'id, phone, description, offerings, photo_url, address, facebook_url, instagram_url, owner_contact:business_owner_contacts(owner, owner_phone)',
     )
     .eq('id', reg.business_id)
     .single()
@@ -145,9 +146,19 @@ export async function approveRegistration(
   if (!business.description?.trim() && reg.description?.trim()) {
     patch.description = reg.description.trim()
   }
-  if (!business.owner?.trim()) patch.owner = reg.contact_name
-  if (!business.owner_phone?.trim() && reg.contact_phone) {
-    patch.owner_phone = normalizeMxPhone(reg.contact_phone)
+  // El contacto del dueño vive en `business_owner_contacts` (fuera de
+  // `businesses`, que la lee anon). Mismo criterio: solo rellena huecos.
+  const ownerRaw = (business as { owner_contact?: unknown }).owner_contact
+  const currentOwner = (Array.isArray(ownerRaw) ? ownerRaw[0] : ownerRaw) as
+    | { owner: string | null; owner_phone: string | null }
+    | null
+    | undefined
+  const ownerPatch: OwnerContact = {}
+  if (!currentOwner?.owner?.trim() && reg.contact_name?.trim()) {
+    ownerPatch.owner = reg.contact_name.trim()
+  }
+  if (!currentOwner?.owner_phone?.trim() && reg.contact_phone) {
+    ownerPatch.owner_phone = normalizeMxPhone(reg.contact_phone)
   }
   // El teléfono del contacto no pisa el público: si el negocio no tenía ninguno
   // (imposible hoy, phone es NOT NULL) igual quedaría el de la solicitud.
@@ -225,6 +236,9 @@ export async function approveRegistration(
     .eq('id', business.id)
 
   if (bizErr) return { error: `Error al completar el negocio: ${bizErr.message}` }
+
+  const ownerErr = await saveOwnerContact(supabase, business.id, ownerPatch)
+  if (ownerErr) return { error: `Error al guardar el contacto del dueño: ${ownerErr}` }
 
   // La solicitud queda cerrada, así que el staging se limpia aunque las fotos
   // no se hayan usado (el negocio ya tenía galería): nadie va a volver por

@@ -15,7 +15,12 @@ import {
 } from 'lucide-react'
 import { formatMxPhone, normalizeMxPhone } from '@/lib/validation/phone'
 import { hasSchedule } from '@/features/businesses/completeness'
-import type { Business, CategoryOption, WeeklyHours } from '@/features/businesses/types'
+import type {
+  Business,
+  BusinessOwnerContact,
+  CategoryOption,
+  WeeklyHours,
+} from '@/features/businesses/types'
 import {
   WHATSAPP_MODES,
   initialWhatsappMode,
@@ -43,12 +48,14 @@ type Requirement = { id: string; label: string; done: boolean }
 
 export function FieldCapture({
   business,
+  ownerContact,
   photos,
   categories,
   primaryCategoryId,
   hours: initialHours,
 }: {
   business: Business
+  ownerContact: BusinessOwnerContact | null
   photos: FieldPhoto[]
   categories: CategoryOption[]
   primaryCategoryId: string | null
@@ -74,9 +81,9 @@ export function FieldCapture({
   const [photoCount, setPhotoCount] = useState(photos.length)
   const [hours, setHours] = useState<WeeklyHours>(initialHours)
   const [schedule, setSchedule] = useState(business.schedule ?? '')
-  const [owner, setOwner] = useState(business.owner ?? '')
-  const [ownerPhone, setOwnerPhone] = useState(business.owner_phone ?? '')
-  const [ownerNote, setOwnerNote] = useState(business.owner_contact_note ?? '')
+  const [owner, setOwner] = useState(ownerContact?.owner ?? '')
+  const [ownerPhone, setOwnerPhone] = useState(ownerContact?.owner_phone ?? '')
+  const [ownerNote, setOwnerNote] = useState(ownerContact?.owner_contact_note ?? '')
 
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState('')
