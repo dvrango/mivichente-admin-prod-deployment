@@ -55,10 +55,11 @@ create trigger business_owner_contacts_stamp
   for each row execute function public.business_owner_contacts_stamp();
 
 -- ── RLS ──────────────────────────────────────────────────────────────────────
--- Mismo criterio que `businesses_update`: el admin todo, el reviewer solo los
--- negocios de su municipio. La lectura también va acotada por municipio (más
--- estricta que `businesses_select`): un reviewer no necesita el teléfono
--- personal del dueño de un negocio que no puede editar.
+-- Mismo criterio que la escritura de `businesses` y sus tablas hijas:
+-- `can_edit_business()` (admin todo, reviewer solo su municipio), que es el
+-- punto único de esa regla. La lectura usa el mismo predicado, más estricta que
+-- `businesses_select`: un reviewer no necesita el teléfono personal del dueño
+-- de un negocio que no puede editar.
 alter table public.business_owner_contacts enable row level security;
 
 -- Supabase hereda grants amplios por default privileges. Se revocan todos y se
@@ -70,48 +71,20 @@ create policy business_owner_contacts_select
   on public.business_owner_contacts
   for select
   to authenticated
-  using (
-    public.is_admin()
-    or exists (
-      select 1 from public.businesses b
-      where b.id = business_id
-        and b.municipio = public.user_municipio()
-    )
-  );
+  using (public.can_edit_business(business_id));
 
 create policy business_owner_contacts_insert
   on public.business_owner_contacts
   for insert
   to authenticated
-  with check (
-    public.is_admin()
-    or exists (
-      select 1 from public.businesses b
-      where b.id = business_id
-        and b.municipio = public.user_municipio()
-    )
-  );
+  with check (public.can_edit_business(business_id));
 
 create policy business_owner_contacts_update
   on public.business_owner_contacts
   for update
   to authenticated
-  using (
-    public.is_admin()
-    or exists (
-      select 1 from public.businesses b
-      where b.id = business_id
-        and b.municipio = public.user_municipio()
-    )
-  )
-  with check (
-    public.is_admin()
-    or exists (
-      select 1 from public.businesses b
-      where b.id = business_id
-        and b.municipio = public.user_municipio()
-    )
-  );
+  using (public.can_edit_business(business_id))
+  with check (public.can_edit_business(business_id));
 
 create policy business_owner_contacts_delete
   on public.business_owner_contacts
