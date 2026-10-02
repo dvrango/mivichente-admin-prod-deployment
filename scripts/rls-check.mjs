@@ -995,8 +995,23 @@ async function main() {
   // Las métricas agregadas leen telemetría y solo las ejecuta service_role.
   // Postgres y Supabase dan `execute` a toda función nueva: si un día falta el
   // revoke, nada truena, solo queda abierta (mikitasks `su4z8tm09`).
+  //
+  // El privilegio se pregunta directo: intentar ejecutar como anon también da
+  // "permission denied" sin el revoke, porque la función es security invoker
+  // y las tablas que lee no dan SELECT. Ese intento no distingue la causa.
   console.log('\nfunciones de métricas')
   const metricas = ['admin_weekly_metrics', 'admin_top_zero_result_queries']
+  for (const fn of metricas) {
+    for (const rol of ['public', 'anon', 'authenticated']) {
+      const puede = (
+        await c.query(
+          `select has_function_privilege($1, 'public.${fn}(timestamptz, integer, integer)', 'execute') as p`,
+          [rol],
+        )
+      ).rows[0].p
+      check(`${rol} no tiene execute en ${fn}`, puede === false, String(puede))
+    }
+  }
   await asAnon(c, async () => {
     for (const fn of metricas) {
       const r = await attempt(c, `select * from ${fn}()`)
