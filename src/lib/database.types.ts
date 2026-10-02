@@ -2368,6 +2368,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_top_zero_result_queries: {
+        Args: { p_limit?: number; p_now?: string; p_window_days?: number }
+        Returns: {
+          query: string
+          searches: number
+        }[]
+      }
+      admin_weekly_metrics: {
+        Args: { p_now?: string; p_weeks?: number; p_window_days?: number }
+        Returns: {
+          business_taps: number
+          contacts: number
+          contacts_app: number
+          contacts_call: number
+          contacts_landing: number
+          contacts_maps: number
+          contacts_whatsapp: number
+          returning_devices: number
+          searches: number
+          unique_devices: number
+          week_index: number
+          zero_result_searches: number
+        }[]
+      }
       business_matches_term: {
         Args: {
           b: Database['public']['Tables']['businesses']['Row']

@@ -37,60 +37,19 @@ export type WeeklyMetrics = {
   }[]
 }
 
-type SearchEventRow = { device_id: string; query: string; result_count: number; created_at: string }
-type TapRow = { device_id: string; created_at: string }
-type ContactRow = { device_id: string; channel: string; source: string; created_at: string }
-
-function weekIndexOf(createdAt: string, now: number): number {
-  // 0 = semana actual (últimos 7 días), WEEKS-1 = la más vieja del rango.
-  // Clamp abajo también: una fila con created_at muy cerca de `now` (o el
-  // reloj de la DB un poco adelante del de Vercel) puede dar índice negativo.
-  return Math.max(
-    0,
-    Math.min(WEEKS - 1, Math.floor((now - new Date(createdAt).getTime()) / (WINDOW_DAYS * DAY_MS))),
-  )
-}
-
-function statsForWeek(events: SearchEventRow[], taps: TapRow[], contacts: ContactRow[]): WeekStats {
-  const devicesByDate = new Map<string, Set<string>>()
-  for (const row of events) {
-    const day = row.created_at.slice(0, 10)
-    if (!devicesByDate.has(day)) devicesByDate.set(day, new Set())
-    devicesByDate.get(day)!.add(row.device_id)
-  }
-  const daysSeenByDevice = new Map<string, number>()
-  for (const devices of devicesByDate.values()) {
-    for (const deviceId of devices) {
-      daysSeenByDevice.set(deviceId, (daysSeenByDevice.get(deviceId) ?? 0) + 1)
-    }
-  }
-
-  const zeroResultSearches = events.filter((row) => row.result_count === 0).length
-
-  const contactsByChannel: ChannelCounts = { call: 0, whatsapp: 0, maps: 0 }
-  const contactsBySource: SourceCounts = { app: 0, landing: 0 }
-  for (const row of contacts) {
-    if (row.channel in contactsByChannel) contactsByChannel[row.channel as keyof ChannelCounts] += 1
-    if (row.source in contactsBySource) contactsBySource[row.source as keyof SourceCounts] += 1
-  }
-
-  return {
-    uniqueDevices: daysSeenByDevice.size,
-    returningDevices: [...daysSeenByDevice.values()].filter((days) => days >= 2).length,
-    searches: events.length,
-    zeroResultSearches,
-    businessTaps: taps.length,
-    contacts: contacts.length,
-    contactsByChannel,
-    contactsBySource,
-  }
-}
-
 /**
+ * La agregación vive en SQL (`admin_weekly_metrics` y
+ * `admin_top_zero_result_queries`, migración 20261002120000). Antes se bajaban
+ * las filas crudas de 6 semanas y se agregaba aquí, pero PostgREST corta en
+ * 1000 filas sin avisar: cuando `search_events` pasó ese tope, las semanas
+ * recientes salían en 0 (mikitasks `su4z8tm09`). La semántica —semanas hacia
+ * atrás desde ahora, días en UTC, "regresa" = 2+ días en la semana, exclusión
+ * de `excluded_devices`— está documentada en la migración.
+ *
  * Por qué service role y no el cliente del usuario (revisado 2026-09-18,
- * mikitasks `eantgj6l5` y `06yzbwbcc`): las tres tablas de métricas y
- * `excluded_devices` no dan SELECT a clientes. Con el cliente normal esto
- * devolvería cero filas siempre, así que el service role no es un atajo: hoy
+ * mikitasks `eantgj6l5` y `06yzbwbcc`): las dos funciones solo dan `execute`
+ * a `service_role`, y las tablas que leen no dan SELECT a clientes. Con el
+ * cliente normal la llamada falla, así que el service role no es un atajo: hoy
  * es el único camino.
  *
  * La consecuencia es que esta función corre por fuera de RLS y `db:rls:check`
@@ -100,65 +59,63 @@ function statsForWeek(events: SearchEventRow[], taps: TapRow[], contacts: Contac
  * merced de que el próximo consumidor se acuerde. No cuesta query extra,
  * `getCurrentProfile` está memoizado por request con `cache()`.
  *
- * La alternativa —darle SELECT con `is_admin()` a esas tres tablas y usar el
+ * La alternativa —que las funciones chequen `is_admin()` adentro y usar el
  * cliente de siempre— metería la regla donde vive el resto del proyecto y la
- * volvería verificable por el harness. Cuesta una migración y un `db:push`, y
- * se dejó fuera de este cambio a propósito.
+ * volvería verificable por el harness. Se dejó fuera a propósito: habría
+ * cambiado el modelo de autorización en el mismo cambio que arreglaba un
+ * conteo.
  */
 export async function getWeeklyMetrics(): Promise<WeeklyMetrics> {
   await requireAdmin()
   const supabase = createAdminClient()
   const now = Date.now()
+  const nowIso = new Date(now).toISOString()
   const sinceIso = new Date(now - WEEKS * WINDOW_DAYS * DAY_MS).toISOString()
 
-  const [searchEvents, taps, contacts, excludedDevices] = await Promise.all([
-    supabase
-      .from('search_events')
-      .select('device_id, query, result_count, created_at')
-      .gte('created_at', sinceIso),
-    supabase.from('search_result_taps').select('device_id, created_at').gte('created_at', sinceIso),
-    supabase
-      .from('business_contacts')
-      .select('device_id, channel, source, created_at')
-      .gte('created_at', sinceIso),
-    supabase.from('excluded_devices').select('device_id'),
+  // Mismo `p_now` en las dos llamadas para que el top y la semana 0 cubran
+  // exactamente la misma ventana.
+  const [weekly, topZero] = await Promise.all([
+    supabase.rpc('admin_weekly_metrics', {
+      p_now: nowIso,
+      p_weeks: WEEKS,
+      p_window_days: WINDOW_DAYS,
+    }),
+    supabase.rpc('admin_top_zero_result_queries', {
+      p_now: nowIso,
+      p_window_days: WINDOW_DAYS,
+      p_limit: 10,
+    }),
   ])
 
-  if (searchEvents.error) throw searchEvents.error
-  if (taps.error) throw taps.error
-  if (contacts.error) throw contacts.error
-  if (excludedDevices.error) throw excludedDevices.error
+  if (weekly.error) throw weekly.error
+  if (topZero.error) throw topZero.error
 
-  const excludedDeviceIds = new Set((excludedDevices.data ?? []).map((row) => row.device_id))
-  const events = ((searchEvents.data ?? []) as SearchEventRow[]).filter(
-    (row) => !excludedDeviceIds.has(row.device_id),
-  )
-  const tapRows = ((taps.data ?? []) as TapRow[]).filter(
-    (row) => !excludedDeviceIds.has(row.device_id),
-  )
-  const contactRows = ((contacts.data ?? []) as ContactRow[]).filter(
-    (row) => !excludedDeviceIds.has(row.device_id),
-  )
-
-  const buckets: { events: SearchEventRow[]; taps: TapRow[]; contacts: ContactRow[] }[] =
-    Array.from({ length: WEEKS }, () => ({ events: [], taps: [], contacts: [] }))
-  for (const row of events) buckets[weekIndexOf(row.created_at, now)].events.push(row)
-  for (const row of tapRows) buckets[weekIndexOf(row.created_at, now)].taps.push(row)
-  for (const row of contactRows) buckets[weekIndexOf(row.created_at, now)].contacts.push(row)
-
-  const weekStats = buckets.map((b) => statsForWeek(b.events, b.taps, b.contacts))
-
-  const zeroResultCounts = new Map<string, number>()
-  for (const row of buckets[0].events) {
-    if (row.result_count !== 0) continue
-    const key = row.query.trim().toLowerCase()
-    if (!key) continue
-    zeroResultCounts.set(key, (zeroResultCounts.get(key) ?? 0) + 1)
+  // La función siempre devuelve WEEKS filas ordenadas por week_index (0 =
+  // actual), incluidas las semanas sin eventos.
+  const weekStats: WeekStats[] = (weekly.data ?? []).map((w) => ({
+    uniqueDevices: w.unique_devices,
+    returningDevices: w.returning_devices,
+    searches: w.searches,
+    zeroResultSearches: w.zero_result_searches,
+    businessTaps: w.business_taps,
+    contacts: w.contacts,
+    contactsByChannel: {
+      call: w.contacts_call,
+      whatsapp: w.contacts_whatsapp,
+      maps: w.contacts_maps,
+    },
+    contactsBySource: { app: w.contacts_app, landing: w.contacts_landing },
+  }))
+  if (weekStats.length !== WEEKS) {
+    throw new Error(
+      `admin_weekly_metrics devolvió ${weekStats.length} semanas, se esperaban ${WEEKS}`,
+    )
   }
-  const topZeroResultQueries = [...zeroResultCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([query, count]) => ({ query, count }))
+
+  const topZeroResultQueries = (topZero.data ?? []).map((row) => ({
+    query: row.query,
+    count: row.searches,
+  }))
 
   return {
     windowDays: WINDOW_DAYS,
