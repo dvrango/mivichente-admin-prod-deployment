@@ -2059,6 +2059,11 @@ export type Database = {
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
+          promo_active: boolean
+          promo_body: string | null
+          promo_ends_at: string | null
+          promo_title: string | null
+          promo_updated_at: string | null
           schedule: string | null
           services_label: string | null
           slug: string
@@ -2096,6 +2101,11 @@ export type Database = {
           phone: string
           phone_is_whatsapp?: boolean
           photo_url?: string | null
+          promo_active?: boolean
+          promo_body?: string | null
+          promo_ends_at?: string | null
+          promo_title?: string | null
+          promo_updated_at?: string | null
           schedule?: string | null
           services_label?: string | null
           slug?: string
@@ -2133,6 +2143,11 @@ export type Database = {
           phone?: string
           phone_is_whatsapp?: boolean
           photo_url?: string | null
+          promo_active?: boolean
+          promo_body?: string | null
+          promo_ends_at?: string | null
+          promo_title?: string | null
+          promo_updated_at?: string | null
           schedule?: string | null
           services_label?: string | null
           slug?: string
@@ -2437,6 +2452,11 @@ export type Database = {
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
+          promo_active: boolean
+          promo_body: string | null
+          promo_ends_at: string | null
+          promo_title: string | null
+          promo_updated_at: string | null
           schedule: string | null
           services_label: string | null
           slug: string
@@ -2500,6 +2520,11 @@ export type Database = {
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
+          promo_active: boolean
+          promo_body: string | null
+          promo_ends_at: string | null
+          promo_title: string | null
+          promo_updated_at: string | null
           schedule: string | null
           services_label: string | null
           slug: string

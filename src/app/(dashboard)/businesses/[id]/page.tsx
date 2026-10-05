@@ -20,6 +20,7 @@ import {
   getBusinessPhotos,
 } from '@/features/businesses/queries'
 import { countMenuItems } from '@/features/business-menu/queries'
+import { promoStatus } from '@/features/businesses/promo'
 
 export default async function EditBusinessPage({
   params,
@@ -96,6 +97,12 @@ export default async function EditBusinessPage({
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
               Material gráfico
+            </Link>
+            <Link
+              href={`/businesses/${id}/promocion`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              {promoStatus(business) === 'live' ? 'Promoción · activa' : 'Promoción'}
             </Link>
             {readOnly ? (
               <Badge variant="outline">Solo lectura · {business.municipio}</Badge>

@@ -16,6 +16,7 @@ import {
   toggleBusinessAcceptsOrdersSchema,
   type GalleryValues,
 } from './schema'
+import { parsePromoForm } from './promo'
 import type { WeeklyHours } from './types'
 import { saveOwnerContact, splitOwnerContact } from './owner-contact'
 
@@ -437,6 +438,46 @@ export async function toggleBusinessActive(id: string, nextActive: boolean) {
 
   revalidatePath('/businesses')
   revalidatePath(`/businesses/${id}`)
+}
+
+export type PromoFormState = { error: string | null; saved: boolean }
+
+/**
+ * Guarda la promoción del negocio. Sin chequeo de rol aquí, igual que el resto
+ * de las ediciones del catálogo: la RLS de `businesses` ya acota quién escribe
+ * (admin, o reviewer en su municipio). `promo_updated_at` lo sella el trigger
+ * `businesses_stamp_promo` cuando cambia el contenido.
+ */
+export async function updateBusinessPromo(
+  id: string,
+  _prev: PromoFormState,
+  formData: FormData,
+): Promise<PromoFormState> {
+  const parsed = parsePromoForm(formData)
+  if (!parsed.success) return { error: firstIssue(parsed.error), saved: false }
+  const { active, title, body, ends_at } = parsed.data
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('businesses')
+    .update({
+      promo_active: active,
+      promo_title: title,
+      promo_body: body,
+      promo_ends_at: ends_at,
+      updated_by: await currentUserId(supabase),
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) return { error: error.message, saved: false }
+  // RLS no truena cuando filtra la fila: devuelve 0 filas. Sin esto, un
+  // reviewer de otro municipio vería "Guardado" sin que nada cambiara.
+  if (!data?.length) return { error: 'No tienes permiso para editar este negocio.', saved: false }
+
+  revalidatePath(`/businesses/${id}`)
+  revalidatePath(`/businesses/${id}/promocion`)
+  return { error: null, saved: true }
 }
 
 export async function toggleBusinessFeatured(id: string, nextFeatured: boolean) {
