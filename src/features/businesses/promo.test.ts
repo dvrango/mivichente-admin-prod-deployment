@@ -29,6 +29,22 @@ describe('formulario de la promoción', () => {
     expect(parsed.success && parsed.data.body).toBe(body)
   })
 
+  it('los saltos \\r\\n del navegador cuentan como uno', () => {
+    const parsed = parsePromoForm(fd({ title: 'Promo', body: 'A\r\n- B\r\n\r\nC', ends_at: '' }))
+    expect(parsed.success && parsed.data.body).toBe('A\n- B\n\nC')
+    const lleno = Array.from({ length: 1000 }, () => 'x').join('\r\n')
+    expect(parsePromoForm(fd({ title: 'Promo', body: lleno, ends_at: '' })).success).toBe(true)
+  })
+
+  it('rechaza una fecha que no existe', () => {
+    expect(parsePromoForm(fd({ title: 'Promo', body: '', ends_at: '2026-02-31' })).success).toBe(
+      false,
+    )
+    expect(parsePromoForm(fd({ title: 'Promo', body: '', ends_at: '2026-10-10' })).success).toBe(
+      true,
+    )
+  })
+
   it('rechaza un título largo y una fecha mal formada', () => {
     expect(
       parsePromoForm(fd({ title: 'x'.repeat(PROMO_TITLE_MAX + 1), body: '', ends_at: '' })).success,

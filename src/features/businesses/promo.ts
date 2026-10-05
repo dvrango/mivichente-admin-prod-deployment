@@ -10,6 +10,13 @@ export const PROMO_BODY_MAX = 2000
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
+// La regex sola deja pasar `2026-02-31`, que la DB rechaza con un error crudo.
+function isRealDate(v: string): boolean {
+  if (!DATE.test(v)) return false
+  const d = new Date(`${v}T00:00:00Z`)
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v
+}
+
 export const promoSchema = z
   .object({
     active: z.boolean(),
@@ -20,8 +27,10 @@ export const promoSchema = z
       .transform((v) => v || null),
     body: z
       .string()
-      // Sin trim interno: los renglones en blanco separan bloques en la app.
-      .transform((v) => v.trim())
+      // El navegador manda los saltos del textarea como \r\n: se normalizan
+      // antes de medir, o cada renglón contaría doble contra el límite. Sin
+      // trim interno: los renglones en blanco separan bloques en la app.
+      .transform((v) => v.replace(/\r\n?/g, '\n').trim())
       .refine(
         (v) => v.length <= PROMO_BODY_MAX,
         `Los detalles no pueden pasar de ${PROMO_BODY_MAX} caracteres.`,
@@ -30,7 +39,7 @@ export const promoSchema = z
     ends_at: z
       .string()
       .trim()
-      .refine((v) => v === '' || DATE.test(v), 'Fecha de fin inválida.')
+      .refine((v) => v === '' || isRealDate(v), 'Fecha de fin inválida.')
       .transform((v) => v || null),
   })
   .superRefine((value, ctx) => {

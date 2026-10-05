@@ -39,13 +39,18 @@ set search_path = public
 as $function$
 begin
   if tg_op = 'INSERT' then
-    if new.promo_title is not null or new.promo_body is not null or new.promo_ends_at is not null then
-      new.promo_updated_at := now();
-    end if;
+    new.promo_updated_at := case
+      when new.promo_title is not null or new.promo_body is not null or new.promo_ends_at is not null
+        then now()
+    end;
   elsif new.promo_title is distinct from old.promo_title
      or new.promo_body is distinct from old.promo_body
      or new.promo_ends_at is distinct from old.promo_ends_at then
     new.promo_updated_at := now();
+  else
+    -- El sello es de la DB: un cliente no lo mueve sin cambiar el contenido,
+    -- así nadie vuelve a mostrar (o esconde) el modal a todos a mano.
+    new.promo_updated_at := old.promo_updated_at;
   end if;
   return new;
 end;
@@ -55,5 +60,5 @@ revoke execute on function public.businesses_stamp_promo() from public, anon, au
 
 drop trigger if exists businesses_stamp_promo on public.businesses;
 create trigger businesses_stamp_promo
-before insert or update of promo_title, promo_body, promo_ends_at on public.businesses
+before insert or update of promo_title, promo_body, promo_ends_at, promo_updated_at on public.businesses
 for each row execute function public.businesses_stamp_promo();
