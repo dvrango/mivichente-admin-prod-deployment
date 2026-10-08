@@ -49,8 +49,7 @@ const MUNICIPIOS = 'Vicente Guerrero • Súchil • Nombre de Dios • Villa Un
 const INSTAGRAM = '@vichenteapp'
 
 // El entry point universal (landing/src/app/app/page.tsx): detecta plataforma y
-// manda al lugar correcto, así que sirve también en iPhone, donde el botón de
-// Play Store no lleva a ningún lado. Va sin `?src=` y sin `https://` porque se
+// manda a App Store o a Google Play según el teléfono. Va sin `?src=` y sin `https://` porque se
 // teclea a mano desde la foto — es corta a propósito, al revés que la URL del
 // perfil del negocio, que por eso no aparece en la pieza. El slug `app` está
 // reservado en la DB y en el admin, no lo puede tomar un negocio.
@@ -64,8 +63,6 @@ const ICONO_PALOMA = 'M9.64 15.95l-3.55-3.46 1.32-1.35 2.23 2.17 5.4-5.55 1.32 1
 const ICONO_INSTAGRAM_MARCO =
   'M2 7.5A5.5 5.5 0 017.5 2h9A5.5 5.5 0 0122 7.5v9a5.5 5.5 0 01-5.5 5.5h-9A5.5 5.5 0 012 16.5v-9z'
 const ICONO_INSTAGRAM_LENTE = 'M12 7.6a4.4 4.4 0 100 8.8 4.4 4.4 0 000-8.8z'
-const ICONO_PLAY =
-  'M4 2.4v19.2c0 .55.6.9 1.05.6l14.4-9.6a.72.72 0 000-1.2L5.05 1.8A.72.72 0 004 2.4z'
 
 export type DatosTarjeta = {
   nombre: string
@@ -326,22 +323,22 @@ function dibujarBarra(ctx: CanvasRenderingContext2D) {
 
   const tam = 26
   ctx.font = fuenteDe(600, tam)
-  const play = 'Google Play'
-  const anchoPlay = ctx.measureText(play).width
+  // Sin ícono de tienda: son dos tiendas y la URL de arriba ya elige la correcta,
+  // así que basta con decir que hay app para los dos teléfonos.
+  const plataformas = 'Disponible para iPhone y Android'
+  const anchoPlataformas = ctx.measureText(plataformas).width
   const anchoIg = ctx.measureText(INSTAGRAM).width
   const tamIcono = 28
   const gapIcono = 12
   const separacion = 56
-  const total = tamIcono + gapIcono + anchoPlay + separacion + tamIcono + gapIcono + anchoIg
+  const total = anchoPlataformas + separacion + tamIcono + gapIcono + anchoIg
   let x = (ANCHO - total) / 2
   const filaY = BARRA_Y + 138
   const iconoY = filaY - tamIcono * 0.78
 
-  dibujarIcono(ctx, ICONO_PLAY, x, iconoY, tamIcono, { fill: 'rgba(255,255,255,0.75)' })
-  x += tamIcono + gapIcono
   ctx.fillStyle = 'rgba(255,255,255,0.75)'
-  ctx.fillText(play, x, filaY)
-  x += anchoPlay + separacion
+  ctx.fillText(plataformas, x, filaY)
+  x += anchoPlataformas + separacion
 
   dibujarIcono(ctx, ICONO_INSTAGRAM_MARCO, x, iconoY, tamIcono, {
     stroke: 'rgba(255,255,255,0.75)',
