@@ -2489,6 +2489,7 @@ export type Database = {
       is_search_stopword: { Args: { term: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
       qr_scan_channel_from_src: { Args: { p_src: string }; Returns: string }
+      qr_scan_is_bot: { Args: { p_user_agent: string }; Returns: boolean }
       search_businesses: {
         Args: { search_query: string }
         Returns: {
