@@ -55,11 +55,11 @@ describe('formulario de opiniones con descuento', () => {
 describe('último día del descuento', () => {
   // submit_business_feedback vence al empezar hoy + días + 1 (hora de Durango).
   it('con 30 días, una opinión del 10 de octubre vale hasta el 9 de noviembre', () => {
-    expect(feedbackRewardLastDay('30', '2026-10-10')).toBe('9 de noviembre')
+    expect(feedbackRewardLastDay('30', '2026-10-10')).toBe('9 de noviembre de 2026')
   })
 
   it('con 1 día vale hoy y mañana', () => {
-    expect(feedbackRewardLastDay('1', '2026-12-31')).toBe('1 de enero')
+    expect(feedbackRewardLastDay('1', '2026-12-31')).toBe('1 de enero de 2027')
   })
 
   it('días inválidos no dan fecha', () => {

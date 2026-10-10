@@ -57,7 +57,7 @@ export function parseFeedbackRewardForm(formData: FormData) {
 }
 
 /**
- * Último día en que vale un descuento creado hoy, como "9 de noviembre". Mismo
+ * Último día en que vale un descuento creado hoy, como "9 de noviembre de 2026". Mismo
  * cálculo que `submit_business_feedback`: vence al empezar el día
  * `hoy + días + 1` en hora de Durango, así que el último día válido es
  * `hoy + días`. `null` si los días no son válidos.
@@ -67,5 +67,10 @@ export function feedbackRewardLastDay(days: string, today: string = todayInDuran
   if (!parsed.success) return null
   const d = new Date(`${today}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + parsed.data)
-  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+  return d.toLocaleDateString('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
 }
