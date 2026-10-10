@@ -104,6 +104,19 @@ export default async function EditBusinessPage({
             >
               {promoStatus(business) === 'live' ? 'Promoción · activa' : 'Promoción'}
             </Link>
+            {/* Solo admin: la configuración la protege el trigger
+                businesses_feedback_reward_admin_only. */}
+            {profile?.role === 'admin' && (
+              <Link
+                href={`/businesses/${id}/opiniones`}
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                {/* Mismo criterio que submit_business_feedback: inactivo no recibe. */}
+                {business.feedback_reward_active && business.is_active
+                  ? 'Opiniones · activas'
+                  : 'Opiniones'}
+              </Link>
+            )}
             {readOnly ? (
               <Badge variant="outline">Solo lectura · {business.municipio}</Badge>
             ) : (
