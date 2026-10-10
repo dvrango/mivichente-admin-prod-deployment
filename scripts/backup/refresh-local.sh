@@ -144,14 +144,14 @@ fi
 # --- Configuración ---------------------------------------------------------
 
 PASO="cargar configuración"
+[ -f "$ENV_FILE" ] || fallar "no existe $ENV_FILE"
+# shellcheck disable=SC1090
+set -a; . "$ENV_FILE"; set +a
 # Esta copia TRUNCA el destino. Nunca contra Supabase cloud, aunque alguien reuse las
 # variables VICHENTE_PG_* que restore-check.sh documenta para apuntar a otro cluster.
 case "$PG_HOST" in
   *supabase.co*|*supabase.com*|*pooler*) fallar "\`$PG_HOST\` no es la DB local. Esta copia trunca el destino." ;;
 esac
-[ -f "$ENV_FILE" ] || fallar "no existe $ENV_FILE"
-# shellcheck disable=SC1090
-set -a; . "$ENV_FILE"; set +a
 # Validar antes de usarlas: con `set -u` una variable faltante aborta sin pasar por
 # el trap ERR, y la falla no llegaría a Discord.
 for var in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
