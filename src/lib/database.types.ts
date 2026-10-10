@@ -1529,7 +1529,6 @@ export type Database = {
           business_id: string
           coupon_id: string
           created_at: string
-          device_id: string
           id: string
           improve: string | null
           liked: string | null
@@ -1539,7 +1538,6 @@ export type Database = {
           business_id: string
           coupon_id: string
           created_at?: string
-          device_id: string
           id?: string
           improve?: string | null
           liked?: string | null
@@ -1549,7 +1547,6 @@ export type Database = {
           business_id?: string
           coupon_id?: string
           created_at?: string
-          device_id?: string
           id?: string
           improve?: string | null
           liked?: string | null

@@ -173,21 +173,19 @@ create table public.business_feedback (
   rating      smallint not null,
   liked       text,
   improve     text,
-  device_id   text not null,
   created_at  timestamptz not null default now(),
   constraint business_feedback_rating_range check (rating between 1 and 5),
   constraint business_feedback_liked_length
     check (liked is null or char_length(liked) between 1 and 1000),
   constraint business_feedback_improve_length
-    check (improve is null or char_length(improve) between 1 and 1000),
-  constraint business_feedback_device_id_length check (char_length(device_id) between 1 and 100)
+    check (improve is null or char_length(improve) between 1 and 1000)
 );
 
 create index business_feedback_business_created_idx
   on public.business_feedback (business_id, created_at desc);
 
 comment on table public.business_feedback is
-  'Opinión privada que deja un cliente desde el QR del local. Sin nombre ni teléfono. Solo la lee el staff; anon la crea vía submit_business_feedback y nunca la puede leer.';
+  'Opinión privada que deja un cliente desde el QR del local. Sin nombre ni teléfono. Solo la lee el staff; anon la crea vía submit_business_feedback y nunca la puede leer. No guarda device_id: ese vive en coupons, que solo lee admin.';
 comment on column public.business_feedback.liked is
   'Respuesta opcional a "¿Qué te gustó?".';
 comment on column public.business_feedback.improve is
@@ -287,8 +285,11 @@ comment on function public.redeem_coupon(text) is
 -- Deja una opinión y devuelve el token del descuento. Reglas:
 --   - el negocio existe, está activo y tiene el interruptor prendido; si no,
 --     error `feedback_not_accepted`;
---   - si ese device ya tiene descuento de opinión en ese negocio, devuelve el
---     token existente y NO guarda otra opinión (reescanear cae en su descuento);
+--   - si ese device ya tiene descuento de opinión en ese negocio, error
+--     `already_submitted` y NO guarda otra opinión. No devuelve el token
+--     existente: el device_id no es un secreto que se pueda cuidar (viaja en la
+--     telemetría), y devolverlo lo volvería una segunda llave del cupón. Reescanear cae en el descuento porque la landing
+--     guarda el token en localStorage, no por esta función;
 --   - si no, crea cupón y opinión juntos, con copia del beneficio y vencimiento
 --     al final del día N en hora de Durango.
 -- Los largos y el rango se validan aquí además del check de la tabla, para dar
@@ -332,18 +333,18 @@ begin
     raise exception 'feedback_not_accepted' using errcode = 'P0001';
   end if;
 
-  select c.token into v_token
-    from public.coupons c
-   where c.business_id = v_business.id
-     and c.device_id = v_device
-     and c.source = 'feedback';
-
-  if v_token is not null then
-    return v_token;
+  if exists (
+    select 1
+      from public.coupons c
+     where c.business_id = v_business.id
+       and c.device_id = v_device
+       and c.source = 'feedback'
+  ) then
+    raise exception 'already_submitted' using errcode = 'P0001';
   end if;
 
   -- Dos envíos simultáneos del mismo device: el índice único decide, y el que
-  -- pierde devuelve el token del que ganó sin guardar una segunda opinión.
+  -- pierde recibe el mismo error sin guardar una segunda opinión.
   insert into public.coupons (business_id, source, benefit, expires_at, device_id)
   values (
     v_business.id,
@@ -359,23 +360,18 @@ begin
   returning id, token into v_coupon_id, v_token;
 
   if v_coupon_id is null then
-    select c.token into v_token
-      from public.coupons c
-     where c.business_id = v_business.id
-       and c.device_id = v_device
-       and c.source = 'feedback';
-    return v_token;
+    raise exception 'already_submitted' using errcode = 'P0001';
   end if;
 
-  insert into public.business_feedback (business_id, coupon_id, rating, liked, improve, device_id)
-  values (v_business.id, v_coupon_id, p_rating, v_liked, v_improve, v_device);
+  insert into public.business_feedback (business_id, coupon_id, rating, liked, improve)
+  values (v_business.id, v_coupon_id, p_rating, v_liked, v_improve);
 
   return v_token;
 end;
 $$;
 
 comment on function public.submit_business_feedback(text, text, integer, text, text) is
-  'Guarda una opinión y crea su descuento; devuelve el token del descuento. Uno por device y negocio: si ya existe, devuelve el mismo token sin guardar otra opinión. Error feedback_not_accepted si el negocio no está activo o no tiene el interruptor prendido.';
+  'Guarda una opinión y crea su descuento; devuelve el token del descuento. Uno por device y negocio: si ya existe, error already_submitted sin guardar otra opinión ni devolver el token existente. Error feedback_not_accepted si el negocio no está activo o no tiene el interruptor prendido.';
 
 -- Postgres y Supabase dan execute a toda función nueva. Se deja explícito
 -- quién las corre: la landing (anon) y, por si se usan con sesión, authenticated.

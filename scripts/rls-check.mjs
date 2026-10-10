@@ -1063,16 +1063,23 @@ async function main() {
       ).rows[0].count,
     ) === 1,
   )
+  // El device_id no es un secreto que se pueda cuidar: si reenviar devolviera
+  // el token existente, sería una segunda llave del cupón.
+  const reenvio = await attempt(c, "select submit_business_feedback($1, 'rls-check-device-1', 1)", [
+    slugActivo,
+  ])
   check(
-    'el mismo device recibe el mismo token',
-    (await submit(slugActivo, 'rls-check-device-1', 1)) === tokenVigente,
+    'reenviar desde el mismo device da already_submitted y no devuelve el token',
+    reenvio.outcome.includes('already_submitted'),
+    reenvio.outcome,
   )
   check(
     'reenviar desde el mismo device no guarda otra opinión',
     Number(
       (
         await c.query(
-          "select count(*) from business_feedback where device_id = 'rls-check-device-1'",
+          `select count(*) from business_feedback f join coupons c on c.id = f.coupon_id
+            where c.device_id = 'rls-check-device-1'`,
         )
       ).rows[0].count,
     ) === 1,
@@ -1118,6 +1125,14 @@ async function main() {
         r.outcome,
       )
     }
+    const ajeno = await attempt(c, "select submit_business_feedback($1, 'rls-check-device-2', 5)", [
+      slugActivo,
+    ])
+    check(
+      'anon NO obtiene el token de otro presentando su device_id',
+      ajeno.outcome.includes('already_submitted'),
+      ajeno.outcome,
+    )
     const fueraDeRango = await attempt(
       c,
       "select submit_business_feedback($1, 'rls-check-anon-2', 6)",
@@ -1142,8 +1157,8 @@ async function main() {
     check('anon NO crea cupones directo', insCupon.outcome === 'denied', insCupon.outcome)
     const insOpinion = await attempt(
       c,
-      `insert into business_feedback (business_id, coupon_id, rating, device_id)
-       select $1, id, 5, 'hack' from coupons limit 1`,
+      `insert into business_feedback (business_id, coupon_id, rating)
+       select $1, id, 5 from coupons limit 1`,
       [bizFeedback],
     )
     check('anon NO crea opiniones directo', insOpinion.outcome === 'denied', insOpinion.outcome)
