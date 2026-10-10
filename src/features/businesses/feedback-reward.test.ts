@@ -1,0 +1,49 @@
+import { describe, expect, it } from 'vitest'
+import { FEEDBACK_REWARD_BENEFIT_MAX, parseFeedbackRewardForm } from './feedback-reward'
+
+function fd(values: Record<string, string>) {
+  const data = new FormData()
+  for (const [k, v] of Object.entries(values)) data.set(k, v)
+  return data
+}
+
+describe('formulario de opiniones con descuento', () => {
+  it('prendido sin descuento no pasa', () => {
+    expect(parseFeedbackRewardForm(fd({ active: 'on', benefit: '', days: '30' })).success).toBe(
+      false,
+    )
+    expect(parseFeedbackRewardForm(fd({ active: 'on', benefit: '   ', days: '30' })).success).toBe(
+      false,
+    )
+  })
+
+  it('apagado sin descuento sí pasa y guarda null', () => {
+    const parsed = parseFeedbackRewardForm(fd({ benefit: '', days: '30' }))
+    expect(parsed.success).toBe(true)
+    if (parsed.success) expect(parsed.data).toEqual({ active: false, benefit: null, days: 30 })
+  })
+
+  it('prendido con descuento recorta los espacios', () => {
+    const parsed = parseFeedbackRewardForm(fd({ active: 'on', benefit: '  10%  ', days: ' 15 ' }))
+    expect(parsed.success).toBe(true)
+    if (parsed.success) expect(parsed.data).toEqual({ active: true, benefit: '10%', days: 15 })
+  })
+
+  it('rechaza un descuento más largo que el de la DB', () => {
+    const max = 'x'.repeat(FEEDBACK_REWARD_BENEFIT_MAX)
+    expect(parseFeedbackRewardForm(fd({ active: 'on', benefit: max, days: '30' })).success).toBe(
+      true,
+    )
+    expect(
+      parseFeedbackRewardForm(fd({ active: 'on', benefit: `${max}x`, days: '30' })).success,
+    ).toBe(false)
+  })
+
+  it.each(['0', '366', '1.5', '-3', 'treinta', ''])('rechaza %o días', (days) => {
+    expect(parseFeedbackRewardForm(fd({ active: 'on', benefit: '10%', days })).success).toBe(false)
+  })
+
+  it.each(['1', '365'])('acepta %o días', (days) => {
+    expect(parseFeedbackRewardForm(fd({ active: 'on', benefit: '10%', days })).success).toBe(true)
+  })
+})
