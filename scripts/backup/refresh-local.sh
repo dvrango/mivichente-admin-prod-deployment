@@ -66,6 +66,20 @@ EXCLUIDAS=(
   _backup_businesses_fase1
 )
 
+# Tablas que el `truncate … cascade` vacía porque tienen FK a una tabla copiada. Se
+# vacían en local en cada copia. Si una migración agrega otra (una FK nueva a
+# `businesses`), la copia falla ANTES de truncar y pide agregarla aquí a propósito:
+# no se vacía nada que nadie haya decidido vaciar. `profiles` nunca puede estar aquí.
+SE_VACIAN=(
+  search_result_taps
+  business_contacts
+  order_funnel_events
+  qr_scans
+  business_reports
+  business_registrations
+  business_owner_contacts
+)
+
 FECHA="$(date +%Y-%m-%d)"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -106,6 +120,9 @@ Revisar: \`journalctl -u vichente-refresh-local.service -n 50\`"
   exit 1
 }
 trap 'fallar "error inesperado (exit $?)"' ERR
+# systemd manda SIGTERM al cumplirse TimeoutStartSec. Sin esto bash muere callado.
+# Si estaba a media carga, Postgres revierte la transacción al cortarse la conexión.
+trap 'fallar "interrumpido por SIGTERM (¿timeout de systemd?)"' TERM
 trap 'rm -rf "$TMPDIR"' EXIT
 
 en_lista() {
@@ -127,9 +144,19 @@ fi
 # --- Configuración ---------------------------------------------------------
 
 PASO="cargar configuración"
+# Esta copia TRUNCA el destino. Nunca contra Supabase cloud, aunque alguien reuse las
+# variables VICHENTE_PG_* que restore-check.sh documenta para apuntar a otro cluster.
+case "$PG_HOST" in
+  *supabase.co*|*supabase.com*|*pooler*) fallar "\`$PG_HOST\` no es la DB local. Esta copia trunca el destino." ;;
+esac
 [ -f "$ENV_FILE" ] || fallar "no existe $ENV_FILE"
 # shellcheck disable=SC1090
 set -a; . "$ENV_FILE"; set +a
+# Validar antes de usarlas: con `set -u` una variable faltante aborta sin pasar por
+# el trap ERR, y la falla no llegaría a Discord.
+for var in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+  [ -n "${!var:-}" ] || fallar "falta $var en $ENV_FILE"
+done
 
 export RCLONE_CONFIG=/dev/null
 export RCLONE_CONFIG_R2_TYPE=s3
@@ -151,7 +178,14 @@ PSQL=(psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -v ON_ERROR_STO
 PASO="bajar el backup del $FECHA"
 log "Bajando data.sql del $FECHA …"
 rclone copy "r2:${R2_BUCKET}/db/${FECHA}/data.sql.gz" "$TMPDIR" --stats-one-line 2>"$TMPDIR/rclone.err" || true
-[ -s "$TMPDIR/data.sql.gz" ] || fallar "No hay \`db/${FECHA}/data.sql.gz\` en R2 (¿el backup de hoy falló o no ha corrido?)."
+if [ ! -s "$TMPDIR/data.sql.gz" ]; then
+  # rclone sale bien cuando el archivo no existe, y mal cuando la falla es suya
+  # (credenciales, red). Distinguirlo evita culpar al backup de algo que no hizo.
+  if [ -s "$TMPDIR/rclone.err" ] && grep -q ERROR "$TMPDIR/rclone.err"; then
+    fallar "rclone no pudo leer R2: $(grep -m1 ERROR "$TMPDIR/rclone.err")"
+  fi
+  fallar "No hay \`db/${FECHA}/data.sql.gz\` en R2 (¿el backup de hoy falló o no ha corrido?)."
+fi
 gzip -d "$TMPDIR/data.sql.gz"
 
 # --- Tablas que no están en ninguna lista ----------------------------------
@@ -169,6 +203,48 @@ done
 # no se puede cargar: falla dura, antes de truncar nada.
 for t in "${COPIADAS[@]}"; do
   printf '%s\n' "$tablas_local" | grep -qx "$t" || fallar "La tabla \`$t\` está en la lista de copia pero no existe en la DB local."
+done
+
+# Una tabla de COPIADAS que no viene en el dump se truncaría y quedaría vacía con
+# conteos "correctos" (0 = 0). Pasaría si el CLI de Supabase cambia el formato del
+# dump y deja de entrecomillar `"public"."x"`. Falla dura, antes de truncar.
+PASO="revisar el dump"
+for t in "${COPIADAS[@]}"; do
+  printf '%s\n' "$tablas_dump" | grep -qx "$t" || fallar "La tabla \`$t\` no viene en el dump (¿cambió el formato del dump?)."
+done
+
+# Filas por tabla en el dump. Se comparan DENTRO de la transacción de carga, así un
+# descuadre la revierte en vez de dejar la DB local a medias.
+declare -A esperado
+for t in "${COPIADAS[@]}"; do
+  esperado[$t]="$(awk -v t="$t" '
+    /^COPY "public"\./ { x = $2; gsub(/"public"\.|"/, "", x); dentro = (x == t); next }
+    dentro && $0 == "\\." { dentro = 0 }
+    dentro { n++ }
+    END { print n + 0 }
+  ' "$TMPDIR/data.sql")"
+done
+[ "${esperado[businesses]}" -gt 0 ] || fallar "El dump trae 0 negocios."
+
+# --- Alcance del truncate ----------------------------------------------------
+
+# `truncate … cascade` vacía toda tabla con FK (directa o en cadena) a una copiada,
+# sin importar su `on delete`. Se calcula antes de truncar y se exige que esté en
+# COPIADAS o SE_VACIAN: una FK nueva no puede vaciar una tabla en silencio.
+PASO="revisar alcance del truncate"
+lista_sql="$(printf "'public.%s'::regclass," "${COPIADAS[@]}")"
+lista_sql="${lista_sql%,}"
+alcance="$("${PSQL[@]}" -tAc "
+  with recursive r(t) as (
+    select unnest(array[$lista_sql])
+    union
+    select c.conrelid::regclass from pg_constraint c join r on c.confrelid = r.t where c.contype = 'f'
+  )
+  select distinct c.relname from r join pg_class c on c.oid = r.t order by 1;")"
+for t in $alcance; do
+  [ "$t" = profiles ] && fallar "El truncate alcanzaría \`profiles\` (cuentas locales). Revisar la FK nueva."
+  en_lista "$t" "${COPIADAS[@]}" || en_lista "$t" "${SE_VACIAN[@]}" \
+    || fallar "El truncate vaciaría \`$t\`, que no está en SE_VACIAN. Si es correcto vaciarla en cada copia, agregarla ahí."
 done
 
 # --- Armar el SQL ----------------------------------------------------------
@@ -198,11 +274,20 @@ truncar="${truncar%, }"
 # - truncate … cascade vacía también las tablas que referencian a las copiadas
 #   (telemetría, reportes, registros, contactos de dueños). Es lo esperado: en local
 #   no deben quedar filas que apunten a negocios que ya no existen.
+# - lock_timeout: el truncate pide ACCESS EXCLUSIVE. Detrás de una sesión colgada
+#   `idle in transaction` esperaría hasta el timeout de systemd bloqueando las lecturas.
 {
   echo "set session_replication_role = replica;"
+  echo "set lock_timeout = '30s';"
   echo "select pg_catalog.set_config('search_path', 'public, extensions', false);"
   echo "truncate $truncar restart identity cascade;"
   cat "$TMPDIR/copias.sql"
+  echo "do \$\$ declare n bigint; begin"
+  for t in "${COPIADAS[@]}"; do
+    echo "  select count(*) into n from public.\"$t\";"
+    echo "  if n <> ${esperado[$t]} then raise exception 'conteo de $t: dump ${esperado[$t]}, cargadas %', n; end if;"
+  done
+  echo "end \$\$;"
 } > "$TMPDIR/carga.sql"
 
 # --- Cargar ----------------------------------------------------------------
@@ -213,24 +298,12 @@ if ! "${PSQL[@]}" --single-transaction -f "$TMPDIR/carga.sql" >"$TMPDIR/carga.ou
   fallar "psql: $(grep -m1 -E 'ERROR' "$TMPDIR/carga.err" || head -1 "$TMPDIR/carga.err")"
 fi
 
-# --- Verificar -------------------------------------------------------------
+# --- Resumen ---------------------------------------------------------------
 
-PASO="verificar conteos"
-ESTADO_DB="La carga ya se hizo: la DB local tiene los datos de este backup, pero algo no cuadra."
-descuadres=()
-for t in "${COPIADAS[@]}"; do
-  esperado="$(awk -v t="$t" '
-    /^COPY "public"\./ { x = $2; gsub(/"public"\.|"/, "", x); dentro = (x == t); next }
-    dentro && $0 == "\\." { dentro = 0 }
-    dentro { n++ }
-    END { print n + 0 }
-  ' "$TMPDIR/data.sql")"
-  real="$("${PSQL[@]}" -tAc "select count(*) from public.\"$t\";")"
-  [ "$esperado" = "$real" ] || descuadres+=("$t: dump $esperado, local $real")
-done
-
+# Los conteos ya se verificaron dentro de la transacción. Esto solo arma el log.
+PASO="resumen"
+ESTADO_DB="La carga ya se hizo y sus conteos cuadraron; falló solo el resumen."
 negocios="$("${PSQL[@]}" -tAc 'select count(*) from public.businesses;')"
-[ "$negocios" -gt 0 ] || fallar "\`businesses\` quedó vacía después de la carga."
 
 colgando="$("${PSQL[@]}" -tAc "
   select count(*) from (
@@ -246,10 +319,6 @@ colgando="$("${PSQL[@]}" -tAc "
     union all select updated_by from public.business_service_options
   ) x
   where p is not null and not exists (select 1 from public.profiles where id = x.p);")"
-
-if [ "${#descuadres[@]}" -gt 0 ]; then
-  fallar "Conteos que no cuadran con el dump: $(IFS=';'; echo "${descuadres[*]}")"
-fi
 
 trap - ERR
 

@@ -93,11 +93,11 @@ ssh minipc 'journalctl -u vichente-refresh-local.service -n 20'    # qué pasó
 **Qué no copia** (lista `EXCLUIDAS`):
 
 - Telemetría: `search_events`, `search_result_taps`, `qr_scans`, `business_contacts`, `order_funnel_events`, `excluded_devices`. Es voluminosa, personal y no hace falta para probar.
-- `profiles`, `auth` y `storage`: las cuentas locales (`admin@dvranlabs.com` y los reviewers de prueba) quedan intactas. Los `created_by`/`updated_by` de prod apuntan a perfiles que no existen en local; el log dice cuántos. Nada en el admin ni en mobile los usa para mostrar algo.
+- `profiles`, `auth` y `storage`: las cuentas locales (`admin@dvranlabs.com` y los reviewers de prueba) quedan intactas. Los `created_by`/`updated_by` de prod apuntan a perfiles que no existen en local; el log dice cuántos. En la tabla y la ficha de negocios del admin local, el autor sale vacío o como desconocido. Es cosmético.
 - Datos personales que no hacen falta para probar: `business_owner_contacts`, `business_registrations`, `business_reports`.
 - `_backup_businesses_fase1`: tabla suelta que solo existe en local.
 
-**Cómo carga:** baja `db/<hoy>/data.sql.gz`, toma solo los `COPY "public".<tabla>` de la lista y, en **una sola transacción**, hace `truncate … cascade` de esas tablas y las recarga. No toca el schema: lo siguen mandando las migraciones del repo, así que las migraciones locales que todavía no están en prod siguen aplicadas. Si algo falla, la transacción se revierte y la DB local queda como estaba.
+**Cómo carga:** baja `db/<hoy>/data.sql.gz`, toma solo los `COPY "public".<tabla>` de la lista y, en **una sola transacción**, hace `truncate … cascade` de esas tablas y las recarga. No toca el schema: lo siguen mandando las migraciones del repo, así que las migraciones locales que todavía no están en prod siguen aplicadas. Los conteos por tabla se comparan contra el dump **dentro** de esa transacción: si algo falla o no cuadra, se revierte y la DB local queda como estaba. Antes de truncar, el script calcula qué tablas alcanzaría el `cascade` y falla si aparece una que no esté en `COPIADAS` ni en `SE_VACIAN` (y siempre si aparece `profiles`), así una FK nueva no vacía nada en silencio.
 
 Lo que hay que saber antes de usar la DB local:
 
@@ -281,3 +281,4 @@ Supabase Pro ($25/mes) trae backups diarios administrados y elimina toda esta ma
 | No llegó el heartbeat del domingo                             | El timer dejó de correr — `systemctl list-timers` y `journalctl`                                                                                                                                                                     |
 | Copia a la DB local: "No hay `db/<hoy>/data.sql.gz`"          | El backup de hoy falló o todavía no corre. La copia no carga uno viejo a propósito; arreglar el backup y correr `npm run db:refresh:local`                                                                                           |
 | Copia a la DB local: conteos que no cuadran o error de `COPY` | Una migración local borró o renombró una columna que prod todavía tiene. La transacción se revirtió; esperar al `db:push` o pausar la copia                                                                                          |
+| Copia a la DB local: "El truncate vaciaría `<tabla>`"         | Una migración agregó una FK a una tabla copiada. No se truncó nada. Si esa tabla puede vaciarse en cada copia, agregarla a `SE_VACIAN`; si no, decidir antes de reanudar                                                             |

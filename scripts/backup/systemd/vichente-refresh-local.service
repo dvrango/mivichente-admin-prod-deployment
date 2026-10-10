@@ -2,6 +2,9 @@
 Description=Copia diaria del catálogo de prod a la DB local de Vichente
 Documentation=https://github.com/DvranLabs/mivichente-admin
 After=network-online.target docker.service
+# Si los dos timers disparan juntos (Persistent=true tras un arranque tarde), la copia
+# espera a que termine el backup en vez de buscar un dump que todavía no existe.
+After=vichente-backup.service
 Wants=network-online.target
 # La DB local es el Supabase en Docker del minipc.
 Requires=docker.service
