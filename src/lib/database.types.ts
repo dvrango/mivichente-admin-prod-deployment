@@ -1524,6 +1524,52 @@ export type Database = {
           },
         ]
       }
+      business_feedback: {
+        Row: {
+          business_id: string
+          coupon_id: string
+          created_at: string
+          device_id: string
+          id: string
+          improve: string | null
+          liked: string | null
+          rating: number
+        }
+        Insert: {
+          business_id: string
+          coupon_id: string
+          created_at?: string
+          device_id: string
+          id?: string
+          improve?: string | null
+          liked?: string | null
+          rating: number
+        }
+        Update: {
+          business_id?: string
+          coupon_id?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          improve?: string | null
+          liked?: string | null
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_feedback_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'business_feedback_coupon_id_fkey'
+            columns: ['coupon_id']
+            referencedRelation: 'coupons'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       business_hours: {
         Row: {
           business_id: string
@@ -2042,6 +2088,9 @@ export type Database = {
           delivery_fee: number | null
           description: string | null
           facebook_url: string | null
+          feedback_reward_active: boolean
+          feedback_reward_benefit: string | null
+          feedback_reward_days: number
           has_delivery: boolean
           id: string
           instagram_url: string | null
@@ -2084,6 +2133,9 @@ export type Database = {
           delivery_fee?: number | null
           description?: string | null
           facebook_url?: string | null
+          feedback_reward_active?: boolean
+          feedback_reward_benefit?: string | null
+          feedback_reward_days?: number
           has_delivery?: boolean
           id?: string
           instagram_url?: string | null
@@ -2126,6 +2178,9 @@ export type Database = {
           delivery_fee?: number | null
           description?: string | null
           facebook_url?: string | null
+          feedback_reward_active?: boolean
+          feedback_reward_benefit?: string | null
+          feedback_reward_days?: number
           has_delivery?: boolean
           id?: string
           instagram_url?: string | null
@@ -2206,6 +2261,49 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      coupons: {
+        Row: {
+          benefit: string
+          business_id: string
+          created_at: string
+          device_id: string | null
+          expires_at: string
+          id: string
+          redeemed_at: string | null
+          source: string
+          token: string
+        }
+        Insert: {
+          benefit: string
+          business_id: string
+          created_at?: string
+          device_id?: string | null
+          expires_at: string
+          id?: string
+          redeemed_at?: string | null
+          source: string
+          token?: string
+        }
+        Update: {
+          benefit?: string
+          business_id?: string
+          created_at?: string
+          device_id?: string | null
+          expires_at?: string
+          id?: string
+          redeemed_at?: string | null
+          source?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'coupons_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
       }
       excluded_devices: {
         Row: {
@@ -2435,6 +2533,9 @@ export type Database = {
           delivery_fee: number | null
           description: string | null
           facebook_url: string | null
+          feedback_reward_active: boolean
+          feedback_reward_benefit: string | null
+          feedback_reward_days: number
           has_delivery: boolean
           id: string
           instagram_url: string | null
@@ -2480,6 +2581,20 @@ export type Database = {
         Args: { object_name: string }
         Returns: boolean
       }
+      get_coupon: {
+        Args: { p_token: string }
+        Returns: {
+          benefit: string
+          business_name: string
+          business_slug: string
+          created_at: string
+          expires_at: string
+          redeemed_at: string
+          server_now: string
+          status: string
+          valid_until: string
+        }[]
+      }
       immutable_unaccent: { Args: { '': string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_food: {
@@ -2490,6 +2605,20 @@ export type Database = {
       is_staff: { Args: never; Returns: boolean }
       qr_scan_channel_from_src: { Args: { p_src: string }; Returns: string }
       qr_scan_is_bot: { Args: { p_user_agent: string }; Returns: boolean }
+      redeem_coupon: {
+        Args: { p_token: string }
+        Returns: {
+          benefit: string
+          business_name: string
+          business_slug: string
+          created_at: string
+          expires_at: string
+          redeemed_at: string
+          server_now: string
+          status: string
+          valid_until: string
+        }[]
+      }
       search_businesses: {
         Args: { search_query: string }
         Returns: {
@@ -2504,6 +2633,9 @@ export type Database = {
           delivery_fee: number | null
           description: string | null
           facebook_url: string | null
+          feedback_reward_active: boolean
+          feedback_reward_benefit: string | null
+          feedback_reward_days: number
           has_delivery: boolean
           id: string
           instagram_url: string | null
@@ -2545,6 +2677,16 @@ export type Database = {
       show_trgm: { Args: { '': string }; Returns: string[] }
       slug_is_reserved: { Args: { candidate: string }; Returns: boolean }
       slugify: { Args: { txt: string }; Returns: string }
+      submit_business_feedback: {
+        Args: {
+          p_device_id: string
+          p_improve?: string
+          p_liked?: string
+          p_rating: number
+          p_slug: string
+        }
+        Returns: string
+      }
       suggest_categories: {
         Args: { search_query: string }
         Returns: {
@@ -2609,7 +2751,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_09_26: {
+      messages_2026_10_05: {
         Row: {
           event: string | null
           extension: string
@@ -2642,7 +2784,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_09_27: {
+      messages_2026_10_06: {
         Row: {
           event: string | null
           extension: string
@@ -2675,7 +2817,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_09_28: {
+      messages_2026_10_07: {
         Row: {
           event: string | null
           extension: string
@@ -2708,7 +2850,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_09_29: {
+      messages_2026_10_08: {
         Row: {
           event: string | null
           extension: string
@@ -2741,7 +2883,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_09_30: {
+      messages_2026_10_09: {
         Row: {
           event: string | null
           extension: string

@@ -992,6 +992,281 @@ async function main() {
     check('admin borra contactos del dueño', del.rows === 1, del.outcome)
   })
 
+  // Opiniones con descuento (tarea valziva7q). anon no tiene grants sobre
+  // `coupons` ni `business_feedback`: deja opinión, lee y usa su descuento
+  // solo por las funciones security definer. Los cupones se crean aquí como
+  // postgres con la misma función que llama la landing, para que sobrevivan
+  // al rollback de cada bloque y los checks no pasen por vacío.
+  console.log('\nopiniones con descuento')
+  // Negocio propio del check y no uno de la base: en la base local hay
+  // negocios con `created_by` huérfano y cualquier update sobre ellos truena.
+  const { id: bizFeedback, slug: slugActivo } = (
+    await c.query(
+      `insert into businesses (name, phone, is_active, feedback_reward_active, feedback_reward_benefit)
+       values ('RLS check opiniones activo', '6180000000', true, true, '10%') returning id, slug`,
+    )
+  ).rows[0]
+  const slugApagado = (
+    await c.query(
+      'select slug from businesses where is_active and not feedback_reward_active and id <> $1 limit 1',
+      [bizFeedback],
+    )
+  ).rows[0].slug
+  const slugInactivo = (
+    await c.query(
+      `insert into businesses (name, phone, is_active, feedback_reward_active, feedback_reward_benefit)
+       values ('RLS check opiniones inactivo', '6180000000', false, true, '10%') returning slug`,
+    )
+  ).rows[0].slug
+  const submit = (slug, device, rating = 5) =>
+    c
+      .query('select submit_business_feedback($1, $2, $3, $4, $5) as token', [
+        slug,
+        device,
+        rating,
+        'Rico café',
+        null,
+      ])
+      .then((r) => r.rows[0].token)
+  const cupon = (token) => c.query('select * from get_coupon($1)', [token]).then((r) => r.rows)
+
+  const tokenVigente = await submit(slugActivo, 'rls-check-device-1')
+  const tokenUsado = await submit(slugActivo, 'rls-check-device-2')
+  const tokenVencido = await submit(slugActivo, 'rls-check-device-3')
+  await c.query("update coupons set expires_at = now() - interval '1 minute' where token = $1", [
+    tokenVencido,
+  ])
+  const vigente = (await cupon(tokenVigente))[0]
+  // `date` llega a JS como Date en la zona de la máquina: se compara en SQL.
+  const treintaDias = (
+    await c.query(
+      `select valid_until = (now() at time zone 'America/Mexico_City')::date + 30
+              and expires_at = (valid_until + 1)::timestamp at time zone 'America/Mexico_City' as ok
+         from get_coupon($1)`,
+      [tokenVigente],
+    )
+  ).rows[0]?.ok
+  check(
+    'el cupón copia el beneficio y vale 30 días en hora de Durango',
+    vigente?.benefit === '10%' && vigente?.status === 'valid' && treintaDias === true,
+    JSON.stringify(vigente),
+  )
+  check(
+    'la opinión queda ligada a su cupón',
+    Number(
+      (
+        await c.query(
+          `select count(*) from business_feedback f join coupons c on c.id = f.coupon_id
+            where c.token = $1 and f.rating = 5 and f.liked = 'Rico café' and f.improve is null`,
+          [tokenVigente],
+        )
+      ).rows[0].count,
+    ) === 1,
+  )
+  check(
+    'el mismo device recibe el mismo token',
+    (await submit(slugActivo, 'rls-check-device-1', 1)) === tokenVigente,
+  )
+  check(
+    'reenviar desde el mismo device no guarda otra opinión',
+    Number(
+      (
+        await c.query(
+          "select count(*) from business_feedback where device_id = 'rls-check-device-1'",
+        )
+      ).rows[0].count,
+    ) === 1,
+  )
+
+  await c.query(
+    `update businesses set feedback_reward_benefit = '15%', feedback_reward_days = 60 where id = $1`,
+    [bizFeedback],
+  )
+  const tras = (await cupon(tokenVigente))[0]
+  check(
+    'cambiar beneficio y vigencia del negocio no altera el cupón creado',
+    tras?.benefit === '10%' &&
+      String(tras?.expires_at) === String(vigente?.expires_at) &&
+      String(tras?.valid_until) === String(vigente?.valid_until),
+    JSON.stringify(tras),
+  )
+  await c.query(
+    `update businesses set feedback_reward_benefit = '10%', feedback_reward_days = 30 where id = $1`,
+    [bizFeedback],
+  )
+
+  await asAnon(c, async () => {
+    const nuevo = await attempt(c, 'select submit_business_feedback($1, $2, 4) as token', [
+      slugActivo,
+      'rls-check-anon',
+    ])
+    check(
+      'anon deja opinión en un negocio activo con el interruptor',
+      nuevo.outcome === 'ok',
+      nuevo.outcome,
+    )
+
+    for (const [quien, slug] of [
+      ['con el interruptor apagado', slugApagado],
+      ['inactivo', slugInactivo],
+      ['que no existe', 'rls-check-no-existe'],
+    ]) {
+      const r = await attempt(c, "select submit_business_feedback($1, 'rls-check-anon', 5)", [slug])
+      check(
+        `anon NO deja opinión en un negocio ${quien}`,
+        r.outcome.includes('feedback_not_accepted'),
+        r.outcome,
+      )
+    }
+    const fueraDeRango = await attempt(
+      c,
+      "select submit_business_feedback($1, 'rls-check-anon-2', 6)",
+      [slugActivo],
+    )
+    check(
+      'anon NO deja calificación fuera de 1–5',
+      fueraDeRango.outcome.includes('invalid_rating'),
+      fueraDeRango.outcome,
+    )
+
+    for (const tabla of ['coupons', 'business_feedback']) {
+      const lee = await attempt(c, `select count(*) from ${tabla}`)
+      check(`anon NO lee ${tabla}`, lee.outcome === 'denied', lee.outcome)
+    }
+    const insCupon = await attempt(
+      c,
+      `insert into coupons (business_id, source, benefit, expires_at, device_id)
+       values ($1, 'feedback', '100%', now() + interval '1 year', 'hack')`,
+      [bizFeedback],
+    )
+    check('anon NO crea cupones directo', insCupon.outcome === 'denied', insCupon.outcome)
+    const insOpinion = await attempt(
+      c,
+      `insert into business_feedback (business_id, coupon_id, rating, device_id)
+       select $1, id, 5, 'hack' from coupons limit 1`,
+      [bizFeedback],
+    )
+    check('anon NO crea opiniones directo', insOpinion.outcome === 'denied', insOpinion.outcome)
+    const upCupon = await attempt(c, 'update coupons set redeemed_at = now()')
+    check('anon NO marca cupones directo', upCupon.outcome === 'denied', upCupon.outcome)
+
+    const leido = await cupon(tokenVigente)
+    check(
+      'anon lee su cupón con el token',
+      leido.length === 1 && leido[0].status === 'valid' && leido[0].business_slug === slugActivo,
+      JSON.stringify(leido),
+    )
+    check('anon no encuentra nada con un token inventado', (await cupon('no-existe')).length === 0)
+    check('anon no encuentra nada sin token', (await cupon(null)).length === 0)
+    check(
+      'anon no encuentra nada con un pedazo del token',
+      (await cupon(tokenVigente.slice(0, 12))).length === 0,
+    )
+
+    const usa = async (token) => (await c.query('select * from redeem_coupon($1)', [token])).rows[0]
+    const primera = await usa(tokenUsado)
+    check(
+      'usar el cupón lo marca usado con hora',
+      primera?.status === 'used' && primera?.redeemed_at != null,
+      JSON.stringify(primera),
+    )
+    const segunda = await usa(tokenUsado)
+    check(
+      'usarlo otra vez no cambia la hora',
+      segunda?.status === 'used' &&
+        new Date(segunda.redeemed_at).getTime() === new Date(primera.redeemed_at).getTime(),
+      JSON.stringify(segunda),
+    )
+    const vencido = await usa(tokenVencido)
+    check(
+      'un cupón vencido no se puede usar',
+      vencido?.status === 'expired' && vencido?.redeemed_at == null,
+      JSON.stringify(vencido),
+    )
+    check('usar un token inventado no devuelve nada', (await usa('no-existe')) === undefined)
+  })
+
+  await as(c, PENDING_ID, async () => {
+    for (const tabla of ['coupons', 'business_feedback']) {
+      const filas = Number((await c.query(`select count(*) from ${tabla}`)).rows[0].count)
+      check(`cuenta pendiente no lee ${tabla}`, filas === 0, `${filas} filas`)
+    }
+  })
+
+  // Negocio propio del check, del municipio del reviewer: así el reviewer sí
+  // puede editar la fila y lo único que lo frena es el trigger de columna.
+  const bizOpiniones = (
+    await c.query(
+      `insert into businesses (name, phone, municipio) values ('RLS check opiniones', '6180000000', $1)
+       returning id`,
+      [suyo],
+    )
+  ).rows[0].id
+
+  await as(c, reviewer.id, async () => {
+    const lee = Number((await c.query('select count(*) from business_feedback')).rows[0].count)
+    check('reviewer lee opiniones', lee > 0, `${lee} filas`)
+    const leeCupones = Number((await c.query('select count(*) from coupons')).rows[0].count)
+    check(
+      'reviewer NO lee cupones (el token es el secreto)',
+      leeCupones === 0,
+      `${leeCupones} filas`,
+    )
+    const editaSuyo = await attempt(
+      c,
+      "update businesses set name = 'RLS check opiniones 2' where id = $1",
+      [bizOpiniones],
+    )
+    check('reviewer edita el negocio de su municipio', editaSuyo.rows === 1, editaSuyo.outcome)
+    for (const [campo, valor] of [
+      ['feedback_reward_active', 'true'],
+      ['feedback_reward_benefit', "'50%'"],
+      ['feedback_reward_days', '365'],
+    ]) {
+      const r = await attempt(c, `update businesses set ${campo} = ${valor} where id = $1`, [
+        bizOpiniones,
+      ])
+      check(`reviewer NO cambia ${campo}`, r.outcome === 'denied', r.outcome)
+    }
+  })
+
+  await as(c, admin.id, async () => {
+    const lee = Number((await c.query('select count(*) from business_feedback')).rows[0].count)
+    check('admin lee opiniones', lee > 0, `${lee} filas`)
+    const leeCupones = Number((await c.query('select count(*) from coupons')).rows[0].count)
+    check('admin lee cupones', leeCupones > 0, `${leeCupones} filas`)
+    const r = await attempt(
+      c,
+      `update businesses
+          set feedback_reward_active = true, feedback_reward_benefit = '10%', feedback_reward_days = 15
+        where id = $1`,
+      [bizOpiniones],
+    )
+    check('admin configura opiniones con descuento', r.rows === 1, r.outcome)
+    const escribe = await attempt(c, 'update coupons set redeemed_at = now() where token = $1', [
+      tokenVigente,
+    ])
+    check('admin tampoco marca cupones directo', escribe.rows === 0, escribe.outcome)
+  })
+
+  await asServiceRole(c, async () => {
+    const r = await attempt(
+      c,
+      'update businesses set feedback_reward_active = true where id = $1',
+      [bizOpiniones],
+    )
+    check('service_role NO activa opiniones con descuento', r.outcome === 'denied', r.outcome)
+  })
+
+  const canal = (
+    await c.query(
+      `insert into qr_scans (src, business_id, user_agent)
+       values ('opinion-qr', $1, 'Mozilla/5.0 (Linux; Android 14)') returning channel`,
+      [bizFeedback],
+    )
+  ).rows[0].channel
+  check('un scan con src=opinion-qr cae en su propio canal', canal === 'opinion-qr', canal)
+
   // Las métricas agregadas leen telemetría y solo las ejecuta service_role.
   // Postgres y Supabase dan `execute` a toda función nueva: si un día falta el
   // revoke, nada truena, solo queda abierta (mikitasks `su4z8tm09`).
