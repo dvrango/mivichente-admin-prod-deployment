@@ -1,0 +1,24 @@
+[Unit]
+Description=Copia diaria del catálogo de prod a la DB local de Vichente
+Documentation=https://github.com/DvranLabs/mivichente-admin
+After=network-online.target docker.service
+# Si los dos timers disparan juntos (Persistent=true tras un arranque tarde), la copia
+# espera a que termine el backup en vez de buscar un dump que todavía no existe.
+After=vichente-backup.service
+Wants=network-online.target
+# La DB local es el Supabase en Docker del minipc.
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=dvrango
+WorkingDirectory=/home/dvrango/vichente-backup
+ExecStart=/home/dvrango/vichente-backup/bin/refresh-local.sh
+
+# Mismo PATH que el backup: rclone y psql viven fuera del PATH mínimo de systemd.
+Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/17/bin
+
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

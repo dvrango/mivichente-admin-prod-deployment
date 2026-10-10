@@ -18,6 +18,7 @@
     "db:rls:check": "node scripts/rls-check.mjs",
     "db:backup": "ssh minipc /home/dvrango/vichente-backup/bin/backup-prod.sh",
     "db:restore:check": "ssh minipc /home/dvrango/vichente-backup/bin/restore-check.sh",
+    "db:refresh:local": "ssh minipc /home/dvrango/vichente-backup/bin/refresh-local.sh",
     "backup:deploy": "sh scripts/backup/deploy-to-minipc.sh",
     "prepare": "husky"
   },

@@ -78,6 +78,58 @@ Baja el dump, lo carga en la base `vichente_restore_test` del minipc y cuenta lo
 
 Esto comprueba que la data está completa y es cargable. No reconstruye un Supabase funcional — para eso está el procedimiento de abajo.
 
+## Copia diaria en la DB local
+
+La DB local del minipc (`postgres` en `100.96.221.80:54322`) es el entorno de pruebas: no hay staging. Para que las pruebas, Playwright y los agentes no tengan que ir contra prod, `refresh-local.sh` le copia **cada día a las 04:15** el catálogo de prod del backup de ese día.
+
+```bash
+npm run db:refresh:local                                           # correr ahora (el backup de hoy)
+ssh minipc '~/vichente-backup/bin/refresh-local.sh --fecha 2026-10-10'
+ssh minipc 'journalctl -u vichente-refresh-local.service -n 20'    # qué pasó
+```
+
+**Qué copia** (lista `COPIADAS` del script): `categories`, `businesses`, `business_categories`, `business_hours`, `business_photos`, `business_slug_history`, `business_services`, `business_service_variants`, `business_service_option_groups`, `business_service_options`, `bus_schedules`.
+
+**Qué no copia** (lista `EXCLUIDAS`):
+
+- Telemetría: `search_events`, `search_result_taps`, `qr_scans`, `business_contacts`, `order_funnel_events`, `excluded_devices`. Es voluminosa, personal y no hace falta para probar.
+- `profiles`, `auth` y `storage`: las cuentas locales (`admin@dvranlabs.com` y los reviewers de prueba) quedan intactas. Los `created_by`/`updated_by` de prod apuntan a perfiles que no existen en local; el log dice cuántos. En la tabla y la ficha de negocios del admin local, el autor sale vacío o como desconocido. Es cosmético.
+- Datos personales que no hacen falta para probar: `business_owner_contacts`, `business_registrations`, `business_reports`.
+- `_backup_businesses_fase1`: tabla suelta que solo existe en local.
+
+**Cómo carga:** baja `db/<hoy>/data.sql.gz`, toma solo los `COPY "public".<tabla>` de la lista y, en **una sola transacción**, hace `truncate … cascade` de esas tablas y las recarga. No toca el schema: lo siguen mandando las migraciones del repo, así que las migraciones locales que todavía no están en prod siguen aplicadas. Los conteos por tabla se comparan contra el dump **dentro** de esa transacción: si algo falla o no cuadra, se revierte y la DB local queda como estaba. Antes de truncar, el script calcula qué tablas alcanzaría el `cascade` y falla si aparece una que no esté en `COPIADAS` ni en `SE_VACIAN` (y siempre si aparece `profiles`), así una FK nueva no vacía nada en silencio.
+
+Lo que hay que saber antes de usar la DB local:
+
+- **El `truncate … cascade` vacía también las tablas que apuntan a negocios**: `search_result_taps`, `business_contacts`, `order_funnel_events`, `qr_scans`, `business_reports`, `business_registrations` y `business_owner_contacts`. Lo que una prueba haya escrito ahí se pierde en la siguiente copia. `search_events` no tiene FK a negocios y se conserva.
+- **Las funciones de métricas del admin** (`admin_weekly_metrics`, `admin_top_zero_result_queries`) no tienen telemetría que leer. Quien las pruebe siembra sus propios eventos.
+- **Las fotos se ven:** `photo_url` y `business_photos.url` guardan la URL absoluta del Storage público de prod, así que en local se cargan desde ahí. Bajar una imagen pública no escribe telemetría.
+- **Una tabla nueva de catálogo no entra sola.** Si aparece en `public` una tabla que no está en `COPIADAS` ni en `EXCLUIDAS`, la copia corre igual pero avisa en Discord. Hay que agregarla a una de las dos listas.
+
+**Pausarla** (por ejemplo, durante una prueba de migración que dura varios días):
+
+```bash
+ssh minipc 'touch ~/vichente-backup/refresh.pausa'   # pausar
+ssh minipc 'rm ~/vichente-backup/refresh.pausa'      # reanudar
+```
+
+**Señales en Discord:** si falla, avisa con el paso donde murió (backup de hoy ausente, carga que truena o conteos que no cuadran con el dump). Si sale bien, no manda nada. El backup y su heartbeat no cambian.
+
+### Apuntar las pruebas a la DB local
+
+- **Web app de Flutter:** `env/dev.json` ya apunta a `http://100.96.221.80:54321`. En web va **sin** `--flavor`, así que no sirve `make run-dev`:
+
+  ```bash
+  cd mobile
+  flutter run -d chrome --target lib/main_dev.dart --dart-define-from-file env/dev.json
+  # o, para servirla estática y abrirla con Playwright:
+  flutter build web --release --target lib/main_dev.dart --dart-define-from-file env/dev.json
+  python3 -m http.server 8080 -d build/web
+  ```
+
+- **Playwright y agentes:** contra esa web app local (`http://127.0.0.1:8080/#/<slug>/menu`; `localhost` puede resolver a IPv6 y no conecta con `http.server`), **nunca** contra `app.vichente.com`. Cada sesión contra prod deja devices falsos en la telemetría.
+- **Admin:** `npm run dev` ya usa la DB local (`.env.local`).
+
 ## Restaurar de verdad
 
 Cuando prod se perdió o se corrompió. Toma unos 20 minutos.
@@ -214,16 +266,19 @@ Supabase Pro ($25/mes) trae backups diarios administrados y elimina toda esta ma
 
 ## Si algo falla
 
-| Síntoma                                           | Causa probable                                                                                                                                                                                                                       |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Cannot find project ref`                         | Falta `supabase link` en `/home/dvrango/vichente-backup`                                                                                                                                                                             |
-| 401 / `Unauthorized` en el dump                   | `SUPABASE_ACCESS_TOKEN` vencido o revocado                                                                                                                                                                                           |
-| `SignatureDoesNotMatch`                           | Llaves de R2 o de S3 de Supabase mal copiadas                                                                                                                                                                                        |
-| `403 AccessDenied` en `CreateBucket`              | Falta `RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true`. El token de R2 es Object Read & Write sobre un bucket y no puede crear buckets; rclone verifica el destino antes de escribir. Solo aparece cuando `--backup-dir` tiene algo que mover |
-| `Cannot connect to the Docker daemon`             | Docker caído. El dump lo corre dentro de un contenedor: `sudo systemctl start docker`                                                                                                                                                |
-| La primera corrida tarda muchísimo                | Está bajando la imagen de postgres (~1 GB). Pasa una sola vez                                                                                                                                                                        |
-| `psql: command not found` al verificar            | Falta `postgresql-client-17`, o no está en el `PATH` del service                                                                                                                                                                     |
-| El dump trae 0 negocios                           | El script aborta solo y notifica: no sube un backup vacío encima de los buenos                                                                                                                                                       |
-| Restauré y `businesses` quedó vacía               | Falta el parche de `search_path` del paso 3. Los demás `COPY` sí cargan, así que engaña                                                                                                                                              |
-| `function unaccent(unknown, text) does not exist` | Lo mismo: `search_path` vacío, o falta `create extension unaccent with schema public`                                                                                                                                                |
-| No llegó el heartbeat del domingo                 | El timer dejó de correr — `systemctl list-timers` y `journalctl`                                                                                                                                                                     |
+| Síntoma                                                       | Causa probable                                                                                                                                                                                                                       |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Cannot find project ref`                                     | Falta `supabase link` en `/home/dvrango/vichente-backup`                                                                                                                                                                             |
+| 401 / `Unauthorized` en el dump                               | `SUPABASE_ACCESS_TOKEN` vencido o revocado                                                                                                                                                                                           |
+| `SignatureDoesNotMatch`                                       | Llaves de R2 o de S3 de Supabase mal copiadas                                                                                                                                                                                        |
+| `403 AccessDenied` en `CreateBucket`                          | Falta `RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true`. El token de R2 es Object Read & Write sobre un bucket y no puede crear buckets; rclone verifica el destino antes de escribir. Solo aparece cuando `--backup-dir` tiene algo que mover |
+| `Cannot connect to the Docker daemon`                         | Docker caído. El dump lo corre dentro de un contenedor: `sudo systemctl start docker`                                                                                                                                                |
+| La primera corrida tarda muchísimo                            | Está bajando la imagen de postgres (~1 GB). Pasa una sola vez                                                                                                                                                                        |
+| `psql: command not found` al verificar                        | Falta `postgresql-client-17`, o no está en el `PATH` del service                                                                                                                                                                     |
+| El dump trae 0 negocios                                       | El script aborta solo y notifica: no sube un backup vacío encima de los buenos                                                                                                                                                       |
+| Restauré y `businesses` quedó vacía                           | Falta el parche de `search_path` del paso 3. Los demás `COPY` sí cargan, así que engaña                                                                                                                                              |
+| `function unaccent(unknown, text) does not exist`             | Lo mismo: `search_path` vacío, o falta `create extension unaccent with schema public`                                                                                                                                                |
+| No llegó el heartbeat del domingo                             | El timer dejó de correr — `systemctl list-timers` y `journalctl`                                                                                                                                                                     |
+| Copia a la DB local: "No hay `db/<hoy>/data.sql.gz`"          | El backup de hoy falló o todavía no corre. La copia no carga uno viejo a propósito; arreglar el backup y correr `npm run db:refresh:local`                                                                                           |
+| Copia a la DB local: conteos que no cuadran o error de `COPY` | Una migración local borró o renombró una columna que prod todavía tiene. La transacción se revirtió; esperar al `db:push` o pausar la copia                                                                                          |
+| Copia a la DB local: "El truncate vaciaría `<tabla>`"         | Una migración agregó una FK a una tabla copiada. No se truncó nada. Si esa tabla puede vaciarse en cada copia, agregarla a `SE_VACIAN`; si no, decidir antes de reanudar                                                             |

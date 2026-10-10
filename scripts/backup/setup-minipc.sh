@@ -130,10 +130,17 @@ sudo cp "$BASE/systemd/vichente-backup.service" /etc/systemd/system/
 sudo cp "$BASE/systemd/vichente-backup.timer"   /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now vichente-backup.timer >/dev/null
-ok "registrado y activo"
+ok "backup registrado y activo"
+
+# La copia del catálogo a la DB local corre después del backup, con su propio timer.
+sudo cp "$BASE/systemd/vichente-refresh-local.service" /etc/systemd/system/
+sudo cp "$BASE/systemd/vichente-refresh-local.timer"   /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now vichente-refresh-local.timer >/dev/null
+ok "copia a la DB local registrada y activa"
 
 echo
-systemctl list-timers vichente-backup.timer --no-pager | head -3
+systemctl list-timers 'vichente-*' --no-pager | head -4
 echo
 echo "Listo. Primera corrida a mano (baja la imagen de postgres si falta):"
 echo "  $BASE/bin/backup-prod.sh"
