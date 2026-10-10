@@ -111,7 +111,10 @@ export default async function EditBusinessPage({
                 href={`/businesses/${id}/opiniones`}
                 className={buttonVariants({ variant: 'outline', size: 'sm' })}
               >
-                {business.feedback_reward_active ? 'Opiniones · activas' : 'Opiniones'}
+                {/* Mismo criterio que submit_business_feedback: inactivo no recibe. */}
+                {business.feedback_reward_active && business.is_active
+                  ? 'Opiniones · activas'
+                  : 'Opiniones'}
               </Link>
             )}
             {readOnly ? (

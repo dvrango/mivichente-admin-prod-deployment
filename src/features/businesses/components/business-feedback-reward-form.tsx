@@ -11,6 +11,7 @@ import {
   FEEDBACK_REWARD_BENEFIT_MAX,
   FEEDBACK_REWARD_DAYS_MAX,
   FEEDBACK_REWARD_DAYS_MIN,
+  feedbackRewardLastDay,
 } from '../feedback-reward'
 
 export function BusinessFeedbackRewardForm({
@@ -32,6 +33,7 @@ export function BusinessFeedbackRewardForm({
 
   // El badge refleja lo guardado, no lo que se está escribiendo.
   const receives = defaults.active && businessIsActive
+  const lastDay = feedbackRewardLastDay(days)
 
   return (
     <form action={formAction} className="max-w-2xl space-y-5">
@@ -84,7 +86,9 @@ export function BusinessFeedbackRewardForm({
             onChange={(e) => setDays(e.target.value)}
           />
           <p className="text-muted-foreground text-sm">
-            Cuentan desde el día en que el cliente deja su opinión. El último día vale completo.
+            {lastDay
+              ? `Empiezan a contar al día siguiente de la opinión: una opinión que dejen hoy da un descuento que vale hasta el ${lastDay}, ese día incluido.`
+              : 'Empiezan a contar al día siguiente de la opinión.'}
           </p>
         </div>
 

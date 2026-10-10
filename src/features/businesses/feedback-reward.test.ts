@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { FEEDBACK_REWARD_BENEFIT_MAX, parseFeedbackRewardForm } from './feedback-reward'
+import {
+  FEEDBACK_REWARD_BENEFIT_MAX,
+  feedbackRewardLastDay,
+  parseFeedbackRewardForm,
+} from './feedback-reward'
 
 function fd(values: Record<string, string>) {
   const data = new FormData()
@@ -45,5 +49,21 @@ describe('formulario de opiniones con descuento', () => {
 
   it.each(['1', '365'])('acepta %o días', (days) => {
     expect(parseFeedbackRewardForm(fd({ active: 'on', benefit: '10%', days })).success).toBe(true)
+  })
+})
+
+describe('último día del descuento', () => {
+  // submit_business_feedback vence al empezar hoy + días + 1 (hora de Durango).
+  it('con 30 días, una opinión del 10 de octubre vale hasta el 9 de noviembre', () => {
+    expect(feedbackRewardLastDay('30', '2026-10-10')).toBe('9 de noviembre')
+  })
+
+  it('con 1 día vale hoy y mañana', () => {
+    expect(feedbackRewardLastDay('1', '2026-12-31')).toBe('1 de enero')
+  })
+
+  it('días inválidos no dan fecha', () => {
+    expect(feedbackRewardLastDay('', '2026-10-10')).toBeNull()
+    expect(feedbackRewardLastDay('0', '2026-10-10')).toBeNull()
   })
 })

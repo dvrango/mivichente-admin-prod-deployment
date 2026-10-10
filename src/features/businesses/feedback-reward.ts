@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { todayInDurango } from './promo'
 
 // Opiniones con descuento (tarea 8ywy3gpla). El cliente escanea el QR del
 // local, deja una opinión privada y recibe un descuento para su siguiente
@@ -13,6 +14,15 @@ export const FEEDBACK_REWARD_DAYS_DEFAULT = 30
 
 const DAYS_MESSAGE = `Los días deben ser un número entero entre ${FEEDBACK_REWARD_DAYS_MIN} y ${FEEDBACK_REWARD_DAYS_MAX}.`
 
+// Llega como texto del input. Vacío no cae al default: el campo ya trae 30,
+// así que vacío es un error de captura que conviene ver.
+const daysSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+$/, DAYS_MESSAGE)
+  .transform(Number)
+  .refine((v) => v >= FEEDBACK_REWARD_DAYS_MIN && v <= FEEDBACK_REWARD_DAYS_MAX, DAYS_MESSAGE)
+
 export const feedbackRewardSchema = z
   .object({
     active: z.boolean(),
@@ -24,14 +34,7 @@ export const feedbackRewardSchema = z
         `El descuento no puede pasar de ${FEEDBACK_REWARD_BENEFIT_MAX} caracteres.`,
       )
       .transform((v) => v || null),
-    // Llega como texto del input. Vacío no cae al default: el campo ya trae 30,
-    // así que vacío es un error de captura que conviene ver.
-    days: z
-      .string()
-      .trim()
-      .regex(/^\d+$/, DAYS_MESSAGE)
-      .transform(Number)
-      .refine((v) => v >= FEEDBACK_REWARD_DAYS_MIN && v <= FEEDBACK_REWARD_DAYS_MAX, DAYS_MESSAGE),
+    days: daysSchema,
   })
   .superRefine((value, ctx) => {
     if (value.active && !value.benefit) {
@@ -51,4 +54,18 @@ export function parseFeedbackRewardForm(formData: FormData) {
     benefit: formData.get('benefit') ?? '',
     days: formData.get('days') ?? '',
   })
+}
+
+/**
+ * Último día en que vale un descuento creado hoy, como "9 de noviembre". Mismo
+ * cálculo que `submit_business_feedback`: vence al empezar el día
+ * `hoy + días + 1` en hora de Durango, así que el último día válido es
+ * `hoy + días`. `null` si los días no son válidos.
+ */
+export function feedbackRewardLastDay(days: string, today: string = todayInDurango()) {
+  const parsed = daysSchema.safeParse(days)
+  if (!parsed.success) return null
+  const d = new Date(`${today}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + parsed.data)
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })
 }
