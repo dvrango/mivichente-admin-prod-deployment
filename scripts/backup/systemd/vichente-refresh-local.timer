@@ -1,0 +1,14 @@
+[Unit]
+Description=Dispara la copia del catálogo de prod a la DB local todos los días
+
+[Timer]
+# Después del backup de las 03:30 (± 5 min). Timer aparte a propósito: una falla de
+# la copia no se mezcla con la del backup, que es el respaldo de verdad.
+OnCalendar=*-*-* 04:15:00
+
+# Si el minipc estaba apagado, corre al arrancar. Si para entonces el backup de hoy
+# tampoco ha corrido, la copia falla y avisa en vez de cargar uno viejo.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

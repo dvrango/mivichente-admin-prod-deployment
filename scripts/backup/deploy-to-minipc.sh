@@ -24,7 +24,7 @@ ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" true 2>/dev/null \
 # --- Copiar ----------------------------------------------------------------
 
 ssh "$HOST" "mkdir -p $REMOTO/bin $REMOTO/systemd ~/.config/vichente-backup"
-scp -q "$AQUI/backup-prod.sh" "$AQUI/restore-check.sh" "$AQUI/setup-minipc.sh" "$HOST:$REMOTO/bin/"
+scp -q "$AQUI/backup-prod.sh" "$AQUI/restore-check.sh" "$AQUI/refresh-local.sh" "$AQUI/setup-minipc.sh" "$HOST:$REMOTO/bin/"
 scp -q "$AQUI/systemd/"*.service "$AQUI/systemd/"*.timer "$HOST:$REMOTO/systemd/"
 ssh "$HOST" "chmod +x $REMOTO/bin/*.sh"
 log "✓ scripts en $REMOTO/bin/"
@@ -41,6 +41,7 @@ hay_imagen="$(ssh "$HOST" 'docker image ls --format "{{.Repository}}" 2>/dev/nul
 hay_env="$(ssh "$HOST" '[ -s ~/.config/vichente-backup/env ] && echo si || echo no')"
 hay_link="$(ssh "$HOST" "[ -f $REMOTO/supabase/.temp/project-ref ] && echo si || echo no")"
 hay_timer="$(ssh "$HOST" 'systemctl list-unit-files vichente-backup.timer --no-legend 2>/dev/null | grep -q . && echo si || echo no')"
+hay_timer_copia="$(ssh "$HOST" 'systemctl list-unit-files vichente-refresh-local.timer --no-legend 2>/dev/null | grep -q . && echo si || echo no')"
 
 echo
 [ -z "$faltan" ]        && log "✓ dependencias instaladas"        || log "✗ faltan comandos: $faltan"
@@ -48,11 +49,13 @@ echo
 [ "$hay_env" = si ]     && log "✓ archivo de secretos presente"   || log "✗ falta ~/.config/vichente-backup/env"
 [ "$hay_link" = si ]    && log "✓ proyecto de Supabase enlazado"  || log "✗ falta 'supabase link'"
 [ "$hay_timer" = si ]   && log "✓ timer registrado en systemd"    || log "✗ falta registrar el timer"
+[ "$hay_timer_copia" = si ] && log "✓ timer de la copia a la DB local registrado" || log "✗ falta registrar el timer de la copia a la DB local"
 echo
 
-if [ -z "$faltan" ] && [ "$hay_env" = si ] && [ "$hay_link" = si ] && [ "$hay_timer" = si ]; then
+if [ -z "$faltan" ] && [ "$hay_env" = si ] && [ "$hay_link" = si ] && [ "$hay_timer" = si ] && [ "$hay_timer_copia" = si ]; then
   echo "Todo listo. Correr a mano:  ssh $HOST 'sudo systemctl start vichente-backup.service'"
-  echo "Ver la próxima corrida:     ssh $HOST 'systemctl list-timers vichente-backup.timer'"
+  echo "Copia a la DB local:        ssh $HOST 'sudo systemctl start vichente-refresh-local.service'"
+  echo "Ver las próximas corridas:  ssh $HOST 'systemctl list-timers \"vichente-*\"'"
   exit 0
 fi
 
