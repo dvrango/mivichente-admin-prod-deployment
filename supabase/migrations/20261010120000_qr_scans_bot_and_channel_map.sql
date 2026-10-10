@@ -32,6 +32,9 @@ as $$
   )
 $$;
 
+-- No revocar EXECUTE a anon: el trigger corre como quien inserta (la landing usa la anon
+-- key), y sin el grant todos los inserts de qr_scans fallarían. `logScan` no revisa la
+-- respuesta, así que la falla sería silenciosa.
 comment on function public.qr_scan_is_bot(text) is
   'True si el user-agent es de un crawler o generador de vistas previas (WhatsApp, Facebook, buscadores). El trigger de qr_scans les asigna channel = bot.';
 
@@ -62,8 +65,11 @@ as $$
   end
 $$;
 
--- Un crawler es `bot` aunque el cliente mande otro canal. Si no es crawler y el cliente
--- no manda canal, se deriva de `src`.
+-- El canal lo decide siempre la DB: `bot` si el user-agent es de un crawler, si no se
+-- deriva de `src`. Lo que mande el cliente se ignora. Así el insert público (anon) no
+-- puede saltarse la red de `otro` con un canal inventado, y no importa si la landing
+-- vieja (que todavía forzaba `menu-qr` y `share`) sigue viva unos minutos después del
+-- push de esta migración.
 create or replace function public.qr_scans_set_channel()
 returns trigger
 language plpgsql
@@ -72,7 +78,7 @@ as $$
 begin
   if public.qr_scan_is_bot(new.user_agent) then
     new.channel := 'bot';
-  elsif new.channel is null then
+  else
     new.channel := public.qr_scan_channel_from_src(new.src);
   end if;
   return new;
@@ -85,9 +91,8 @@ create trigger qr_scans_set_channel_trigger
   for each row execute function public.qr_scans_set_channel();
 
 comment on column public.qr_scans.channel is
-  'Canal por el que llegó el scan: menu-qr, sticker, share, post-ig, post-fb, landing, bot, otro. Lo pone el trigger: bot si el user-agent es de un crawler; si no, lo deriva de `src` cuando el cliente no lo manda.';
+  'Canal por el que llegó el scan: menu-qr, sticker, share, post-ig, post-fb, landing, bot, otro. Lo pone siempre el trigger (ignora el del cliente): bot si el user-agent es de un crawler; si no, lo deriva de `src`.';
 
--- Recalcular todas las filas con la regla nueva. Ningún cliente vigente manda canal
--- (el landing dejó de hacerlo en el mismo cambio), así que derivar todo desde `src` y
--- `user_agent` es lo que el trigger haría hoy. Poner null dispara el trigger.
+-- Recalcular todas las filas con la regla nueva. `update of channel` dispara el trigger,
+-- que pisa el valor con el derivado de `src` y `user_agent`.
 update public.qr_scans set channel = null;
