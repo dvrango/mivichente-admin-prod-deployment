@@ -51,6 +51,8 @@ COPIADAS=(
 #   profiles: ver arriba.
 #   business_owner_contacts, business_registrations, business_reports: datos personales
 #   de dueños y de quien llenó un formulario. No hacen falta para probar la app.
+#   business_feedback, coupons: opiniones privadas de clientes y los descuentos ligados
+#   a su token. Datos personales; en local se generan probando el flujo.
 #   _backup_businesses_fase1: tabla suelta que solo existe en local.
 EXCLUIDAS=(
   search_events
@@ -63,6 +65,8 @@ EXCLUIDAS=(
   business_owner_contacts
   business_registrations
   business_reports
+  business_feedback
+  coupons
   _backup_businesses_fase1
 )
 
@@ -78,6 +82,8 @@ SE_VACIAN=(
   business_reports
   business_registrations
   business_owner_contacts
+  business_feedback
+  coupons
 )
 
 FECHA="$(date +%Y-%m-%d)"
