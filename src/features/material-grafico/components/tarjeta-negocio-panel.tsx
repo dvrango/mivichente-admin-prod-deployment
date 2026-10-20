@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { descargarBlob } from '../descargar-archivo'
 import {
   ALTO,
   ANCHO,
@@ -68,13 +69,7 @@ export function TarjetaNegocioPanel({ slug, fotoUrl, ...datos }: Props) {
     const canvas = canvasRef.current
     if (!canvas) return
     canvas.toBlob((blob) => {
-      if (!blob) return
-      const href = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = href
-      a.download = `vichente-tarjeta-${slug}.png`
-      a.click()
-      URL.revokeObjectURL(href)
+      if (blob) descargarBlob(blob, `vichente-tarjeta-${slug}.png`)
     }, 'image/png')
   }, [slug])
 
