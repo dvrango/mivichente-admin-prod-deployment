@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { descargarImagen, nombreBase } from '../descargar-archivo'
 
 export type Recurso = {
+  /** La URL no sirve de key: dos platillos pueden compartir foto. */
+  id: string
   url: string
   /** Lo que se lee bajo la miniatura y da nombre al archivo. */
   etiqueta: string
@@ -34,9 +36,9 @@ export function RecursosNegocioPanel({ slug, titulo, recursos, vacio }: Props) {
       {recursos.length === 0 ? (
         <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">{vacio}</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {recursos.map((r) => (
-            <RecursoItem key={r.url} slug={slug} recurso={r} />
+            <RecursoItem key={r.id} slug={slug} recurso={r} />
           ))}
         </ul>
       )}
@@ -60,7 +62,7 @@ function RecursoItem({ slug, recurso }: { slug: string; recurso: Recurso }) {
           src={recurso.url}
           alt={recurso.etiqueta}
           fill
-          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
           className="object-cover"
           unoptimized
         />
@@ -72,7 +74,9 @@ function RecursoItem({ slug, recurso }: { slug: string; recurso: Recurso }) {
       <Button
         type="button"
         variant="outline"
-        size="sm"
+        size="lg"
+        // Mismo alto mínimo que los toques del modo campo: Sandra la usa desde el celular.
+        className="min-h-11 sm:min-h-0"
         onClick={descargar}
         disabled={estado === 'bajando'}
       >

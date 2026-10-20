@@ -36,13 +36,20 @@ export default async function MaterialGraficoPage({ params }: { params: Promise<
 
   // No hay columna de logo: `photo_url` es la primera foto de la galería, la
   // misma que el editor marca como «Portada». Llamarla «logo» sería adivinar.
+  // Las fotos `kind = 'menu'` (el menú impreso) también salen: son material
+  // real del negocio, y son dos en todo el directorio.
   const fotosNegocio: Recurso[] = fotos.map((f, i) => ({
+    id: `foto-${i}`,
     url: f.url ?? f.previewUrl,
-    etiqueta: f.caption || (i === 0 ? 'Portada' : `Foto ${i + 1}`),
+    etiqueta: f.caption || `Foto ${i + 1}`,
     portada: i === 0,
   }))
+  // Sólo lo publicado: un anuncio de algo que el negocio ya no vende es peor
+  // que no tener foto.
   const fotosPlatillos: Recurso[] = menu.flatMap((item) =>
-    item.image_url ? [{ url: item.image_url, etiqueta: item.name }] : [],
+    item.image_url && item.is_published
+      ? [{ id: item.id, url: item.image_url, etiqueta: item.name }]
+      : [],
   )
 
   return (

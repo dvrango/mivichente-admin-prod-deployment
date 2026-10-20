@@ -6,6 +6,10 @@ describe('extensión de la foto descargada', () => {
     expect(extensionDe('image/webp', 'https://x.supabase.co/a/b.jpg')).toBe('webp')
   })
 
+  it('un HEIC guardado como .jpg sale como .heic', () => {
+    expect(extensionDe('image/heic', 'https://x.supabase.co/a/b.jpg')).toBe('heic')
+  })
+
   it('ignora parámetros del Content-Type', () => {
     expect(extensionDe('image/jpeg; charset=binary', 'https://x/a')).toBe('jpg')
   })

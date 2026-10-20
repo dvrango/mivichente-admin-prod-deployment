@@ -161,7 +161,7 @@ export async function getMenuItems(businessId: string): Promise<MenuItem[]> {
  *
  * Quien sólo quiere saber cuántos hay usaba `getBusinessServices(id).length`,
  * o sea 83 filas con descripciones y URLs para calcular un número. `head: true`
- * pide sólo el header de conteo. Lo usan la pantalla de material gráfico y el
+ * pide sólo el header de conteo. Lo usa el
  * resumen del menú dentro del form del negocio.
  */
 export async function countMenuItems(businessId: string): Promise<number> {

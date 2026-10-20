@@ -5,6 +5,8 @@ const EXTENSION_POR_TIPO: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/gif': 'gif',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
 }
 
 /** Extensión del archivo descargado. Manda el `Content-Type` real del blob:
