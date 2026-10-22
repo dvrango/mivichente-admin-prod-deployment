@@ -3,7 +3,7 @@ import { MessageCircle } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { OwnerBusinessView } from '@/features/owner-panel/components/owner-business-view'
 import { getOwnerBusinesses, getOwnerBusinessSnapshot } from '@/features/owner-panel/queries'
-import { VICHENTE_WHATSAPP } from '@/features/owner-panel/whatsapp'
+import { vichenteWhatsappLink } from '@/features/owner-panel/whatsapp'
 
 export const metadata = { title: 'Mi negocio' }
 
@@ -23,7 +23,7 @@ export default async function MiNegocioPage({
           Escríbenos por WhatsApp y lo ligamos a tu cuenta.
         </p>
         <a
-          href={`https://wa.me/52${VICHENTE_WHATSAPP}`}
+          href={vichenteWhatsappLink()}
           target="_blank"
           rel="noopener noreferrer"
           className={buttonVariants({ size: 'sm' })}

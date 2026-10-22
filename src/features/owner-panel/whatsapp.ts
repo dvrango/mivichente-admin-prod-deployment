@@ -23,7 +23,12 @@ export function ownerWhatsappMessage(businessName: string, topic: OwnerWhatsappT
   }
 }
 
+/** Link al WhatsApp de Vichente; sin `text`, el chat abre vacío. */
+export function vichenteWhatsappLink(text?: string): string {
+  const base = `https://wa.me/52${VICHENTE_WHATSAPP}`
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base
+}
+
 export function ownerWhatsappLink(businessName: string, topic: OwnerWhatsappTopic): string {
-  const text = encodeURIComponent(ownerWhatsappMessage(businessName, topic))
-  return `https://wa.me/52${VICHENTE_WHATSAPP}?text=${text}`
+  return vichenteWhatsappLink(ownerWhatsappMessage(businessName, topic))
 }

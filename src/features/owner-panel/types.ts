@@ -1,12 +1,12 @@
+import type { Database } from '@/lib/database.types'
+
+export type OwnerBusinessSummary =
+  Database['public']['Functions']['owner_businesses']['Returns'][number]
+
 // Forma del JSON que devuelve `owner_business_snapshot()`. La función es la
 // fuente de verdad (`20261022120000_owner_read_only_panel`); los tipos
-// generados la declaran como `Json`, así que aquí se describe a mano.
-
-export type OwnerBusinessSummary = {
-  id: string
-  name: string
-  slug: string | null
-}
+// generados la declaran como `Json`, así que aquí se describe a mano y el
+// typecheck no avisa si la SQL cambia de forma: tocar las dos juntas.
 
 export type OwnerHour = {
   day_of_week: number

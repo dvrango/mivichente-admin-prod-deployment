@@ -116,6 +116,13 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
   const { business: b, hours, photos, services, feedback } = snapshot
   const servicesLabel = b.services_label ?? 'Servicios'
   const place = [b.address, b.colonia, b.municipio].filter(Boolean).join(', ')
+  // `photo_url` es la foto que sale en la tarjeta del negocio. Casi siempre
+  // también está en `business_photos`, pero no en todos los negocios viejos: sin
+  // esto, a ese dueño le faltaría justo la foto que más ven sus clientes.
+  const gallery =
+    b.photo_url && !photos.some((p) => p.url === b.photo_url)
+      ? [{ id: 'principal', url: b.photo_url, caption: null, kind: 'principal' }, ...photos]
+      : photos
 
   return (
     <div className="flex flex-col gap-4">
@@ -198,11 +205,11 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
           <CardTitle>Fotos</CardTitle>
         </CardHeader>
         <CardContent>
-          {photos.length === 0 ? (
+          {gallery.length === 0 ? (
             <p className="text-muted-foreground text-sm italic">Todavía no hay fotos.</p>
           ) : (
             <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-              {photos.map((p) => (
+              {gallery.map((p) => (
                 <li
                   key={p.id}
                   className="bg-muted relative aspect-square overflow-hidden rounded-lg"
