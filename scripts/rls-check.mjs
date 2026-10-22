@@ -20,6 +20,7 @@ import pg from 'pg'
 const CONN =
   process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@100.96.221.80:54322/postgres'
 const PENDING_ID = '00000000-0000-4000-8000-00000000dead'
+const OWNER_ID = '00000000-0000-4000-8000-0000000000aa'
 
 let pass = 0
 let fail = 0
@@ -1325,6 +1326,172 @@ async function main() {
       const r = await attempt(c, `select * from ${fn}()`)
       check(`service_role ejecuta ${fn}`, r.outcome === 'ok', r.outcome)
     }
+  })
+
+  // --- panel del dueño (of2zdfxa6) ---------------------------------------
+  // El dueño no tiene grants ni policies: todo lo lee por owner_business_snapshot
+  // y owner_businesses. Lleva municipio a propósito: si el rol se colara en
+  // user_municipio(), heredaría escritura sobre todo ese municipio y el check de
+  // update de abajo lo agarraría. Las opiniones se crean en su negocio Y en otro,
+  // para que "no ve las ajenas" no pase por vacío.
+  console.log('\npanel del dueño')
+  await c.query(
+    `insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+     values ($1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'rls-owner@ejemplo.com', 'x', now(), now(), now())`,
+    [OWNER_ID],
+  )
+  await c.query("update profiles set role = 'owner', municipio = $2 where id = $1", [
+    OWNER_ID,
+    suyo,
+  ])
+  await c.query('insert into business_owners (profile_id, business_id) values ($1, $2)', [
+    OWNER_ID,
+    bizActivo,
+  ])
+  // El otro negocio se elige del MISMO municipio: un filtro por municipio en vez
+  // de por negocio pasaría si el ajeno fuera de otro.
+  const bizAjeno = (
+    await c.query('select id from businesses where municipio = $1 and id <> $2 limit 1', [
+      suyo,
+      bizActivo,
+    ])
+  ).rows[0].id
+  for (const [biz, device] of [
+    [bizActivo, 'rls-owner-1'],
+    [bizAjeno, 'rls-owner-2'],
+  ]) {
+    const cupon = (
+      await c.query(
+        `insert into coupons (business_id, source, benefit, expires_at, device_id)
+         values ($1, 'feedback', '10%', now() + interval '1 day', $2) returning id`,
+        [biz, device],
+      )
+    ).rows[0].id
+    await c.query(
+      `insert into business_feedback (business_id, coupon_id, rating, liked)
+       values ($1, $2, 5, $3)`,
+      [biz, cupon, `rls ${device}`],
+    )
+  }
+
+  await as(c, OWNER_ID, async () => {
+    const n = (q) => c.query(q).then((r) => Number(r.rows[0].count))
+    const staff = (await c.query('select public.is_staff() as v')).rows[0].v
+    check('owner no es staff', staff === false, String(staff))
+
+    const mios = (await c.query('select id from owner_businesses()')).rows.map((r) => r.id)
+    check(
+      'owner_businesses() solo trae su negocio',
+      mios.length === 1 && mios[0] === bizActivo,
+      JSON.stringify(mios),
+    )
+
+    const propio = (await c.query('select owner_business_snapshot($1) as s', [bizActivo])).rows[0].s
+    check('snapshot de su negocio trae datos', propio?.business?.id === bizActivo)
+    const liked = (propio?.feedback?.recent ?? []).map((f) => f.liked)
+    check(
+      'snapshot trae sus opiniones y no las ajenas',
+      liked.includes('rls rls-owner-1') && !liked.includes('rls rls-owner-2'),
+      JSON.stringify(liked),
+    )
+    const nombres = (propio?.services ?? []).map((s) => s.name)
+    check(
+      'snapshot trae lo publicado y no el borrador',
+      nombres.includes('RLS check publicado') && !nombres.includes('RLS check borrador'),
+      JSON.stringify(nombres),
+    )
+
+    for (const [label, biz] of [
+      ['ajeno del mismo municipio', bizAjeno],
+      ['de otro municipio', bizOtro],
+      ['inactivo', bizInactivo],
+    ]) {
+      const s = (await c.query('select owner_business_snapshot($1) as s', [biz])).rows[0].s
+      check(`snapshot de negocio ${label} es null`, s === null, JSON.stringify(s)?.slice(0, 80))
+    }
+
+    for (const t of [
+      'businesses',
+      'business_hours',
+      'business_photos',
+      'business_services',
+      'business_service_variants',
+      'business_service_option_groups',
+      'business_service_options',
+      'business_feedback',
+      'business_owners',
+      'business_owner_contacts',
+      'coupons',
+      'business_reports',
+    ]) {
+      const r = await attempt(c, `select count(*) from ${t}`)
+      const filas = r.outcome === 'ok' ? await n(`select count(*) from ${t}`) : 0
+      check(
+        `owner no lee ${t} directo`,
+        r.outcome === 'denied' || filas === 0,
+        `${r.outcome}, ${filas} filas`,
+      )
+    }
+
+    for (const [label, sql, params] of [
+      ['update de su negocio', "update businesses set name = 'x' where id = $1", [bizActivo]],
+      [
+        'insert de servicio',
+        "insert into business_services (business_id, name) values ($1, 'x')",
+        [bizActivo],
+      ],
+      ['update de su servicio', "update business_services set name = 'x' where id = $1", [svcPub]],
+      ['delete de su foto', 'delete from business_photos where business_id = $1', [bizActivo]],
+      [
+        'insert de horario',
+        "insert into business_hours (business_id, day_of_week, opens_at, closes_at) values ($1, 1, '09:00', '10:00')",
+        [bizActivo],
+      ],
+      [
+        'ligarse otro negocio',
+        'insert into business_owners (profile_id, business_id) values ($1, $2)',
+        [OWNER_ID, bizAjeno],
+      ],
+      ['cambiarse el rol', "update profiles set role = 'admin' where id = $1", [OWNER_ID]],
+      [
+        'update de negocio de su municipio',
+        "update businesses set name = 'x' where id = $1",
+        [bizSuyo],
+      ],
+    ]) {
+      const w = await attempt(c, sql, params)
+      check(
+        `owner NO hace ${label}`,
+        w.outcome === 'denied' || (w.outcome === 'ok' && w.rows === 0),
+        w.outcome,
+      )
+    }
+
+    const helper = await attempt(c, 'select public.is_owner_of($1)', [bizActivo])
+    check('owner no llama is_owner_of directo', helper.outcome === 'denied', helper.outcome)
+  })
+
+  for (const [quien, uid] of [
+    ['admin', admin.id],
+    ['reviewer', reviewer.id],
+    ['pending', PENDING_ID],
+  ]) {
+    await as(c, uid, async () => {
+      const s = (await c.query('select owner_business_snapshot($1) as s', [bizActivo])).rows[0].s
+      check(`${quien}: snapshot del dueño es null`, s === null)
+      const l = (await c.query('select count(*) from owner_businesses()')).rows[0].count
+      check(`${quien}: owner_businesses() vacío`, Number(l) === 0, l)
+    })
+  }
+  await asAnon(c, async () => {
+    const r = await attempt(c, 'select owner_business_snapshot($1)', [bizActivo])
+    check('anon NO ejecuta owner_business_snapshot', r.outcome === 'denied', r.outcome)
+    const r2 = await attempt(c, 'select * from owner_businesses()')
+    check('anon NO ejecuta owner_businesses', r2.outcome === 'denied', r2.outcome)
+  })
+  await as(c, admin.id, async () => {
+    const l = (await c.query('select count(*) from business_owners')).rows[0].count
+    check('admin lee business_owners', Number(l) >= 1, l)
   })
 
   console.log('\nbucket business-photos')

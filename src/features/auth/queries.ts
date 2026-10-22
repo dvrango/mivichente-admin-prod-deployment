@@ -15,10 +15,12 @@ export async function getCurrentUser() {
 // `20260911120000_lock_down_authenticated_access`: existe en la tabla, no ve
 // nada, y espera a que un admin le asigne rol y municipio. Va en el union
 // porque es lo que puede venir de la DB, no porque el panel sepa pintarlo.
-export type Role = 'admin' | 'reviewer' | 'pending'
+// `owner` es el dueño de un negocio (`20261022120000_owner_read_only_panel`):
+// no entra al panel del staff, tiene el suyo en `/mi-negocio`.
+export type Role = 'admin' | 'reviewer' | 'pending' | 'owner'
 
-/** Rol que sí tiene panel que mostrar. Lo que consumen sidebar, nav y guards. */
-export type StaffRole = Exclude<Role, 'pending'>
+/** Rol que sí tiene panel de staff. Lo que consumen sidebar, nav y guards. */
+export type StaffRole = Exclude<Role, 'pending' | 'owner'>
 
 export type Profile = {
   id: string
