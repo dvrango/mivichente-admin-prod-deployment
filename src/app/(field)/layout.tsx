@@ -21,6 +21,7 @@ export default async function FieldLayout({ children }: { children: React.ReactN
   if (!profile) redirect('/login')
 
   if (profile.role === 'pending') return <PendingAccountNotice />
+  if (profile.role === 'owner') redirect('/mi-negocio')
 
   // Mismo callejón sin salida que en /businesses/new: sin municipio, todo insert
   // o update fallaría por RLS. Mejor decirlo aquí que al momento de guardar.

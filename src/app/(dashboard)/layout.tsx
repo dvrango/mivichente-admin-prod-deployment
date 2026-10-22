@@ -12,6 +12,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Antes de montar el chrome del panel: sin rol asignado no hay navegación que
   // pintar, y RLS no le devolvería nada a ninguna página de adentro.
   if (profile.role === 'pending') return <PendingAccountNotice />
+  // El dueño tiene su propio panel. Aquí RLS no le devolvería nada, pero vería el
+  // chrome del staff vacío. El login manda a todos a /businesses y rebota aquí.
+  if (profile.role === 'owner') redirect('/mi-negocio')
 
   return (
     <div className="flex flex-1 flex-col lg:flex-row overflow-hidden min-h-0">
