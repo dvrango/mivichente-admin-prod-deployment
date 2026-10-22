@@ -61,12 +61,14 @@ export type MenuItemResult = { error: string | null; item: MenuItem | null }
 const OK: MenuActionResult = { error: null }
 
 // Mensajes en lenguaje llano: quien los va a leer captura menús, no lee logs.
-// Nada de nombres de columna ni de "0 filas afectadas".
-const NOT_FOUND = 'Ese platillo ya no existe en este negocio.'
-const NOT_ALLOWED = 'No puedes editar el menú de este negocio: solo los de tu municipio.'
+// Nada de nombres de columna ni de "0 filas afectadas". Tampoco "platillo" ni
+// "menú": estas actions no saben si el negocio es de comida, y el mismo texto
+// lo leen quien captura una taquería y quien captura un salón de uñas.
+const NOT_FOUND = 'Eso ya no existe en este negocio. Vuelve a cargar la pantalla.'
+const NOT_ALLOWED = 'No puedes editar este negocio: solo los de tu municipio.'
 // El rechazo silencioso no dice POR QUÉ, así que el mensaje no inventa la causa.
 const BLOCKED =
-  'No se guardó nada. Puede que no tengas permiso sobre este negocio o que el platillo ya no exista. Vuelve a cargar la pantalla.'
+  'No se guardó nada. Puede que no tengas permiso sobre este negocio o que lo que editas ya no exista. Vuelve a cargar la pantalla.'
 
 function firstIssue(err: import('zod').ZodError): string {
   return err.issues[0]?.message ?? 'Datos inválidos.'
@@ -205,7 +207,7 @@ async function syncVariants(
   // Un id que el cliente mandó pero que no existe en esta fila no se actualiza
   // en silencio: sería una variante de otro platillo.
   const unknown = [...keptIds].filter((id) => !currentIds.has(id))
-  if (unknown.length > 0) return 'Uno de los tamaños ya no existe. Recarga el menú.'
+  if (unknown.length > 0) return 'Uno de los tamaños ya no existe. Recarga la pantalla.'
 
   const toDelete = [...currentIds].filter((id) => !keptIds.has(id))
   if (toDelete.length > 0) {
@@ -423,7 +425,7 @@ export async function createMenuItem(businessId: string, input: unknown): Promis
     if (failure) {
       revalidateMenu(businessId)
       return {
-        error: `El platillo se guardó, pero sus tamaños no: ${failure} Recarga el menú y edítalo — no lo captures de nuevo.`,
+        error: `Se guardó, pero sus tamaños no: ${failure} Recarga la pantalla y edítalo — no lo captures de nuevo.`,
         item: null,
       }
     }
@@ -436,7 +438,7 @@ export async function createMenuItem(businessId: string, input: unknown): Promis
     if (priceFailure) {
       revalidateMenu(businessId)
       return {
-        error: `El platillo y sus tamaños se guardaron, pero el precio "desde" no se actualizó: ${priceFailure} Recarga el menú y vuelve a guardarlo — no lo captures de nuevo.`,
+        error: `Se guardó con sus tamaños, pero el precio "desde" no se actualizó: ${priceFailure} Recarga la pantalla y vuelve a guardarlo — no lo captures de nuevo.`,
         item: null,
       }
     }
@@ -450,7 +452,7 @@ export async function createMenuItem(businessId: string, input: unknown): Promis
     if (failure) {
       revalidateMenu(businessId)
       return {
-        error: `El platillo se guardó, pero sus opciones no: ${failure} Recarga el menú y edítalo — no lo captures de nuevo.`,
+        error: `Se guardó, pero sus opciones no: ${failure} Recarga la pantalla y edítalo — no lo captures de nuevo.`,
         item: null,
       }
     }
@@ -718,7 +720,7 @@ export async function moveMenuItem(
   if (denied) return { error: denied }
 
   let ordered = await readOrder(supabase, businessId)
-  if (ordered === null) return { error: 'No se pudo leer el menú.' }
+  if (ordered === null) return { error: 'No se pudo leer la lista. Vuelve a cargar la pantalla.' }
 
   let position = ordered.findIndex((r) => r.id === itemId)
   if (position === -1) return { error: NOT_FOUND }
@@ -730,7 +732,7 @@ export async function moveMenuItem(
     const repaired = await compactOrder(supabase, businessId, ordered)
     if (repaired) return { error: repaired }
     ordered = await readOrder(supabase, businessId)
-    if (ordered === null) return { error: 'No se pudo leer el menú.' }
+    if (ordered === null) return { error: 'No se pudo leer la lista. Vuelve a cargar la pantalla.' }
     position = ordered.findIndex((r) => r.id === itemId)
     if (position === -1) return { error: NOT_FOUND }
     target = parsed.data === 'up' ? position - 1 : position + 1

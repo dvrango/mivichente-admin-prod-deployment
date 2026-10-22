@@ -16,7 +16,9 @@ import { getBusinessById } from '@/features/businesses/queries'
 // de nada del dashboard: el día que un dueño de negocio entre a editar su propia
 // ficha, se reusa el componente y sólo cambia este envoltorio.
 
-export const metadata = { title: 'Menú del negocio' }
+// Título neutro: la página sirve a comida, servicios y tiendas, y el
+// `services_label` real ya va en el encabezado de la página.
+export const metadata = { title: 'Catálogo del negocio' }
 
 export default async function BusinessMenuPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

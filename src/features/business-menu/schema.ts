@@ -53,7 +53,7 @@ export type MenuVariantInput = z.infer<typeof menuVariantSchema>
 // está mal modelado, no de que haga falta más espacio.
 export const menuVariantsSchema = z
   .array(menuVariantSchema, { message: 'Tamaños inválidos.' })
-  .max(20, 'Demasiados tamaños para un solo platillo.')
+  .max(20, 'No caben más de 20 tamaños.')
   .refine(
     (list) => new Set(list.map((v) => v.name.toLowerCase())).size === list.length,
     'Hay dos tamaños con el mismo nombre.',
@@ -247,7 +247,7 @@ export type MenuOptionGroupInput = z.infer<typeof menuOptionGroupSchema>
  */
 export const menuOptionGroupsSchema = z
   .array(menuOptionGroupSchema, { message: 'Grupos de opciones inválidos.' })
-  .max(20, 'Demasiados grupos de opciones para un solo platillo.')
+  .max(20, 'No caben más de 20 grupos de opciones.')
   .superRefine((groups, ctx) => {
     const repetido = firstDuplicate(groups.map((g) => g.name))
     if (repetido) {
@@ -271,7 +271,7 @@ export function toOptionGroupRow(group: MenuOptionGroupInput): {
 // nunca mandando un número desde el cliente — un índice tecleado desde la UI es
 // justo cómo se vuelve a caer en renumerar el catálogo entero.
 const menuItemFields = {
-  name: z.string().trim().min(1, 'El platillo necesita un nombre.'),
+  name: z.string().trim().min(1, 'Falta el nombre.'),
   price: priceSchema,
   description: z
     .string()
@@ -325,7 +325,7 @@ export type MenuItemCreateInput = z.infer<typeof menuItemCreateSchema>
  */
 export const menuItemPatchSchema = z
   .object({
-    name: z.string().trim().min(1, 'El platillo necesita un nombre.'),
+    name: z.string().trim().min(1, 'Falta el nombre.'),
     price: priceSchema,
     description: z
       .string()
