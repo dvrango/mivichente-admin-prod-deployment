@@ -273,8 +273,8 @@ export function MenuItemForm({
       <div className="space-y-1">
         <label className="text-sm font-medium">Tamaños</label>
         <p className="text-xs text-muted-foreground">
-          Solo si el mismo platillo se vende en varias medidas y cada una cuesta distinto. Si tiene
-          un precio único, deja esto vacío.
+          Solo si el mismo {word} se vende en varias medidas y cada una cuesta distinto. Si tiene un
+          precio único, deja esto vacío.
         </p>
 
         {variants.length > 0 && (
