@@ -205,7 +205,11 @@ export function MenuItemForm({
     const limpias = variants.filter((v) => v.name.trim() !== '' || v.price.trim() !== '')
     onSave({
       name,
-      price,
+      // Con tamaños el precio lo calcula el server (el más barato) y el campo
+      // queda bloqueado. Si se mandara, un valor inválido tecleado antes de
+      // agregar el primer tamaño trabaría el guardado sobre un campo que ya no
+      // se puede corregir.
+      price: limpias.length > 0 ? '' : price,
       section,
       description,
       visibility,

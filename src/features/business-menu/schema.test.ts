@@ -24,6 +24,13 @@ describe('precio de un extra', () => {
     if (!parsed.success) expect(parsed.error.issues[0]?.message).toMatch(/sin comas/)
   })
 
+  it.each(['15 20', '$15 $20', '0x1F', '1e3', '15.999', '-5'])(
+    '"%s" se rechaza en vez de guardarse como otro número',
+    (raw) => {
+      expect(menuOptionSchema.safeParse({ name: 'shot', price_delta: raw }).success).toBe(false)
+    },
+  )
+
   it('texto que no es número se rechaza, no se vuelve 0', () => {
     expect(menuOptionSchema.safeParse({ name: 'shot', price_delta: 'quince' }).success).toBe(false)
   })
