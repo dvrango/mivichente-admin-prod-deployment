@@ -97,10 +97,16 @@ export async function approveRegistration(
     // tope, esto hay que cambiarlo por leer las fotos de la solicitud usando el
     // `fromRegistration` que ya viaja aquí.
     //
-    // Si el admin abandona el form sin guardar, esas copias quedan huérfanas en
-    // el bucket — mismo comportamiento que ya tiene el form al subir fotos y
-    // cancelar (tarea jdrqc28fv). Lo que NO queda huérfano es el staging: se
-    // limpia aquí, ya con la copia hecha.
+    // El staging NO se limpia aquí: la solicitud sigue `pending` hasta que
+    // `createBusiness` guarda, y entre tanto el admin puede volver atrás y
+    // aprobar de nuevo, abrir el form en otra pestaña o abandonarlo y regresar.
+    // Si los originales ya no existieran, ese reintento llegaría al form sin
+    // fotos y sin aviso (pasó el 2026-10-01, mikitasks `edarqv6on`). Los borra
+    // `createBusiness` cuando el negocio ya tiene su galería.
+    //
+    // El costo: cada aprobación repetida deja otra copia huérfana en el bucket
+    // público, igual que el form al subir fotos y cancelar (tarea jdrqc28fv).
+    // Un huérfano es basura; una foto del dueño perdida no se recupera.
     if (reg.photo_paths?.length) {
       const { urls, error } = await copyRegistrationPhotosToBusinessBucket(
         supabase,
@@ -108,11 +114,10 @@ export async function approveRegistration(
       )
       if (urls.length > 0) params.set('photo_urls', urls.join('|'))
       if (error) {
-        // Las que no se copiaron se quedan en staging para no perderlas: la
-        // solicitud sigue aprobándose y el admin puede subirlas a mano.
+        // Las que no se copiaron siguen en staging. El form avisa en pantalla
+        // cuántas faltan, para que el admin no guarde creyendo que no había.
         console.error('no se pudieron copiar todas las fotos del registro', reg.id, error)
-      } else {
-        await discardRegistrationPhotos(supabase, reg.photo_paths)
+        params.set('photos_missing', String(reg.photo_paths.length - urls.length))
       }
     }
 

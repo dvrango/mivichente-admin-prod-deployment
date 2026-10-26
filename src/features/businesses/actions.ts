@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { discardRegistrationPhotos } from '@/lib/registration-photos'
 import { BUSINESS_PHOTOS_BUCKET, pathFromPublicUrl } from '@/lib/storage'
 import { getCurrentProfile, requireAdmin } from '@/features/auth/queries'
 import {
@@ -304,12 +305,22 @@ export async function createBusiness(
   // El form venía precargado desde una solicitud de auto-registro
   // (`approveRegistration` sin business_id): recién ahora que el negocio existe
   // se cierra la solicitud y se deja ligada, para que no quede huérfana.
+  //
+  // También hasta ahora se borran las fotos originales del staging: el negocio
+  // ya tiene su galería en `business_photos` (las copias que viajaron en el
+  // form). Borrarlas antes, al aprobar, dejaba sin fotos cualquier reintento
+  // de aprobar la misma solicitud (mikitasks `edarqv6on`). Si el update falla,
+  // la solicitud sigue abierta y las fotos se quedan donde estaban.
   const registrationId = formData.get('registration_id')
   if (typeof registrationId === 'string' && registrationId) {
-    await supabase
+    const { data: closed, error: closeError } = await supabase
       .from('business_registrations')
       .update({ status: 'approved', business_id: inserted.id })
       .eq('id', registrationId)
+      .select('photo_paths')
+    if (!closeError) {
+      await discardRegistrationPhotos(supabase, closed?.[0]?.photo_paths)
+    }
     revalidatePath('/registrations')
   }
 
