@@ -474,10 +474,10 @@ export function MenuEditor({
             <span className="text-muted-foreground">
               · {activeGroup.total} {activeGroup.total === 1 ? word : words} ·{' '}
               {activeGroup.inProfile === 0
-                ? 'ninguno sale en el perfil'
+                ? 'ninguno se ve en la app'
                 : activeGroup.inProfile === activeGroup.total
-                  ? 'todos salen en el perfil'
-                  : `${activeGroup.inProfile} de ${activeGroup.total} salen en el perfil`}
+                  ? 'todos se ven en la app'
+                  : `${activeGroup.inProfile} de ${activeGroup.total} se ven en la app`}
             </span>
           </p>
           <Button
@@ -495,12 +495,14 @@ export function MenuEditor({
               <UserX className="size-4" />
             )}
             {activeGroup.inProfile === 0
-              ? 'Poner toda la sección en el perfil'
-              : 'Sacar toda la sección del perfil'}
+              ? 'Mostrar la sección en la app'
+              : 'Ocultar la sección en la app'}
           </Button>
+          {/* Mismo vocabulario que «¿Quién lo ve?» del formulario del platillo:
+              «la app» y «el menú del QR». «Perfil» a secas no se entendía. */}
           <p className="text-muted-foreground text-xs">
-            El menú del QR (el de la mesa) siempre los muestra. Esto sólo cambia el perfil del
-            negocio en la app.
+            Cambia solo lo que ve quien busca el negocio en la app Vichente. El menú del QR (el que
+            se abre en la mesa) no cambia.
           </p>
           {bulkError && <p className="text-destructive text-sm">{bulkError}</p>}
         </div>
