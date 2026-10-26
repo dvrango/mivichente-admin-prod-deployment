@@ -10,13 +10,43 @@ import { z } from 'zod'
 // en español en vez de dejar que Postgres tire "numeric field overflow".
 const PRICE_MAX = 100_000_000
 
+// Quien captura copia el precio como viene en el menú impreso: "$15". Los
+// campos de precio son de texto (`PriceInput`) justo para que ese "$" llegue
+// hasta acá: con `type="number"` el navegador que deja teclearlo (Safari,
+// Firefox) entrega `value=""`, y el vacío es un valor legítimo —extra sin
+// costo, platillo sin precio— así que el precio se perdía sin ningún aviso.
+//
+// Solo se quita el "$" de la orilla y el espacio que lo acompaña. Un espacio o
+// un "$" EN MEDIO se queda y el número sale inválido: "15 20" o "$15 $20" son
+// dos precios en un campo, y juntarlos en 1520 es justo el error silencioso que
+// esto viene a quitar.
+//
+// La coma NO se limpia: "1,500" (miles) y "15,50" (decimal) se escriben igual
+// y adivinar mal multiplica el precio por cien. Se rechaza con un mensaje que
+// dice cómo escribirlo.
+function cleanPrice(value: string): string {
+  return value
+    .trim()
+    .replace(/^\$\s*/, '')
+    .replace(/\s*\$$/, '')
+    .trim()
+}
+const COMMA_MESSAGE = 'Escribe el precio sin comas, por ejemplo 1500 o 15.50.'
+
+// Pesos con hasta dos centavos, el mismo formato que `deliveryFeeSchema`
+// (`businesses/schema.ts`). `Number()` a secas sobre texto libre aceptaría
+// "0x1F" (31) o "1e3" (1000), y un "15.999" que Postgres redondea a 16.00.
+const PESOS = /^\d+(\.\d{1,2})?$/
+const PESOS_MESSAGE = 'Escribe el precio con números, por ejemplo 15 o 15.50.'
+
 // Vacío = sin precio público ("cotiza tu evento") -> null en la DB.
 // Ojo con el orden del refine: `Number('')` es 0, así que el caso vacío se
 // resuelve antes de mirar el número.
 const priceSchema = z
   .string()
-  .trim()
-  .refine((v) => v === '' || (Number.isFinite(Number(v)) && Number(v) >= 0), 'Precio inválido.')
+  .transform(cleanPrice)
+  .refine((v) => !v.includes(','), COMMA_MESSAGE)
+  .refine((v) => v === '' || PESOS.test(v), PESOS_MESSAGE)
   .refine((v) => v === '' || Number(v) < PRICE_MAX, 'El precio es demasiado grande.')
   .transform((v) => (v === '' ? null : Number(v)))
 
@@ -35,9 +65,10 @@ const priceSchema = z
 // guarde a qué variante apuntaba.
 const variantPriceSchema = z
   .string()
-  .trim()
+  .transform(cleanPrice)
   .refine((v) => v !== '', 'Cada tamaño necesita su precio.')
-  .refine((v) => Number.isFinite(Number(v)) && Number(v) >= 0, 'Precio inválido.')
+  .refine((v) => !v.includes(','), COMMA_MESSAGE)
+  .refine((v) => PESOS.test(v), PESOS_MESSAGE)
   .refine((v) => Number(v) < PRICE_MAX, 'El precio es demasiado grande.')
   .transform((v) => Number(v))
 
@@ -80,10 +111,11 @@ export const menuVariantsSchema = z
 // total sin síntoma en pantalla y el negocio lo descubriría al cobrar.
 const priceDeltaSchema = z
   .string()
-  .trim()
+  .transform(cleanPrice)
+  .refine((v) => !v.includes(','), COMMA_MESSAGE)
   .refine(
-    (v) => v === '' || (Number.isFinite(Number(v)) && Number(v) >= 0),
-    'El costo extra tiene que ser un número de 0 en adelante.',
+    (v) => v === '' || PESOS.test(v),
+    'El costo extra tiene que ser un número de 0 en adelante, con máximo dos decimales.',
   )
   .refine((v) => v === '' || Number(v) < PRICE_MAX, 'El costo extra es demasiado grande.')
   .transform((v) => (v === '' ? 0 : Number(v)))

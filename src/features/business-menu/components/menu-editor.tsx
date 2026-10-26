@@ -259,7 +259,7 @@ export function MenuEditor({
   async function handleCreate(draft: MenuDraft) {
     const base = {
       name: draft.name,
-      price: draft.price,
+      price: draft.price ?? '',
       section: draft.section,
       description: draft.description,
       // Un ítem nuevo no tiene valor previo que conservar, así que el 'oculto'
@@ -302,7 +302,10 @@ export function MenuEditor({
   async function handleUpdate(item: MenuItem, draft: MenuDraft) {
     const base = {
       name: draft.name,
-      price: draft.price,
+      // Clave ausente = no la toques. Con tamaños el precio lo escribe sólo
+      // `syncPriceFromVariants`; mandarlo vacío lo dejaba en null si el guardado
+      // de los tamaños fallaba después del primer UPDATE.
+      ...(draft.price === null ? {} : { price: draft.price }),
       section: draft.section,
       description: draft.description,
       ...fromVisibility(draft.visibility, item.show_in_profile),

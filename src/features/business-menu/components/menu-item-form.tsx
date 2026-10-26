@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PriceInput } from '@/components/shared/price-input'
 import { Textarea } from '@/components/ui/textarea'
 import { PHOTO_PICKER_ACCEPT } from '@/lib/images/photo-limits'
 import { Chip } from './chip'
@@ -67,7 +68,8 @@ export type MenuVariantDraft = {
 
 export type MenuDraft = {
   name: string
-  price: string
+  /** null = hay tamaños y el precio lo calcula el server: no se manda ni se toca. */
+  price: string | null
   section: string
   description: string
   visibility: MenuVisibility
@@ -192,19 +194,25 @@ export function MenuItemForm({
     setVariants((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // Las filas en blanco se descartan al guardar en vez de bloquear el submit:
+  // quedan al agregar un tamaño y arrepentirse, y exigir que se borren a mano
+  // es fricción sin propósito.
+  const limpias = variants.filter((v) => v.name.trim() !== '' || v.price.trim() !== '')
+  // "Tiene tamaños" se decide por las filas con algo escrito, no por cuántas
+  // filas hay. Es la misma condición para bloquear el campo de precio y para no
+  // mandarlo: con una fila en blanco el precio se sigue editando y guardando, y
+  // con tamaños de verdad lo calcula el server (el más barato).
+  const conTamanos = limpias.length > 0
+
   function submit() {
     const photo: PhotoIntent = file
       ? { kind: 'new', file }
       : photoRemoved
         ? { kind: 'remove' }
         : { kind: 'keep' }
-    // Las filas en blanco se descartan al guardar en vez de bloquear el submit:
-    // quedan al agregar un tamaño y arrepentirse, y exigir que se borren a mano
-    // es fricción sin propósito.
-    const limpias = variants.filter((v) => v.name.trim() !== '' || v.price.trim() !== '')
     onSave({
       name,
-      price,
+      price: conTamanos ? null : price,
       section,
       description,
       visibility,
@@ -241,20 +249,16 @@ export function MenuItemForm({
         <label className="text-sm font-medium" htmlFor={`precio-${mode}`}>
           Precio
         </label>
-        <Input
+        <PriceInput
           id={`precio-${mode}`}
           className="h-11 md:h-9"
-          type="number"
-          inputMode="decimal"
-          min="0"
-          step="0.01"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          placeholder={variants.length > 0 ? 'Lo calculan los tamaños' : 'Déjalo vacío si varía'}
-          disabled={saving || variants.length > 0}
-          readOnly={variants.length > 0}
+          placeholder={conTamanos ? 'Lo calculan los tamaños' : 'Déjalo vacío si varía'}
+          disabled={saving || conTamanos}
+          readOnly={conTamanos}
         />
-        {variants.length > 0 && (
+        {conTamanos && (
           <p className="text-xs text-muted-foreground">
             Con tamaños, aquí se muestra el más barato y se calcula solo.
           </p>
@@ -290,12 +294,8 @@ export function MenuItemForm({
                     aria-label={`Nombre del tamaño ${index + 1}`}
                     disabled={saving}
                   />
-                  <Input
+                  <PriceInput
                     className="h-11 md:h-9"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
                     value={variant.price}
                     onChange={(e) => setVariantField(index, 'price', e.target.value)}
                     placeholder="Precio"
