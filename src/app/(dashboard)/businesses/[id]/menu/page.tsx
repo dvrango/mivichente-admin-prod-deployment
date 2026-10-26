@@ -1,3 +1,4 @@
+import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
@@ -7,6 +8,7 @@ import { getCurrentProfile } from '@/features/auth/queries'
 import { MenuEditor } from '@/features/business-menu/components/menu-editor'
 import { getMenuItems } from '@/features/business-menu/queries'
 import { getBusinessById } from '@/features/businesses/queries'
+import { urlMenuPublico } from '@/features/material-grafico/url-menu'
 
 // Página hija de /businesses/[id], hermana de /material — mismo precedente.
 // Tiene URL propia a propósito: se le manda a Sandra tal cual y el botón de
@@ -54,6 +56,22 @@ export default async function BusinessMenuPage({ params }: { params: Promise<{ i
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {readOnly && <Badge variant="outline">Solo lectura · {business.municipio}</Badge>}
+            {/* Para revisar lo guardado como lo ve el cliente, sin salir del
+                editor. Un negocio inactivo no lo puede leer el cliente anónimo
+                y el link daría 404, así que ahí se dice por qué no hay botón. */}
+            {business.is_active ? (
+              <a
+                href={urlMenuPublico(business.slug)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                <ExternalLink className="size-4" />
+                Ver como lo ve el cliente
+              </a>
+            ) : (
+              <Badge variant="outline">Inactivo · el cliente todavía no lo ve</Badge>
+            )}
             <Link
               href={`/businesses/${id}`}
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
