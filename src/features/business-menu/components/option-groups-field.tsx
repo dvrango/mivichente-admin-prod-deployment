@@ -80,12 +80,24 @@ export type MenuOptionGroupDraft = {
 type Props = {
   /** "platillo" o "servicio", derivado del título del negocio. */
   word: string
+  /** Mismo criterio que `word`. Elige los ejemplos: un salón de uñas no tiene sabores. */
+  isMenu: boolean
   groups: MenuOptionGroupDraft[]
   onChange: (groups: MenuOptionGroupDraft[]) => void
   saving: boolean
 }
 
-export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
+// Ejemplos neutros para lo que no es comida: color y diseño le sirven igual a un
+// salón de uñas que a una tienda de regalos. Distinguir tienda de servicio queda
+// fuera hasta que exista ese tercer tipo de categoría.
+const EXAMPLES = {
+  menu: { help: 'sabor, tipo de leche', group: 'Ej. Sabor', option: 'Ej. capuchino' },
+  other: { help: 'un color, un diseño', group: 'Ej. Color', option: 'Ej. rojo' },
+}
+
+export function OptionGroupsField({ word, isMenu, groups, onChange, saving }: Props) {
+  const examples = isMenu ? EXAMPLES.menu : EXAMPLES.other
+
   function updateGroup(index: number, patch: Partial<MenuOptionGroupDraft>) {
     onChange(groups.map((g, i) => (i === index ? { ...g, ...patch } : g)))
   }
@@ -139,7 +151,7 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
     <div className="space-y-1">
       <label className="text-sm font-medium">Opciones para elegir</label>
       <p className="text-muted-foreground text-xs">
-        Lo que el cliente escoge al pedir: sabor, tipo de leche, o un extra que cuesta aparte. Si el{' '}
+        Lo que el cliente escoge al pedir: {examples.help}, o un extra que cuesta aparte. Si el{' '}
         {word} se pide tal cual, deja esto vacío.
       </p>
 
@@ -156,7 +168,7 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
                   className="h-11 md:h-9"
                   value={group.name}
                   onChange={(e) => updateGroup(groupIndex, { name: e.target.value })}
-                  placeholder="Ej. Sabor"
+                  placeholder={examples.group}
                   aria-label={`Nombre del grupo ${groupIndex + 1}`}
                   disabled={saving}
                 />
@@ -251,7 +263,7 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
                       onChange={(e) =>
                         updateOption(groupIndex, optionIndex, { name: e.target.value })
                       }
-                      placeholder="Ej. capuchino"
+                      placeholder={examples.option}
                       aria-label={`Nombre de la opción ${optionIndex + 1} del grupo ${groupIndex + 1}`}
                       disabled={saving}
                     />

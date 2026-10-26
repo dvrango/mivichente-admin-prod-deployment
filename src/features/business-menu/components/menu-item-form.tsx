@@ -335,6 +335,7 @@ export function MenuItemForm({
           juntas es lo que hace visible esa frontera al capturar. */}
       <OptionGroupsField
         word={word}
+        isMenu={isMenu}
         groups={optionGroups}
         onChange={setOptionGroups}
         saving={saving}
