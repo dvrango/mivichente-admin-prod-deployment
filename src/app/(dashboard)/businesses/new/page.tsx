@@ -115,10 +115,6 @@ export default async function NewBusinessPage({
         }
       />
 
-      {/* El horario es el único dato de la solicitud que no se puede precargar:
-          `business_hours` son filas por día con turnos partidos y el dueño lo
-          escribió en una línea. Se muestra aquí porque en esta pantalla ya no
-          tiene la solicitud enfrente — si no, el dato se pierde. */}
       {/* Si la copia al bucket público falló, las fotos que faltan siguen en la
           solicitud. Se avisa aquí porque el form, sin ellas, se ve igual que
           una solicitud que no traía fotos. */}
@@ -139,6 +135,10 @@ export default async function NewBusinessPage({
         </div>
       )}
 
+      {/* El horario es el único dato de la solicitud que no se puede precargar:
+          `business_hours` son filas por día con turnos partidos y el dueño lo
+          escribió en una línea. Se muestra aquí porque en esta pantalla ya no
+          tiene la solicitud enfrente — si no, el dato se pierde. */}
       {fromRegistration && params.hours_note && (
         <div className="rounded-md border border-dashed p-4 text-sm">
           <p className="font-medium">El dueño dijo su horario así:</p>
@@ -154,6 +154,7 @@ export default async function NewBusinessPage({
         categories={categories}
         lockedMunicipio={lockedMunicipio}
         registrationId={fromRegistration}
+        registrationPhotosComplete={photosMissing === 0}
         defaults={defaults}
         defaultPhotos={defaultPhotos}
       />

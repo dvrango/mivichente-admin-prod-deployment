@@ -57,6 +57,10 @@ type Props = {
   // Alta que viene de aprobar una solicitud de auto-registro: viaja al server
   // action para cerrar esa solicitud cuando el negocio ya quedó creado.
   registrationId?: string
+  // Todas las fotos del dueño llegaron al form como copias. Solo así el
+  // guardado puede borrar los originales del staging: si faltó alguna, borrarla
+  // sería perderla (mikitasks `edarqv6on`).
+  registrationPhotosComplete?: boolean
   defaults?: {
     name?: string
     slug?: string | null
@@ -131,6 +135,7 @@ export function BusinessForm({
   lockedMunicipio,
   readOnly = false,
   registrationId,
+  registrationPhotosComplete = false,
 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
@@ -312,6 +317,9 @@ export function BusinessForm({
       fd.set('latitude', latitude.trim())
       fd.set('longitude', longitude.trim())
       if (registrationId) fd.set('registration_id', registrationId)
+      if (registrationId && registrationPhotosComplete) {
+        fd.set('registration_photos_complete', '1')
+      }
       fd.set('aliases', JSON.stringify(aliases))
       fd.set('offerings', JSON.stringify(offerings))
       fd.set('hours', JSON.stringify(hours))

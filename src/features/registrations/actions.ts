@@ -201,7 +201,10 @@ export async function approveRegistration(
       )
       if (error) copiaFallida = true
 
-      if (urls.length > 0) {
+      // Todo o nada: con una copia parcial no se inserta ninguna. Si entraran
+      // las que sí se copiaron, el reintento vería la galería con fotos, se
+      // saltaría la copia y borraría del staging la que faltó.
+      if (urls.length > 0 && !error) {
         // ⚠️ Las filas en `business_photos` NO son opcionales, y van ANTES del
         // update del negocio. Cada guardado desde el admin borra la galería, la
         // reinserta y recalcula `photo_url = photos[0]?.url ?? null`: una foto
@@ -225,7 +228,8 @@ export async function approveRegistration(
           patch.photo_url = urls[0]
         }
       } else if (error) {
-        // Se dejan en staging para no perderlas; la aprobación sigue su curso.
+        // Se dejan en staging para no perderlas; abajo se avisa y la solicitud
+        // queda abierta para reintentar.
         console.error('no se pudieron copiar las fotos del registro', reg.id, error)
       }
     }
@@ -251,6 +255,19 @@ export async function approveRegistration(
   // son las que fallaron al copiarse — esas sí se perderían sin haberse
   // guardado en ningún lado.
   if (!copiaFallida) await discardRegistrationPhotos(supabase, reg.photo_paths)
+
+  // Si las fotos no llegaron al negocio, la solicitud NO se cierra: así el
+  // admin lo ve en pantalla y puede reintentar, en vez de un éxito silencioso
+  // con las fotos varadas en el staging de una solicitud ya aprobada, que ya no
+  // se puede volver a aprobar (mikitasks `edarqv6on`). Reintentar es seguro:
+  // el patch de arriba solo rellena huecos y las ofertas se unen sin duplicar.
+  if (copiaFallida) {
+    revalidatePath(`/businesses/${business.id}`)
+    return {
+      error:
+        'El negocio se completó, pero no se pudieron copiar las fotos del dueño. La solicitud sigue abierta y las fotos siguen en ella: vuelve a aprobarla para reintentar.',
+    }
+  }
 
   const { error: updateErr } = await supabase
     .from('business_registrations')

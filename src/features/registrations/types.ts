@@ -20,7 +20,10 @@ export type BusinessRegistration = {
   /**
    * Fotos que subió el dueño (hasta 3), en el bucket privado
    * `registration-photos`. En orden: la primera es la portada. Es staging — al
-   * aprobar se copian a `business-photos` y se borran de aquí.
+   * aprobar se copian a `business-photos`, y se borran de aquí cuando el
+   * negocio queda guardado con todas ellas (`createBusiness`, o el propio
+   * `approveRegistration` si la solicitud ya tenía negocio). Si alguna no se
+   * pudo copiar, se queda aquí.
    */
   photo_paths: string[]
   /**

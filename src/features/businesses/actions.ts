@@ -311,6 +311,11 @@ export async function createBusiness(
   // form). Borrarlas antes, al aprobar, dejaba sin fotos cualquier reintento
   // de aprobar la misma solicitud (mikitasks `edarqv6on`). Si el update falla,
   // la solicitud sigue abierta y las fotos se quedan donde estaban.
+  //
+  // Solo se borran si TODAS llegaron al form (`registration_photos_complete`).
+  // Si la copia falló a medias, las que faltan viven únicamente en el staging:
+  // la solicitud se cierra igual y ellas se quedan, como hace la rama con
+  // business_id de `approveRegistration` con `copiaFallida`.
   const registrationId = formData.get('registration_id')
   if (typeof registrationId === 'string' && registrationId) {
     const { data: closed, error: closeError } = await supabase
@@ -318,7 +323,7 @@ export async function createBusiness(
       .update({ status: 'approved', business_id: inserted.id })
       .eq('id', registrationId)
       .select('photo_paths')
-    if (!closeError) {
+    if (!closeError && formData.get('registration_photos_complete') === '1') {
       await discardRegistrationPhotos(supabase, closed?.[0]?.photo_paths)
     }
     revalidatePath('/registrations')
