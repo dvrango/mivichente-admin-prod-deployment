@@ -1291,12 +1291,23 @@ async function main() {
   // "permission denied" sin el revoke, porque la función es security invoker
   // y las tablas que lee no dan SELECT. Ese intento no distingue la causa.
   console.log('\nfunciones de métricas')
-  const metricas = ['admin_weekly_metrics', 'admin_top_zero_result_queries']
+  // Con su firma: `has_function_privilege` la necesita completa. Las cuatro de
+  // abajo son las del piloto de pedidos y QR (`tjc3k2h1k`), que dicen cuánto
+  // vende cada negocio.
+  const firmas = {
+    admin_weekly_metrics: 'timestamptz, integer, integer',
+    admin_top_zero_result_queries: 'timestamptz, integer, integer',
+    admin_order_funnel: 'timestamptz, integer, integer',
+    admin_order_daily: 'timestamptz, integer',
+    admin_qr_scans_by_channel: 'timestamptz, integer',
+    admin_menu_qr_by_business: 'timestamptz, integer',
+  }
+  const metricas = Object.keys(firmas)
   for (const fn of metricas) {
     for (const rol of ['public', 'anon', 'authenticated']) {
       const puede = (
         await c.query(
-          `select has_function_privilege($1, 'public.${fn}(timestamptz, integer, integer)', 'execute') as p`,
+          `select has_function_privilege($1, 'public.${fn}(${firmas[fn]})', 'execute') as p`,
           [rol],
         )
       ).rows[0].p
