@@ -37,6 +37,7 @@ const COMMA_MESSAGE = 'Escribe el precio sin comas, por ejemplo 1500 o 15.50.'
 // (`businesses/schema.ts`). `Number()` a secas sobre texto libre aceptaría
 // "0x1F" (31) o "1e3" (1000), y un "15.999" que Postgres redondea a 16.00.
 const PESOS = /^\d+(\.\d{1,2})?$/
+const PESOS_MESSAGE = 'Escribe el precio con números, por ejemplo 15 o 15.50.'
 
 // Vacío = sin precio público ("cotiza tu evento") -> null en la DB.
 // Ojo con el orden del refine: `Number('')` es 0, así que el caso vacío se
@@ -45,7 +46,7 @@ const priceSchema = z
   .string()
   .transform(cleanPrice)
   .refine((v) => !v.includes(','), COMMA_MESSAGE)
-  .refine((v) => v === '' || PESOS.test(v), 'Precio inválido.')
+  .refine((v) => v === '' || PESOS.test(v), PESOS_MESSAGE)
   .refine((v) => v === '' || Number(v) < PRICE_MAX, 'El precio es demasiado grande.')
   .transform((v) => (v === '' ? null : Number(v)))
 
@@ -67,7 +68,7 @@ const variantPriceSchema = z
   .transform(cleanPrice)
   .refine((v) => v !== '', 'Cada tamaño necesita su precio.')
   .refine((v) => !v.includes(','), COMMA_MESSAGE)
-  .refine((v) => PESOS.test(v), 'Precio inválido.')
+  .refine((v) => PESOS.test(v), PESOS_MESSAGE)
   .refine((v) => Number(v) < PRICE_MAX, 'El precio es demasiado grande.')
   .transform((v) => Number(v))
 

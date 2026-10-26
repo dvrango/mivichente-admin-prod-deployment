@@ -68,7 +68,8 @@ export type MenuVariantDraft = {
 
 export type MenuDraft = {
   name: string
-  price: string
+  /** null = hay tamaños y el precio lo calcula el server: no se manda ni se toca. */
+  price: string | null
   section: string
   description: string
   visibility: MenuVisibility
@@ -208,8 +209,8 @@ export function MenuItemForm({
       // Con tamaños el precio lo calcula el server (el más barato) y el campo
       // queda bloqueado. Si se mandara, un valor inválido tecleado antes de
       // agregar el primer tamaño trabaría el guardado sobre un campo que ya no
-      // se puede corregir.
-      price: limpias.length > 0 ? '' : price,
+      // se puede corregir. Misma condición que el bloqueo del campo, a propósito.
+      price: variants.length > 0 ? null : price,
       section,
       description,
       visibility,
