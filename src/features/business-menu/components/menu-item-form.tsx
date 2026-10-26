@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PriceInput } from '@/components/shared/price-input'
 import { Textarea } from '@/components/ui/textarea'
 import { PHOTO_PICKER_ACCEPT } from '@/lib/images/photo-limits'
 import { Chip } from './chip'
@@ -241,13 +242,9 @@ export function MenuItemForm({
         <label className="text-sm font-medium" htmlFor={`precio-${mode}`}>
           Precio
         </label>
-        <Input
+        <PriceInput
           id={`precio-${mode}`}
           className="h-11 md:h-9"
-          type="number"
-          inputMode="decimal"
-          min="0"
-          step="0.01"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           placeholder={variants.length > 0 ? 'Lo calculan los tamaños' : 'Déjalo vacío si varía'}
@@ -290,12 +287,8 @@ export function MenuItemForm({
                     aria-label={`Nombre del tamaño ${index + 1}`}
                     disabled={saving}
                   />
-                  <Input
+                  <PriceInput
                     className="h-11 md:h-9"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
                     value={variant.price}
                     onChange={(e) => setVariantField(index, 'price', e.target.value)}
                     placeholder="Precio"

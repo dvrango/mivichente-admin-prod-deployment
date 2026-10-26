@@ -3,6 +3,7 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PriceInput } from '@/components/shared/price-input'
 import { Chip } from './chip'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -254,12 +255,8 @@ export function OptionGroupsField({ word, groups, onChange, saving }: Props) {
                       aria-label={`Nombre de la opción ${optionIndex + 1} del grupo ${groupIndex + 1}`}
                       disabled={saving}
                     />
-                    <Input
+                    <PriceInput
                       className="h-11 md:h-9"
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.01"
                       value={option.price_delta}
                       onChange={(e) =>
                         updateOption(groupIndex, optionIndex, { price_delta: e.target.value })
