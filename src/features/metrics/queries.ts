@@ -44,7 +44,9 @@ export type WeeklyMetrics = {
  * 1000 filas sin avisar: cuando `search_events` pasó ese tope, las semanas
  * recientes salían en 0 (mikitasks `su4z8tm09`). La semántica —semanas hacia
  * atrás desde ahora, días en UTC, "regresa" = 2+ días en la semana, exclusión
- * de `excluded_devices`— está documentada en la migración.
+ * de `excluded_devices`— está documentada en la migración. Desde 20261026120000
+ * los devices cuentan actividad en búsquedas, taps, contactos y el embudo del
+ * pedido, no solo búsquedas (mikitasks `es1d67kyq`).
  *
  * Por qué service role y no el cliente del usuario (revisado 2026-09-18,
  * mikitasks `eantgj6l5` y `06yzbwbcc`): las dos funciones solo dan `execute`
