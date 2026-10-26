@@ -6,6 +6,11 @@ import { getWeeklyMetrics } from '@/features/metrics/queries'
 
 const SOURCE_LABELS = { app: 'App', landing: 'Landing' } as const
 
+// Cuándo cambió qué cuenta como device (migración 20261026120000, mikitasks
+// `es1d67kyq`). Las 6 semanas se recalculan con la definición nueva, así que la
+// tendencia no salta; lo que deja de compararse son las cifras anotadas antes.
+const DEVICES_DEFINITION_CHANGED = '26 de octubre de 2026'
+
 export default async function MetricsPage() {
   const m = await getWeeklyMetrics()
   const { current, previous, series } = m
@@ -27,11 +32,20 @@ export default async function MetricsPage() {
         contra semana, últimas {series.length}.
       </p>
 
+      <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+        Desde el {DEVICES_DEFINITION_CHANGED}, &quot;devices únicos&quot; y &quot;devices que
+        regresan&quot; cuentan cualquier uso: búsquedas, taps, contactos y pasos del pedido. Antes
+        solo contaban a quien buscaba, y la mayoría llega directo a un menú. Las gráficas ya están
+        recalculadas con la definición nueva, así que la tendencia no salta; lo que no se compara
+        son las cifras anotadas antes de esa fecha.
+      </p>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Devices únicos"
           value={String(current.uniqueDevices)}
           trend={trendLabel(current.uniqueDevices, previous.uniqueDevices)}
+          context="buscaron, abrieron un menú, tocaron un negocio o lo contactaron"
           series={series.map((w) => w.uniqueDevices)}
         />
         <StatCard
