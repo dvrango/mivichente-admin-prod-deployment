@@ -134,3 +134,137 @@ export async function getWeeklyMetrics(): Promise<WeeklyMetrics> {
       })),
   }
 }
+
+export type FunnelCounts = {
+  viewed: number
+  added: number
+  checkout: number
+  whatsapp: number
+  intents: number
+  intentsCents: number
+}
+
+export type BusinessFunnel = {
+  businessId: string
+  businessName: string
+  current: FunnelCounts
+  previous: FunnelCounts
+  intentsLong: number
+  intentsCentsLong: number
+}
+
+export type OrderQrMetrics = {
+  /** El `p_now` de las cuatro consultas, en ms. "Hace N días" se mide contra él. */
+  now: number
+  windowDays: number
+  longDays: number
+  /** Devices distintos en todo el embudo: no es la suma de `byBusiness`. */
+  total: Omit<BusinessFunnel, 'businessId' | 'businessName'>
+  byBusiness: BusinessFunnel[]
+  /** Día local (America/Monterrey), de más viejo a más nuevo, con los días vacíos en 0. */
+  daily: { day: string; menuDevices: number; intents: number; intentsCents: number }[]
+  qrByChannel: { channel: string; scans: number; scansPrevious: number }[]
+  menuQrByBusiness: {
+    businessId: string
+    businessName: string
+    scans: number
+    scansPrevious: number
+    lastScanAt: string
+  }[]
+}
+
+const LONG_DAYS = 30
+
+/**
+ * Piloto de pedidos y QR (mikitasks `tjc3k2h1k`). Las cuatro funciones de la
+ * migración 20261026130000 agregan en SQL por la misma razón que las de la
+ * Etapa 1, y la semántica (dedupe de intenciones en 30 min, día local en la
+ * serie, exclusión de `excluded_devices`) está documentada ahí.
+ *
+ * Mismo modelo de autorización que `getWeeklyMetrics()`: service role, porque
+ * las funciones solo dan `execute` a `service_role`, y `requireAdmin()` aquí
+ * adentro porque es el único candado de este camino que vive en el admin. Estos
+ * datos dicen cuánto vende cada negocio.
+ */
+export async function getOrderQrMetrics(): Promise<OrderQrMetrics> {
+  await requireAdmin()
+  const supabase = createAdminClient()
+  // Un solo `p_now` para que las cuatro lecturas cubran la misma ventana.
+  const now = Date.now()
+  const nowIso = new Date(now).toISOString()
+
+  const [funnel, daily, channels, menuQr] = await Promise.all([
+    supabase.rpc('admin_order_funnel', {
+      p_now: nowIso,
+      p_window_days: WINDOW_DAYS,
+      p_long_days: LONG_DAYS,
+    }),
+    supabase.rpc('admin_order_daily', { p_now: nowIso, p_days: LONG_DAYS }),
+    supabase.rpc('admin_qr_scans_by_channel', { p_now: nowIso, p_window_days: WINDOW_DAYS }),
+    supabase.rpc('admin_menu_qr_by_business', { p_now: nowIso, p_window_days: WINDOW_DAYS }),
+  ])
+
+  if (funnel.error) throw funnel.error
+  if (daily.error) throw daily.error
+  if (channels.error) throw channels.error
+  if (menuQr.error) throw menuQr.error
+
+  const rows = (funnel.data ?? []).map((r) => ({
+    // El generador de tipos no sabe que la fila de total trae estas columnas en
+    // null (`grouping sets` en la función).
+    businessId: r.business_id as string | null,
+    businessName: r.business_name as string | null,
+    current: {
+      viewed: r.viewed,
+      added: r.added,
+      checkout: r.checkout,
+      whatsapp: r.whatsapp,
+      intents: r.intents,
+      intentsCents: r.intents_cents,
+    },
+    previous: {
+      viewed: r.viewed_prev,
+      added: r.added_prev,
+      checkout: r.checkout_prev,
+      whatsapp: r.whatsapp_prev,
+      intents: r.intents_prev,
+      intentsCents: r.intents_cents_prev,
+    },
+    intentsLong: r.intents_long,
+    intentsCentsLong: r.intents_cents_long,
+  }))
+
+  // La función siempre devuelve la fila de total (business_id null), aunque no
+  // haya eventos.
+  const totalRow = rows.find((r) => r.businessId === null)
+  if (!totalRow) throw new Error('admin_order_funnel no devolvió la fila de total')
+  const { current, previous, intentsLong, intentsCentsLong } = totalRow
+
+  return {
+    now,
+    windowDays: WINDOW_DAYS,
+    longDays: LONG_DAYS,
+    total: { current, previous, intentsLong, intentsCentsLong },
+    byBusiness: rows
+      .filter((r) => r.businessId !== null)
+      .map((r) => ({ ...r, businessId: r.businessId ?? '', businessName: r.businessName ?? '—' })),
+    daily: (daily.data ?? []).map((d) => ({
+      day: d.day,
+      menuDevices: d.menu_devices,
+      intents: d.intents,
+      intentsCents: d.intents_cents,
+    })),
+    qrByChannel: (channels.data ?? []).map((c) => ({
+      channel: c.channel,
+      scans: c.scans,
+      scansPrevious: c.scans_prev,
+    })),
+    menuQrByBusiness: (menuQr.data ?? []).map((q) => ({
+      businessId: q.business_id,
+      businessName: q.business_name,
+      scans: q.scans,
+      scansPrevious: q.scans_prev,
+      lastScanAt: q.last_scan_at,
+    })),
+  }
+}

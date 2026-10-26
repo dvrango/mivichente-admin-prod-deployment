@@ -2509,6 +2509,54 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_menu_qr_by_business: {
+        Args: { p_now?: string; p_window_days?: number }
+        Returns: {
+          business_id: string
+          business_name: string
+          last_scan_at: string
+          scans: number
+          scans_prev: number
+        }[]
+      }
+      admin_order_daily: {
+        Args: { p_days?: number; p_now?: string }
+        Returns: {
+          day: string
+          intents: number
+          intents_cents: number
+          menu_devices: number
+        }[]
+      }
+      admin_order_funnel: {
+        Args: { p_long_days?: number; p_now?: string; p_window_days?: number }
+        Returns: {
+          added: number
+          added_prev: number
+          business_id: string
+          business_name: string
+          checkout: number
+          checkout_prev: number
+          intents: number
+          intents_cents: number
+          intents_cents_long: number
+          intents_cents_prev: number
+          intents_long: number
+          intents_prev: number
+          viewed: number
+          viewed_prev: number
+          whatsapp: number
+          whatsapp_prev: number
+        }[]
+      }
+      admin_qr_scans_by_channel: {
+        Args: { p_now?: string; p_window_days?: number }
+        Returns: {
+          channel: string
+          scans: number
+          scans_prev: number
+        }[]
+      }
       admin_top_zero_result_queries: {
         Args: { p_limit?: number; p_now?: string; p_window_days?: number }
         Returns: {
