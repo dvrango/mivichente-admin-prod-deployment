@@ -13,6 +13,13 @@ export function urlMenuImpresa(slug: string): string {
   return `${DOMINIO_PUBLICO}/${slug}/menu?src=${SRC_MENU_QR}`
 }
 
+/** El menú de mesa tal como lo abre el cliente, para revisarlo desde el admin.
+ *  SIN `?src=`: la landing solo registra un scan cuando viene `src`, así que
+ *  abrirlo desde aquí no ensucia los conteos del QR. */
+export function urlMenuPublico(slug: string): string {
+  return `${DOMINIO_PUBLICO}/${slug}/menu`
+}
+
 /** URL del perfil como se LEE en la tarjeta que el negocio comparte. Va sin
  *  `?src=` a propósito: nadie la escanea, alguien la teclea desde la foto, y
  *  cada carácter de más es una oportunidad de equivocarse. El costo es que ese
