@@ -97,10 +97,16 @@ export async function approveRegistration(
     // tope, esto hay que cambiarlo por leer las fotos de la solicitud usando el
     // `fromRegistration` que ya viaja aquí.
     //
-    // Si el admin abandona el form sin guardar, esas copias quedan huérfanas en
-    // el bucket — mismo comportamiento que ya tiene el form al subir fotos y
-    // cancelar (tarea jdrqc28fv). Lo que NO queda huérfano es el staging: se
-    // limpia aquí, ya con la copia hecha.
+    // El staging NO se limpia aquí: la solicitud sigue `pending` hasta que
+    // `createBusiness` guarda, y entre tanto el admin puede volver atrás y
+    // aprobar de nuevo, abrir el form en otra pestaña o abandonarlo y regresar.
+    // Si los originales ya no existieran, ese reintento llegaría al form sin
+    // fotos y sin aviso (pasó el 2026-10-01, mikitasks `edarqv6on`). Los borra
+    // `createBusiness` cuando el negocio ya tiene su galería.
+    //
+    // El costo: cada aprobación repetida deja otra copia huérfana en el bucket
+    // público, igual que el form al subir fotos y cancelar (tarea jdrqc28fv).
+    // Un huérfano es basura; una foto del dueño perdida no se recupera.
     if (reg.photo_paths?.length) {
       const { urls, error } = await copyRegistrationPhotosToBusinessBucket(
         supabase,
@@ -108,11 +114,10 @@ export async function approveRegistration(
       )
       if (urls.length > 0) params.set('photo_urls', urls.join('|'))
       if (error) {
-        // Las que no se copiaron se quedan en staging para no perderlas: la
-        // solicitud sigue aprobándose y el admin puede subirlas a mano.
+        // Las que no se copiaron siguen en staging. El form avisa en pantalla
+        // cuántas faltan, para que el admin no guarde creyendo que no había.
         console.error('no se pudieron copiar todas las fotos del registro', reg.id, error)
-      } else {
-        await discardRegistrationPhotos(supabase, reg.photo_paths)
+        params.set('photos_missing', String(reg.photo_paths.length - urls.length))
       }
     }
 
@@ -196,7 +201,10 @@ export async function approveRegistration(
       )
       if (error) copiaFallida = true
 
-      if (urls.length > 0) {
+      // Todo o nada: con una copia parcial no se inserta ninguna. Si entraran
+      // las que sí se copiaron, el reintento vería la galería con fotos, se
+      // saltaría la copia y borraría del staging la que faltó.
+      if (urls.length > 0 && !error) {
         // ⚠️ Las filas en `business_photos` NO son opcionales, y van ANTES del
         // update del negocio. Cada guardado desde el admin borra la galería, la
         // reinserta y recalcula `photo_url = photos[0]?.url ?? null`: una foto
@@ -220,7 +228,8 @@ export async function approveRegistration(
           patch.photo_url = urls[0]
         }
       } else if (error) {
-        // Se dejan en staging para no perderlas; la aprobación sigue su curso.
+        // Se dejan en staging para no perderlas; abajo se avisa y la solicitud
+        // queda abierta para reintentar.
         console.error('no se pudieron copiar las fotos del registro', reg.id, error)
       }
     }
@@ -246,6 +255,24 @@ export async function approveRegistration(
   // son las que fallaron al copiarse — esas sí se perderían sin haberse
   // guardado en ningún lado.
   if (!copiaFallida) await discardRegistrationPhotos(supabase, reg.photo_paths)
+
+  // Si las fotos no llegaron al negocio, la solicitud NO se cierra: así el
+  // admin lo ve en pantalla y puede reintentar, en vez de un éxito silencioso
+  // con las fotos varadas en el staging de una solicitud ya aprobada, que ya no
+  // se puede volver a aprobar (mikitasks `edarqv6on`). Reintentar es seguro:
+  // el patch de arriba solo rellena huecos y las ofertas se unen sin duplicar.
+  //
+  // Límite aceptado: si una foto del staging ya no existe (no debería: la
+  // landing solo guarda paths que subió), la copia falla siempre y la única
+  // salida es rechazar la solicitud. Hasta que pase, no vale un "aprobar sin
+  // fotos" que reabriría la puerta a perderlas.
+  if (copiaFallida) {
+    revalidatePath(`/businesses/${business.id}`)
+    return {
+      error:
+        'El negocio se completó, pero no se pudieron copiar las fotos del dueño. La solicitud sigue abierta y las fotos siguen en ella: vuelve a aprobarla para reintentar.',
+    }
+  }
 
   const { error: updateErr } = await supabase
     .from('business_registrations')

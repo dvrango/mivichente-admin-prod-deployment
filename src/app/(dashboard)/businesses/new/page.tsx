@@ -26,6 +26,11 @@ type NewBusinessSearchParams = {
    * cualquier foto ya subida. La primera es la portada.
    */
   photo_urls?: string
+  /**
+   * Cuántas fotos del dueño no se pudieron copiar al aprobar. Siguen en la
+   * solicitud; sin este aviso el admin guardaría creyendo que no mandó fotos.
+   */
+  photos_missing?: string
   address?: string
   facebook_url?: string
   instagram_url?: string
@@ -90,6 +95,7 @@ export default async function NewBusinessPage({
   // escribirlas antes de guardar.
   const photoUrls =
     fromRegistration && params.photo_urls ? params.photo_urls.split('|').filter(Boolean) : []
+  const photosMissing = fromRegistration ? Number.parseInt(params.photos_missing ?? '', 10) || 0 : 0
   const defaultPhotos =
     photoUrls.length > 0
       ? photoUrls.map((url) => ({ url, file: null, previewUrl: url, caption: '' }))
@@ -108,6 +114,27 @@ export default async function NewBusinessPage({
             : undefined
         }
       />
+
+      {/* Si la copia al bucket público falló, las fotos que faltan siguen en la
+          solicitud. Se avisa aquí porque el form, sin ellas, se ve igual que
+          una solicitud que no traía fotos. */}
+      {fromRegistration && photosMissing > 0 && (
+        <div
+          role="alert"
+          className="border-destructive/50 text-destructive rounded-md border p-4 text-sm"
+        >
+          <p className="font-medium">
+            {photosMissing === 1
+              ? 'No se pudo traer 1 foto que mandó el dueño.'
+              : `No se pudieron traer ${photosMissing} fotos que mandó el dueño.`}
+          </p>
+          <p className="mt-1">
+            Siguen guardadas en la solicitud. Sal de aquí sin guardar y vuelve a aprobarla desde
+            Solicitudes, o descárgalas desde ahí y súbelas aquí antes de guardar. No guardes este
+            form y otro de la misma solicitud: se crearían dos negocios.
+          </p>
+        </div>
+      )}
 
       {/* El horario es el único dato de la solicitud que no se puede precargar:
           `business_hours` son filas por día con turnos partidos y el dueño lo
@@ -128,6 +155,7 @@ export default async function NewBusinessPage({
         categories={categories}
         lockedMunicipio={lockedMunicipio}
         registrationId={fromRegistration}
+        registrationPhotosComplete={photosMissing === 0}
         defaults={defaults}
         defaultPhotos={defaultPhotos}
       />
