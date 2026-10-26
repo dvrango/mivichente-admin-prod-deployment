@@ -314,8 +314,10 @@ export async function createBusiness(
   //
   // Solo se borran si TODAS llegaron al form (`registration_photos_complete`).
   // Si la copia falló a medias, las que faltan viven únicamente en el staging:
-  // la solicitud se cierra igual y ellas se quedan, como hace la rama con
-  // business_id de `approveRegistration` con `copiaFallida`.
+  // la solicitud se cierra igual y ellas se quedan ahí. Se cierra porque el
+  // admin ya vio el aviso en el form y eligió guardar; en cambio, la rama con
+  // business_id de `approveRegistration` no tiene form que avise, así que deja
+  // la solicitud abierta para reintentar.
   const registrationId = formData.get('registration_id')
   if (typeof registrationId === 'string' && registrationId) {
     const { data: closed, error: closeError } = await supabase

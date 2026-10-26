@@ -261,6 +261,11 @@ export async function approveRegistration(
   // con las fotos varadas en el staging de una solicitud ya aprobada, que ya no
   // se puede volver a aprobar (mikitasks `edarqv6on`). Reintentar es seguro:
   // el patch de arriba solo rellena huecos y las ofertas se unen sin duplicar.
+  //
+  // Límite aceptado: si una foto del staging ya no existe (no debería: la
+  // landing solo guarda paths que subió), la copia falla siempre y la única
+  // salida es rechazar la solicitud. Hasta que pase, no vale un "aprobar sin
+  // fotos" que reabriría la puerta a perderlas.
   if (copiaFallida) {
     revalidatePath(`/businesses/${business.id}`)
     return {

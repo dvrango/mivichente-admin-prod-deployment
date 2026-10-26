@@ -129,8 +129,9 @@ export default async function NewBusinessPage({
               : `No se pudieron traer ${photosMissing} fotos que mandó el dueño.`}
           </p>
           <p className="mt-1">
-            Siguen guardadas en la solicitud. Vuelve a Solicitudes y aprueba otra vez antes de
-            guardar, o descárgalas desde ahí y súbelas aquí.
+            Siguen guardadas en la solicitud. Sal de aquí sin guardar y vuelve a aprobarla desde
+            Solicitudes, o descárgalas desde ahí y súbelas aquí antes de guardar. No guardes este
+            form y otro de la misma solicitud: se crearían dos negocios.
           </p>
         </div>
       )}
