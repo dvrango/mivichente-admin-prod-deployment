@@ -14,9 +14,9 @@
 --   - `excluded_devices` se excluye en `order_funnel_events`. `qr_scans` no tiene
 --     `device_id`; ahí los bots ya vienen separados en `channel = 'bot'`.
 --   - Una intención de pedido = un `whatsapp_opened` por `device_id` +
---     `business_id` dentro de una ventana de 30 minutos (`floor(epoch / 1800)`),
---     la regla de lectura del plan "Embudo del pedido". El monto es el del último
---     evento de esa ventana: el pedido que el cliente terminó mandando. Una
+--     `business_id` en el mismo bloque fijo de media hora (`floor(epoch / 1800)`:
+--     10:28 y 10:31 caen en bloques distintos), la regla de lectura del plan
+--     "Embudo del pedido". El monto es el del último evento del bloque: el pedido que el cliente terminó mandando. Una
 --     intención no es un pedido confirmado.
 --   - La serie diaria usa el día local (America/Monterrey, la zona de Durango),
 --     no UTC: un pedido a las 18:00 cae en el día siguiente en UTC (pasó el

@@ -129,7 +129,8 @@ export default async function MetricsPage() {
           <h2 className="text-lg font-semibold">Pedidos (piloto)</h2>
           <p className="text-sm text-muted-foreground">
             Una intención es un cliente que abrió WhatsApp con su pedido armado. Se cuenta una vez
-            por device y negocio en 30 minutos, con el monto del último pedido que mandó.
+            por device y negocio en cada bloque de media hora (de :00 a :30 y de :30 a :00), con el
+            monto del último pedido que mandó.
           </p>
         </div>
 
@@ -183,8 +184,9 @@ export default async function MetricsPage() {
         <p className="text-xs text-muted-foreground">
           Las intenciones no son pedidos confirmados: el pedido se cierra en WhatsApp y eso no llega
           aquí. El total cuenta cada device una vez aunque haya visto varios menús, así que no es la
-          suma de la tabla. Por día es día de Durango; las semanas son los últimos 7 días corridos.
-          No se distingue Android, web o iPhone.
+          suma de la tabla. Por día es día de Durango; las semanas y los 30 días de la tarjeta son
+          ventanas corridas desde ahora, así que la serie puede no sumar igual. No se distingue
+          Android, web o iPhone.
         </p>
       </section>
 

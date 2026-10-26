@@ -15,7 +15,7 @@ function dayTitle(d: Props['days'][number]): string {
 // días con intención de pedido. Barras y puntos se distinguen por forma, no
 // solo por tono, y el valor exacto sale al pasar el mouse por toda la columna,
 // no solo por la barra. Sin eje Y: el pico va rotulado directo y el detalle
-// está en la tabla de abajo.
+// está en «Ver por día».
 export function DailyBars({ days }: Props) {
   if (days.every((d) => d.menuDevices === 0 && d.intents === 0)) {
     return (
@@ -25,8 +25,12 @@ export function DailyBars({ days }: Props) {
     )
   }
 
-  const max = Math.max(...days.map((d) => d.menuDevices), 1)
-  const peakIndex = days.findIndex((d) => d.menuDevices === max)
+  const peak = Math.max(...days.map((d) => d.menuDevices))
+  // Puede haber intenciones sin ninguna vista en el rango (la vista cayó un día
+  // antes del primero). Sin vistas no hay pico que rotular: -1.
+  const peakIndex = peak > 0 ? days.findIndex((d) => d.menuDevices === peak) : -1
+  // Piso de 1 solo para la escala, para no dividir entre 0.
+  const max = Math.max(peak, 1)
   const totalIntents = days.reduce((sum, d) => sum + d.intents, 0)
 
   return (
@@ -44,7 +48,9 @@ export function DailyBars({ days }: Props) {
 
       <div
         role="img"
-        aria-label={`Últimos ${days.length} días. Pico: ${max} devices el ${formatDay(days[peakIndex].day)}. ${totalIntents} intenciones en total. El detalle por día está en la tabla de abajo.`}
+        aria-label={`Últimos ${days.length} días. ${
+          peakIndex >= 0 ? `Pico: ${peak} devices el ${formatDay(days[peakIndex].day)}. ` : ''
+        }${totalIntents} intenciones en total. El detalle está en «Ver por día».`}
         className="flex h-44 items-end gap-0.5 border-b pt-10"
       >
         {days.map((d, i) => {
@@ -68,7 +74,7 @@ export function DailyBars({ days }: Props) {
                   className={`absolute whitespace-nowrap text-xs font-medium tabular-nums ${peakAlign}`}
                   style={{ bottom: `calc(${pct}% + ${d.intents > 0 ? 18 : 4}px)` }}
                 >
-                  {max} · {formatDay(d.day)}
+                  {peak} · {formatDay(d.day)}
                 </span>
               )}
               {d.intents > 0 && (
