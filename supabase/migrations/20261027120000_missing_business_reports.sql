@@ -19,6 +19,16 @@
 --     cambia el status. Un aviso no tiene negocio ni municipio, así que el
 --     scoping por municipio no aplica.
 --   - Nadie borra.
+--
+-- Es la primera escritura del panel que se decide con `is_staff()` y no con
+-- `can_edit_business()`. El comentario de `is_staff()` (20260911120000) dice
+-- que solo es el gate de lectura; aquí no aplica porque `can_edit_business()`
+-- necesita un negocio, y un aviso no tiene.
+--
+-- La nota admite 1000 caracteres aunque la app corta en 500: `char_length`
+-- cuenta code points y el `maxLength` de Flutter cuenta grafemas, así que un
+-- emoji compuesto ocupa varios aquí. El margen evita que el insert truene por
+-- eso.
 
 create table public.missing_business_reports (
   id          uuid        primary key default gen_random_uuid(),
@@ -33,7 +43,7 @@ create table public.missing_business_reports (
   constraint missing_business_reports_query_length
     check (char_length(btrim(query)) between 2 and 100),
   constraint missing_business_reports_note_length
-    check (note is null or char_length(note) between 1 and 500),
+    check (note is null or char_length(note) between 1 and 1000),
   constraint missing_business_reports_status_check
     check (status in ('pending', 'resolved', 'dismissed'))
 );
