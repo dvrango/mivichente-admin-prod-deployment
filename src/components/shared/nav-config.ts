@@ -5,6 +5,7 @@ import {
   Search,
   MapPin,
   Flag,
+  SearchX,
   BarChart3,
   type LucideIcon,
 } from 'lucide-react'
@@ -50,7 +51,16 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: 'Moderación',
-    items: [{ label: 'Reportes', href: '/reports', icon: Flag }],
+    items: [
+      { label: 'Reportes', href: '/reports', icon: Flag },
+      // Todo el staff, reviewers incluidos: el levantamiento lo hacen en campo.
+      {
+        label: 'Negocios faltantes',
+        shortLabel: 'Faltantes',
+        href: '/missing-businesses',
+        icon: SearchX,
+      },
+    ],
   },
   {
     label: 'Herramientas',

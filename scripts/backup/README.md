@@ -94,7 +94,7 @@ ssh minipc 'journalctl -u vichente-refresh-local.service -n 20'    # qué pasó
 
 - Telemetría: `search_events`, `search_result_taps`, `qr_scans`, `business_contacts`, `order_funnel_events`, `excluded_devices`. Es voluminosa, personal y no hace falta para probar.
 - `profiles`, `auth` y `storage`: las cuentas locales (`admin@dvranlabs.com` y los reviewers de prueba) quedan intactas. Los `created_by`/`updated_by` de prod apuntan a perfiles que no existen en local; el log dice cuántos. En la tabla y la ficha de negocios del admin local, el autor sale vacío o como desconocido. Es cosmético.
-- Datos personales que no hacen falta para probar: `business_owner_contacts`, `business_registrations`, `business_reports`, `business_feedback` y `coupons` (opiniones privadas y sus descuentos).
+- Datos personales que no hacen falta para probar: `business_owner_contacts`, `business_registrations`, `business_reports`, `business_feedback`, `coupons` (opiniones privadas y sus descuentos) y `missing_business_reports` (avisos de negocio faltante: la nota libre puede traer nombres o teléfonos).
 - `business_owners`: liga las cuentas `owner` con sus negocios y apunta a `profiles`, que no se copia. Para probar el panel de dueños en local, ligar la cuenta de prueba con un `insert` después de la copia.
 - `_backup_businesses_fase1`: tabla suelta que solo existe en local.
 

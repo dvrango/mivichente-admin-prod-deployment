@@ -2351,6 +2351,39 @@ export type Database = {
         }
         Relationships: []
       }
+      missing_business_reports: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          id: string
+          note: string | null
+          query: string
+          reviewed_at: string | null
+          status: string
+          typed: boolean
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          note?: string | null
+          query: string
+          reviewed_at?: string | null
+          status?: string
+          typed: boolean
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          note?: string | null
+          query?: string
+          reviewed_at?: string | null
+          status?: string
+          typed?: boolean
+        }
+        Relationships: []
+      }
       order_funnel_events: {
         Row: {
           business_id: string
@@ -2840,7 +2873,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_14: {
+      messages_2026_10_23: {
         Row: {
           event: string | null
           extension: string
@@ -2873,7 +2906,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_15: {
+      messages_2026_10_24: {
         Row: {
           event: string | null
           extension: string
@@ -2906,7 +2939,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_16: {
+      messages_2026_10_25: {
         Row: {
           event: string | null
           extension: string
@@ -2939,7 +2972,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_17: {
+      messages_2026_10_26: {
         Row: {
           event: string | null
           extension: string
@@ -2972,73 +3005,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_18: {
-        Row: {
-          event: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          event?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          event?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      messages_2026_10_19: {
-        Row: {
-          event: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          event?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          event?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      messages_2026_10_20: {
+      messages_2026_10_27: {
         Row: {
           event: string | null
           extension: string

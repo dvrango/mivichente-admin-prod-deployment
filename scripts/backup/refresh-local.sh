@@ -53,6 +53,9 @@ COPIADAS=(
 #   de dueños y de quien llenó un formulario. No hacen falta para probar la app.
 #   business_feedback, coupons: opiniones privadas de clientes y los descuentos ligados
 #   a su token. Datos personales; en local se generan probando el flujo.
+#   missing_business_reports: avisos de negocio faltante que manda la app. La nota
+#   libre puede traer nombres o teléfonos, y va con device_id. En local se generan
+#   probando el estado vacío de la búsqueda.
 #   business_owners: liga cuentas owner con sus negocios y apunta a profiles, que no se
 #   copia. En local se liga a mano cuando se prueba el panel de dueños.
 #   _backup_businesses_fase1: tabla suelta que solo existe en local.
@@ -69,6 +72,7 @@ EXCLUIDAS=(
   business_reports
   business_feedback
   coupons
+  missing_business_reports
   business_owners
   _backup_businesses_fase1
 )

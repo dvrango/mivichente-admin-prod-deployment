@@ -1505,6 +1505,80 @@ async function main() {
     check('admin lee business_owners', Number(l) >= 1, l)
   })
 
+  // Avisos de negocio faltante (tarea k4mu1g2sv). anon solo inserta, y solo en
+  // `pending`; el staff (admin y reviewer de cualquier municipio) lee y cambia
+  // el status; nadie borra. El aviso fixture se crea como postgres para que los
+  // checks de lectura y update no pasen por vacío.
+  console.log('\navisos de negocio faltante (missing_business_reports)')
+  const contarAvisos = () =>
+    c.query('select count(*) from missing_business_reports').then((r) => Number(r.rows[0].count))
+  const aviso = (
+    await c.query(
+      "insert into missing_business_reports (query, typed) values ('zapateria', true) returning id",
+    )
+  ).rows[0].id
+
+  await asAnon(c, async () => {
+    const ins = await attempt(
+      c,
+      "insert into missing_business_reports (query, note, typed, device_id) values ('mototaxi', 'el de la esquina', true, 'rls-check')",
+    )
+    check('anon inserta un aviso', ins.outcome === 'ok', ins.outcome)
+    const st = await attempt(
+      c,
+      "insert into missing_business_reports (query, typed, status) values ('mochilas', true, 'resolved')",
+    )
+    check('anon NO fija el status al insertar', st.outcome === 'denied', st.outcome)
+    const sel = await attempt(c, 'select * from missing_business_reports')
+    check('anon NO lee avisos', sel.outcome === 'denied', sel.outcome)
+    const up = await attempt(
+      c,
+      "update missing_business_reports set status = 'dismissed' where id = $1",
+      [aviso],
+    )
+    check('anon NO cambia el status', up.outcome === 'denied', up.outcome)
+    const del = await attempt(c, 'delete from missing_business_reports where id = $1', [aviso])
+    check('anon NO borra avisos', del.outcome === 'denied', del.outcome)
+  })
+
+  for (const [quien, uid] of [
+    ['pending', PENDING_ID],
+    ['owner', OWNER_ID],
+  ]) {
+    await as(c, uid, async () => {
+      check(`${quien} no lee avisos`, (await contarAvisos()) === 0)
+      const up = await attempt(
+        c,
+        "update missing_business_reports set status = 'dismissed' where id = $1",
+        [aviso],
+      )
+      check(`${quien} no cambia el status`, up.rows === 0, `${up.outcome}, ${up.rows} filas`)
+    })
+  }
+
+  for (const [quien, uid] of [
+    ['admin', admin.id],
+    ['reviewer', reviewer.id],
+  ]) {
+    await as(c, uid, async () => {
+      check(`${quien} lee avisos`, (await contarAvisos()) >= 1)
+      const up = await attempt(
+        c,
+        "update missing_business_reports set status = 'resolved', reviewed_at = now() where id = $1",
+        [aviso],
+      )
+      check(`${quien} marca un aviso`, up.outcome === 'ok' && up.rows === 1, up.outcome)
+      const q = await attempt(
+        c,
+        "update missing_business_reports set query = 'otra cosa' where id = $1",
+        [aviso],
+      )
+      check(`${quien} NO reescribe el término`, q.outcome === 'denied', q.outcome)
+      const del = await attempt(c, 'delete from missing_business_reports where id = $1', [aviso])
+      check(`${quien} NO borra avisos`, del.outcome === 'denied', del.outcome)
+    })
+  }
+
   console.log('\nbucket business-photos')
   const bucket = (
     await c.query(
