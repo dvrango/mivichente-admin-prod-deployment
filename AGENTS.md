@@ -40,6 +40,8 @@ npm run db:types:local    # regenerar database.types.ts desde DB local
 npm run db:types:prod     # regenerar tipos desde Supabase remoto
 npm run db:replay:check   # comprobar que las migrations reconstruyen la DB desde cero (minipc, no toca la DB local)
 npm run db:rls:check      # verificar las policies RLS contra la DB local (impersona y hace ROLLBACK)
+npm run db:schema:snapshot # regenerar db/schema/ desde la DB local (sin Docker)
+npm run db:schema:check   # fallar si db/schema/ no coincide con la DB local
 ```
 
 > **REGLA DE BASE DE DATOS (no la rompas):** el asistente **solo toca la DB
@@ -97,7 +99,11 @@ SUPABASE_SERVICE_ROLE_KEY=   # solo server
 
 ## Base de datos
 
-Schema en Obsidian (`02 Apps/v2-admin-web/Database Schema.md`) + migraciones en `supabase/migrations/`. Tras cada migración: `npm run db:types:local`.
+Migraciones en `supabase/migrations/`: son la fuente de verdad y se escriben a mano. Tras aplicar una a local: `npm run db:types:local` y `npm run db:schema:snapshot`, y se commitean los tipos y `db/schema/` junto con la migración. `npm run db:schema:check` falla si el snapshot quedó viejo.
+
+`db/schema/` es un snapshot generado del schema de `public` de la DB local (un archivo por tabla y función, con policies y grants). Es solo para leer: no se edita a mano y no va en `supabase/schemas/` ni en ninguna ruta de `[db.migrations] schema_paths`, porque `db push` lo tomaría como fuente. Lo genera `supabase db schema declarative generate --experimental`, con la versión del CLI fijada en `scripts/db-schema-snapshot.sh` (`CLI_VERSION`). Al subir el CLI, se sube esa línea y se regenera el snapshot en el mismo commit.
+
+El porqué de cada tabla y función (decisiones, trampas, historia de RLS) vive en Obsidian: `02 Apps/v2-admin-web/Database Schema.md`. Ahí no se pegan columnas ni cuerpos de funciones.
 
 ## Acceso
 

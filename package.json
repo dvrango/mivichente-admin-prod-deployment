@@ -15,6 +15,8 @@
     "db:types:local": "sh scripts/gen-types-local.sh",
     "db:types:prod": "supabase gen types typescript --linked > src/lib/database.types.ts",
     "db:replay:check": "bash scripts/db-replay-check.sh",
+    "db:schema:snapshot": "bash scripts/db-schema-snapshot.sh",
+    "db:schema:check": "bash scripts/db-schema-snapshot.sh --check",
     "db:rls:check": "node scripts/rls-check.mjs",
     "db:backup": "ssh minipc /home/dvrango/vichente-backup/bin/backup-prod.sh",
     "db:restore:check": "ssh minipc /home/dvrango/vichente-backup/bin/restore-check.sh",
