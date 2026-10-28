@@ -12,6 +12,11 @@
 # El snapshot refleja la DB LOCAL. Si hay una migración aplicada a local que todavía
 # no tiene `db:push`, el snapshot ya la trae, aunque prod no la tenga.
 #
+# La DB local es una sola para todas las ramas. Si otra rama ya aplicó su migración, o
+# alguien cambió algo a mano, el snapshot lo trae también. Antes de commitearlo, revisar
+# que `git diff db/schema` solo tenga lo de la migración de esta rama. `db:replay:check`
+# muestra lo que local tiene fuera de las migraciones (solo de `public`).
+#
 set -euo pipefail
 
 # `declarative generate` es experimental y su formato cambia entre versiones del CLI
@@ -23,7 +28,8 @@ CLI_VERSION="2.116.0"
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 ADMIN="$(cd "$AQUI/.." && pwd)"
 DESTINO="$ADMIN/db/schema"
-DB_LOCAL='postgresql://postgres:postgres@100.96.221.80:54322/postgres?sslmode=disable'
+# connect_timeout: sin él, un minipc inalcanzable deja el comando colgado y callado.
+DB_LOCAL='postgresql://postgres:postgres@100.96.221.80:54322/postgres?sslmode=disable&connect_timeout=10'
 
 modo="snapshot"
 case "${1:-}" in
@@ -63,9 +69,17 @@ if [ "$modo" = "check" ]; then
     echo "✗ No existe $DESTINO. Corre npm run db:schema:snapshot." >&2
     exit 1
   fi
-  if diff -ru "$DESTINO" "$TMP/schema" >"$TMP/schema.diff"; then
+  codigo=0
+  diff -ru "$DESTINO" "$TMP/schema" >"$TMP/schema.diff" 2>&1 || codigo=$?
+  if [ "$codigo" -eq 0 ]; then
     echo "✓ db/schema/ coincide con la DB local."
     exit 0
+  fi
+  if [ "$codigo" -ne 1 ]; then
+    # 2 = diff no pudo leer algo. No es una diferencia de schema: regenerar no lo arregla.
+    echo "✗ diff falló (exit $codigo) al comparar db/schema/:" >&2
+    cat "$TMP/schema.diff" >&2
+    exit 1
   fi
   # El diff va de lo versionado (---) a lo que hay en la DB local (+++).
   cat "$TMP/schema.diff"
@@ -75,7 +89,13 @@ if [ "$modo" = "check" ]; then
 fi
 
 # Se reemplaza la carpeta completa para que una tabla o función borrada también
-# desaparezca del snapshot.
+# desaparezca del snapshot. Antes se comprueba que el export trajo algo: si el CLI
+# saliera con 0 sin escribir, el `rm` dejaría al repo sin snapshot.
+if [ ! -f "$TMP/schema/.pgdelta-export.json" ]; then
+  echo "✗ El CLI terminó sin escribir el export; db/schema/ no se tocó." >&2
+  cat "$TMP/generate.log" >&2
+  exit 1
+fi
 rm -rf "$DESTINO"
 mkdir -p "$(dirname "$DESTINO")"
 mv "$TMP/schema" "$DESTINO"
