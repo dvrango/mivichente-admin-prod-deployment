@@ -58,7 +58,8 @@ COPIADAS=(
 #   probando el estado vacío de la búsqueda.
 #   business_owners: liga cuentas owner con sus negocios y apunta a profiles, que no se
 #   copia. En local se liga a mano cuando se prueba el panel de dueños.
-#   _backup_businesses_fase1: tabla suelta que solo existe en local.
+#   _backup_businesses_fase1: tabla suelta de local, borrada el 2026-10-28. Se queda en
+#   la lista por si una DB local vieja todavía la trae.
 EXCLUIDAS=(
   search_events
   search_result_taps

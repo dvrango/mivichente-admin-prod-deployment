@@ -4,3 +4,5 @@ public
 supabase/migrations
 coverage
 .husky
+# Snapshot generado por scripts/db-schema-snapshot.sh: db:schema:check lo compara byte a byte.
+db/schema
