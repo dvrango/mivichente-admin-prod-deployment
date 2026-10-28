@@ -39,7 +39,7 @@ npm run db:migrate:local  # aplicar migrations pendientes en local (minipc)
 npm run db:push           # aplicar migrations pendientes en producción
 npm run db:types:local    # regenerar database.types.ts desde DB local
 npm run db:types:prod     # regenerar tipos desde Supabase remoto
-npm run db:reset:local    # resetear DB local desde cero (destructivo)
+npm run db:replay:check   # comprobar que las migrations reconstruyen la DB desde cero (minipc, no toca la DB local)
 ```
 
 ## Estructura (feature-based)
