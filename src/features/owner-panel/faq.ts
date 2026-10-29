@@ -3,11 +3,15 @@
  * vault (decisiones y guías de `06 Guías y Procesos/`); si una de esas cambia,
  * la respuesta de aquí cambia con ella.
  *
- * Fuera a propósito: «¿cuánto cuesta?». El vault se contradice (la guía dice
- * «hoy no tiene costo», Idea_Principal habla de «gratis para siempre» a los
- * fundadores y de un premium de pago) y no se responde hasta que se decida.
+ * El costo y el del sticker los decidió el usuario el 2026-10-29 (decisión «Hoy
+ * Vichente es gratis para el negocio, igual que los stickers que entregamos»):
+ * hoy no hay funciones con costo. No prometer que será gratis para siempre.
  */
 export const OWNER_FAQ: { q: string; a: string }[] = [
+  {
+    q: '¿Cuánto me cuesta estar en Vichente?',
+    a: 'Hoy no te cuesta nada: todo lo que ya tienes en Vichente es gratis. Todavía no tenemos funciones con costo.',
+  },
   {
     q: '¿Cómo me llegan los pedidos hoy?',
     a: 'Si tu negocio tiene los pedidos activados, el cliente arma su pedido en la app y te llega a tu WhatsApp como un mensaje ya escrito, con lo que pidió, el total y, si es a domicilio, la ubicación marcada en un mapa. Desde ahí lo atiendes, lo cobras y lo entregas como siempre: Vichente no maneja el dinero ni manda repartidores.',
@@ -42,7 +46,7 @@ export const OWNER_FAQ: { q: string; a: string }[] = [
   },
   {
     q: '¿Cómo consigo el QR para mis mesas?',
-    a: 'Pídelo por WhatsApp con el botón del panel. El QR abre tu menú en el celular de tus clientes para que lo consulten; los pedidos se hacen desde la app. Si todavía no tienes tu menú en Vichente, primero lo capturamos.',
+    a: 'Pídelo por WhatsApp con el botón del panel. El QR abre tu menú en el celular de tus clientes para que lo consulten; los pedidos se hacen desde la app. Si todavía no tienes tu menú en Vichente, primero lo capturamos. Los stickers que te entregamos son gratis; si necesitas más, pregúntanos.',
   },
   {
     q: '¿Qué es la tarjeta de sellos?',
