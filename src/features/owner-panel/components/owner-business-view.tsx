@@ -1,12 +1,22 @@
 import Image from 'next/image'
-import { Clock, ExternalLink, ImageIcon, MessageSquareText, Star, Store, List } from 'lucide-react'
+import {
+  Clock,
+  ExternalLink,
+  ImageIcon,
+  List,
+  Megaphone,
+  MessageSquareText,
+  Star,
+  Store,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { promoStatus } from '@/features/businesses/promo'
 import { cn } from '@/lib/utils'
 import type { OwnerBusinessSnapshot, OwnerHour, OwnerService } from '../types'
-import { ownerLinks } from '../links'
+import { ownerLinks, ownerMenuUrl } from '../links'
 import { OwnerFaq } from './owner-faq'
 import { OwnerFeatureCards } from './owner-feature-cards'
 import { OwnerLinks } from './owner-links'
@@ -36,6 +46,7 @@ const SECTIONS = {
   horario: 'horario',
   fotos: 'fotos',
   menu: 'menu',
+  promociones: 'promociones',
   opiniones: 'opiniones',
   faq: 'preguntas',
 } as const
@@ -59,6 +70,12 @@ function formatDate(iso: string): string {
   })
 }
 
+/** `promo_ends_at` es una fecha sin hora (`YYYY-MM-DD`). Leída como medianoche
+ *  UTC, en Durango caería en el día anterior; al mediodía no se mueve. */
+function formatDay(date: string): string {
+  return formatDate(`${date}T12:00:00Z`)
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="grid gap-0.5 py-2.5 sm:grid-cols-[10rem_1fr] sm:gap-3">
@@ -72,12 +89,42 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function SectionTitle({ id, title, hint }: { id: string; title: string; hint?: string }) {
+function SectionTitle({
+  id,
+  title,
+  hint,
+  action,
+}: {
+  id: string
+  title: string
+  hint?: string
+  /** Botón a la derecha del título; baja a su propio renglón si no cabe. */
+  action?: React.ReactNode
+}) {
   return (
-    <div id={id} className="flex scroll-mt-16 flex-col gap-0.5 pt-2">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {hint && <p className="text-muted-foreground text-sm">{hint}</p>}
+    <div
+      id={id}
+      className="flex scroll-mt-16 flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-2"
+    >
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {hint && <p className="text-muted-foreground text-sm">{hint}</p>}
+      </div>
+      {action}
     </div>
+  )
+}
+
+/** «Quiero cambiar algo» de una sección: el mensaje dice cuál, para no tener que
+ *  preguntarle al dueño qué quiere cambiar. */
+function ChangeButton({ businessName, section }: { businessName: string; section: string }) {
+  return (
+    <OwnerWhatsappButton
+      businessName={businessName}
+      topic="cambio"
+      section={section}
+      label="Quiero cambiar algo"
+    />
   )
 }
 
@@ -158,8 +205,12 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
       : photos
   const cover = b.photo_url ?? gallery[0]?.url ?? null
   // Sin publicar, `ownerLinks` no da ninguno: la página pública daría 404.
-  const links = ownerLinks(b, { servicesLabel, hasServices: services.length > 0 })
+  const links = ownerLinks(b, { hasServices: services.length > 0 })
   const publicUrl = links.find((l) => l.key === 'pagina')?.url ?? null
+  const menuUrl = ownerMenuUrl(b, services.length > 0)
+  // Mismo criterio de vigente que la app: una promo vencida o apagada ya no sale
+  // ahí, así que aquí tampoco se presenta como activa.
+  const promoLive = promoStatus(b) === 'live' && !!b.promo_title
 
   const nav = [
     { id: SECTIONS.links, label: 'Tus links' },
@@ -168,6 +219,7 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
     { id: SECTIONS.horario, label: 'Horario' },
     { id: SECTIONS.fotos, label: 'Fotos' },
     { id: SECTIONS.menu, label: servicesLabel },
+    { id: SECTIONS.promociones, label: 'Promociones' },
     { id: SECTIONS.opiniones, label: 'Opiniones' },
     { id: SECTIONS.faq, label: 'Preguntas' },
   ]
@@ -298,9 +350,13 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
         title="Para tu negocio"
         hint="Lo que ya puedes pedir y lo que estamos construyendo. Si algo te interesa, escríbenos."
       />
-      <OwnerFeatureCards business={b} />
+      <OwnerFeatureCards businessName={b.name} menuUrl={menuUrl} />
 
-      <SectionTitle id={SECTIONS.ficha} title="Tu ficha" />
+      <SectionTitle
+        id={SECTIONS.ficha}
+        title="Tu ficha"
+        action={<ChangeButton businessName={b.name} section="Tu ficha" />}
+      />
       <Card>
         <CardContent>
           <dl className="flex flex-col divide-y">
@@ -317,23 +373,15 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
               value={b.offerings && b.offerings.length > 0 ? b.offerings.join(', ') : null}
             />
             <Field label="Entrega a domicilio" value={b.has_delivery ? 'Sí' : 'No'} />
-            {b.promo_active && b.promo_title && (
-              <Field
-                label="Promoción"
-                value={
-                  <>
-                    {b.promo_title}
-                    {b.promo_body ? ` — ${b.promo_body}` : ''}
-                    {b.promo_ends_at ? ` (hasta el ${formatDate(b.promo_ends_at)})` : ''}
-                  </>
-                }
-              />
-            )}
           </dl>
         </CardContent>
       </Card>
 
-      <SectionTitle id={SECTIONS.horario} title="Horario" />
+      <SectionTitle
+        id={SECTIONS.horario}
+        title="Horario"
+        action={<ChangeButton businessName={b.name} section="Horario" />}
+      />
       <Card>
         <CardContent>
           {hours.length === 0 ? (
@@ -348,7 +396,11 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
         </CardContent>
       </Card>
 
-      <SectionTitle id={SECTIONS.fotos} title="Fotos" />
+      <SectionTitle
+        id={SECTIONS.fotos}
+        title="Fotos"
+        action={<ChangeButton businessName={b.name} section="Fotos" />}
+      />
       {gallery.length === 0 ? (
         <Card>
           <CardContent className="flex items-center gap-3">
@@ -372,7 +424,11 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
         </ul>
       )}
 
-      <SectionTitle id={SECTIONS.menu} title={servicesLabel} />
+      <SectionTitle
+        id={SECTIONS.menu}
+        title={servicesLabel}
+        action={<ChangeButton businessName={b.name} section={servicesLabel} />}
+      />
       <Card>
         <CardContent>
           {services.length === 0 ? (
@@ -418,6 +474,60 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
                   </ul>
                 </section>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sin promoción vigente no hay nada que cambiar: el botón de abajo ya es
+          para pedir una. */}
+      <SectionTitle
+        id={SECTIONS.promociones}
+        title="Promociones"
+        hint="Salen en tu ficha de la app de Vichente."
+        action={
+          promoLive ? <ChangeButton businessName={b.name} section="Promociones" /> : undefined
+        }
+      />
+      <Card>
+        <CardContent>
+          {promoLive ? (
+            <div className="flex items-start gap-3">
+              <span className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg">
+                <Megaphone className="size-5" aria-hidden />
+              </span>
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-semibold [overflow-wrap:anywhere]">
+                    {b.promo_title}
+                  </h3>
+                  <span className="inline-flex h-6 items-center rounded-full bg-emerald-600 px-2.5 text-xs font-medium text-white">
+                    Activa
+                  </span>
+                </div>
+                {b.promo_body && (
+                  <p className="text-muted-foreground text-sm whitespace-pre-line [overflow-wrap:anywhere]">
+                    {b.promo_body}
+                  </p>
+                )}
+                <p className="text-muted-foreground text-xs">
+                  {b.promo_ends_at
+                    ? `Vigente hasta el ${formatDay(b.promo_ends_at)}.`
+                    : 'Sin fecha de fin.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-start gap-3">
+              <p className="text-sm">
+                No tienes una promoción activa. Puedes destacar una oferta en tu ficha, como un 2x1
+                o un descuento de temporada: nos dices cuál y la publicamos.
+              </p>
+              <OwnerWhatsappButton
+                businessName={b.name}
+                topic="promocion"
+                label="Quiero una promoción"
+              />
             </div>
           )}
         </CardContent>

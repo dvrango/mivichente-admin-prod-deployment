@@ -1,18 +1,19 @@
-import { ChartColumn, Megaphone, QrCode, ShoppingBag, Stamp } from 'lucide-react'
+import { ChartColumn, QrCode, ShoppingBag, Stamp } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { promoStatus } from '@/features/businesses/promo'
 import { cn } from '@/lib/utils'
-import type { OwnerBusinessSnapshot } from '../types'
 import type { OwnerWhatsappTopic } from '../whatsapp'
+import { CopyLinkButton } from './copy-link-button'
 import { OwnerWhatsappButton } from './owner-whatsapp-button'
 
 // Funciones para el negocio, existan o no. Las que están "en construcción"
 // todavía no se pueden usar: la tarjeta existe para que el dueño diga si le
 // interesa, y ese mensaje es la señal de qué construir primero. Sin fechas a
 // propósito: no prometer lo que no está agendado. "Editar tu ficha" no va aquí,
-// la edición está pospuesta (decisión "Posponer portal de dueños").
+// la edición está pospuesta (decisión "Posponer portal de dueños"). La
+// promoción tampoco: tiene su propia sección, porque es parte de lo que el
+// cliente ve en la ficha.
 
-type FeatureStatus = 'construccion' | 'disponible' | 'activa'
+type FeatureStatus = 'construccion' | 'disponible'
 
 type Feature = {
   topic: OwnerWhatsappTopic
@@ -20,14 +21,13 @@ type Feature = {
   title: string
   body: React.ReactNode
   status: FeatureStatus
-  /** Texto del botón; sin él, "Me interesa". */
-  cta?: string
+  /** Va debajo del texto, fuera del párrafo. */
+  extra?: React.ReactNode
 }
 
 const STATUS_LABEL: Record<FeatureStatus, string> = {
   construccion: 'En construcción',
   disponible: 'Disponible',
-  activa: 'Activa',
 }
 
 const STATUS_CLASS: Record<FeatureStatus, string> = {
@@ -35,7 +35,6 @@ const STATUS_CLASS: Record<FeatureStatus, string> = {
     'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border-amber-200 dark:border-amber-900',
   disponible:
     'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border-emerald-200 dark:border-emerald-900',
-  activa: 'bg-emerald-600 text-white border-transparent',
 }
 
 function StatusPill({ status }: { status: FeatureStatus }) {
@@ -51,7 +50,7 @@ function StatusPill({ status }: { status: FeatureStatus }) {
   )
 }
 
-function features(b: OwnerBusinessSnapshot['business']): Feature[] {
+function features(menuUrl: string | null): Feature[] {
   return [
     {
       topic: 'pedidos',
@@ -65,37 +64,27 @@ function features(b: OwnerBusinessSnapshot['business']): Feature[] {
       icon: Stamp,
       title: 'Tarjeta de sellos',
       status: 'construccion',
-      body: 'Tus clientes juntan un sello en cada visita y, al llenar la tarjeta, reciben el premio que tú decidas. Tú das los sellos desde este panel.',
+      body: 'Es como la tarjeta de papel de «junta 10 sellos y llévate uno gratis», pero en el celular. Tu cliente la saca escaneando un QR en tu mostrador, sin instalar nada; tú le das un sello desde este panel cada vez que te compra, y al llenarla gana el premio que tú decidas. Le das una razón para regresar contigo en vez de ir a otro lado, y te olvidas de imprimir tarjetas que se pierden.',
     },
-    // Mismo criterio de vigente que la app: una promo vencida ya no sale ahí, así
-    // que aquí tampoco se presenta como activa.
-    promoStatus(b) === 'live' && b.promo_title
-      ? {
-          topic: 'promocion',
-          icon: Megaphone,
-          title: 'Promoción',
-          status: 'activa',
-          cta: 'Cambiar mi promoción',
-          body: (
-            <>
-              <span className="font-medium">{b.promo_title}</span>
-              {b.promo_body ? ` — ${b.promo_body}` : ''}
-            </>
-          ),
-        }
-      : {
-          topic: 'promocion',
-          icon: Megaphone,
-          title: 'Promoción',
-          status: 'disponible',
-          body: 'Destaca una oferta en tu ficha de la app de Vichente, como un 2x1 o un descuento de temporada. Nos dices cuál y la publicamos.',
-        },
     {
       topic: 'qr',
       icon: QrCode,
-      title: 'QR para tus mesas',
+      title: 'QR de menú para tus mesas',
       status: 'disponible',
-      body: 'Un sticker con código QR que abre tu menú en el celular de tus clientes, para que lo consulten desde la mesa.',
+      body: 'Un sticker con código QR para cada mesa. Tu cliente lo escanea y ve tu menú con precios en su celular, sin instalar nada y sin esperar a que le lleves la carta. Cuando cambias un precio, nos avisas y el QR ya muestra el nuevo: no tienes que volver a imprimir menús.',
+      extra: menuUrl ? (
+        <div className="flex flex-col gap-2 text-sm">
+          <p className="text-muted-foreground">
+            Si algún día haces tus propios QR, que abran este link:
+          </p>
+          <p className="bg-muted rounded-md px-2.5 py-1.5 font-mono text-xs [overflow-wrap:anywhere]">
+            {menuUrl.replace('https://', '')}
+          </p>
+          <div className="flex">
+            <CopyLinkButton url={menuUrl} variant="outline" />
+          </div>
+        </div>
+      ) : null,
     },
     {
       topic: 'actividad',
@@ -107,14 +96,21 @@ function features(b: OwnerBusinessSnapshot['business']): Feature[] {
   ]
 }
 
-export function OwnerFeatureCards({ business }: { business: OwnerBusinessSnapshot['business'] }) {
-  const [highlight, ...rest] = features(business)
+export function OwnerFeatureCards({
+  businessName,
+  menuUrl,
+}: {
+  businessName: string
+  /** Link al que apunta el QR de mesa; null si el negocio no tiene menú publicado. */
+  menuUrl: string | null
+}) {
+  const [highlight, ...rest] = features(menuUrl)
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <FeatureCard feature={highlight} businessName={business.name} wide />
+      <FeatureCard feature={highlight} businessName={businessName} wide />
       {rest.map((f) => (
-        <FeatureCard key={f.topic} feature={f} businessName={business.name} />
+        <FeatureCard key={f.topic} feature={f} businessName={businessName} />
       ))}
     </div>
   )
@@ -147,10 +143,11 @@ function FeatureCard({
         <h3 className="text-base font-semibold">{f.title}</h3>
         <p className="text-muted-foreground text-sm [overflow-wrap:anywhere]">{f.body}</p>
       </div>
+      {f.extra}
       <OwnerWhatsappButton
         businessName={businessName}
         topic={f.topic}
-        label={f.cta ?? 'Me interesa'}
+        label="Me interesa"
         variant={wide ? 'default' : 'outline'}
         className="w-full sm:w-fit"
       />
