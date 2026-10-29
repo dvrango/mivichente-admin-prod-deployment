@@ -1,5 +1,6 @@
 import { ChartColumn, Megaphone, QrCode, ShoppingBag, Stamp } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { promoStatus } from '@/features/businesses/promo'
 import { cn } from '@/lib/utils'
 import type { OwnerBusinessSnapshot } from '../types'
 import type { OwnerWhatsappTopic } from '../whatsapp'
@@ -19,6 +20,8 @@ type Feature = {
   title: string
   body: React.ReactNode
   status: FeatureStatus
+  /** Texto del botón; sin él, "Me interesa". */
+  cta?: string
 }
 
 const STATUS_LABEL: Record<FeatureStatus, string> = {
@@ -55,7 +58,7 @@ function features(b: OwnerBusinessSnapshot['business']): Feature[] {
       icon: ShoppingBag,
       title: 'Pedidos en tu panel',
       status: 'construccion',
-      body: 'Hoy, los pedidos que se hacen desde Vichente le llegan al negocio por WhatsApp. Estamos construyendo un espacio aquí para que veas cada pedido, lo confirmes y lleves la cuenta de los que ya entregaste.',
+      body: 'Hoy, los negocios que reciben pedidos por Vichente los reciben por WhatsApp. Estamos construyendo un espacio aquí para que veas cada pedido, lo confirmes y lleves la cuenta de los que ya entregaste.',
     },
     {
       topic: 'sellos',
@@ -64,12 +67,15 @@ function features(b: OwnerBusinessSnapshot['business']): Feature[] {
       status: 'construccion',
       body: 'Tus clientes juntan un sello en cada visita y, al llenar la tarjeta, reciben el premio que tú decidas. Tú das los sellos desde este panel.',
     },
-    b.promo_active && b.promo_title
+    // Mismo criterio de vigente que la app: una promo vencida ya no sale ahí, así
+    // que aquí tampoco se presenta como activa.
+    promoStatus(b) === 'live' && b.promo_title
       ? {
           topic: 'promocion',
           icon: Megaphone,
           title: 'Promoción',
           status: 'activa',
+          cta: 'Cambiar mi promoción',
           body: (
             <>
               <span className="font-medium">{b.promo_title}</span>
@@ -82,7 +88,7 @@ function features(b: OwnerBusinessSnapshot['business']): Feature[] {
           icon: Megaphone,
           title: 'Promoción',
           status: 'disponible',
-          body: 'Destaca una oferta en tu página de Vichente, como un 2x1 o un descuento de temporada. Nos dices cuál y la publicamos.',
+          body: 'Destaca una oferta en tu ficha de la app de Vichente, como un 2x1 o un descuento de temporada. Nos dices cuál y la publicamos.',
         },
     {
       topic: 'qr',
@@ -139,17 +145,15 @@ function FeatureCard({
       </div>
       <div className="flex flex-1 flex-col gap-1">
         <h3 className="text-base font-semibold">{f.title}</h3>
-        <p className="text-muted-foreground text-sm">{f.body}</p>
+        <p className="text-muted-foreground text-sm [overflow-wrap:anywhere]">{f.body}</p>
       </div>
-      {f.status !== 'activa' && (
-        <OwnerWhatsappButton
-          businessName={businessName}
-          topic={f.topic}
-          label="Me interesa"
-          variant={wide ? 'default' : 'outline'}
-          className="w-full sm:w-fit"
-        />
-      )}
+      <OwnerWhatsappButton
+        businessName={businessName}
+        topic={f.topic}
+        label={f.cta ?? 'Me interesa'}
+        variant={wide ? 'default' : 'outline'}
+        className="w-full sm:w-fit"
+      />
     </article>
   )
 }

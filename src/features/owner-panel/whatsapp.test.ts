@@ -26,7 +26,7 @@ describe('WhatsApp del panel del dueño', () => {
     expect(ownerWhatsappMessage('X', 'cambio')).toContain('Quiero cambiar algo')
     expect(ownerWhatsappMessage('X', 'pedidos')).toContain('Me interesa: recibir y confirmar')
     expect(ownerWhatsappMessage('X', 'sellos')).toContain('Me interesa: la tarjeta de sellos')
-    expect(ownerWhatsappMessage('X', 'promocion')).toContain('Me interesa: publicar una promoción')
+    expect(ownerWhatsappMessage('X', 'promocion')).toContain('Me interesa: una promoción')
     expect(ownerWhatsappMessage('X', 'qr')).toContain('Me interesa: el sticker QR')
   })
 
