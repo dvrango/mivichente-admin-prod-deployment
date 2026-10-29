@@ -13,7 +13,7 @@ import { OwnerWhatsappButton } from './owner-whatsapp-button'
 // promoción tampoco: tiene su propia sección, porque es parte de lo que el
 // cliente ve en la ficha.
 
-type FeatureStatus = 'construccion' | 'disponible' | 'activa'
+type FeatureStatus = 'construccion' | 'disponible'
 
 type Feature = {
   topic: OwnerWhatsappTopic
@@ -28,7 +28,6 @@ type Feature = {
 const STATUS_LABEL: Record<FeatureStatus, string> = {
   construccion: 'En construcción',
   disponible: 'Disponible',
-  activa: 'Activa',
 }
 
 const STATUS_CLASS: Record<FeatureStatus, string> = {
@@ -36,7 +35,6 @@ const STATUS_CLASS: Record<FeatureStatus, string> = {
     'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border-amber-200 dark:border-amber-900',
   disponible:
     'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border-emerald-200 dark:border-emerald-900',
-  activa: 'bg-emerald-600 text-white border-transparent',
 }
 
 function StatusPill({ status }: { status: FeatureStatus }) {

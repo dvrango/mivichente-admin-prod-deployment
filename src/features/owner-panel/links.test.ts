@@ -2,34 +2,42 @@ import { describe, expect, it } from 'vitest'
 import { ownerLinks, ownerMenuUrl } from './links'
 
 const publicado = { slug: 'mr-xilaquil', is_active: true }
+const opts = { hasServices: true }
 
 describe('links del panel del dueño', () => {
   it('sin publicar o sin slug no da links', () => {
-    expect(ownerLinks({ slug: 'mr-xilaquil', is_active: false })).toEqual([])
-    expect(ownerLinks({ slug: null, is_active: true })).toEqual([])
+    expect(ownerLinks({ slug: 'mr-xilaquil', is_active: false }, opts)).toEqual([])
+    expect(ownerLinks({ slug: null, is_active: true }, opts)).toEqual([])
   })
 
   it('el link para pedir va primero y destacado', () => {
-    const [primero] = ownerLinks(publicado)
+    const [primero] = ownerLinks(publicado, opts)
     expect(primero.key).toBe('ordenar')
     expect(primero.featured).toBe(true)
   })
 
+  it('sin nada capturado no lo destaca ni promete precios', () => {
+    const [primero] = ownerLinks(publicado, { hasServices: false })
+    expect(primero.key).toBe('ordenar')
+    expect(primero.featured).toBeFalsy()
+    expect(primero.purpose).not.toContain('precios')
+  })
+
   it('arma las URLs públicas con el slug', () => {
-    expect(ownerLinks(publicado).map((l) => l.url)).toEqual([
+    expect(ownerLinks(publicado, opts).map((l) => l.url)).toEqual([
       'https://vichente.com/mr-xilaquil/ordenar',
       'https://vichente.com/mr-xilaquil',
     ])
   })
 
   it('no ofrece el menú de mesa ni la entrada general a Vichente', () => {
-    const urls = ownerLinks(publicado).map((l) => l.url)
+    const urls = ownerLinks(publicado, opts).map((l) => l.url)
     expect(urls).not.toContain('https://vichente.com/mr-xilaquil/menu')
     expect(urls).not.toContain('https://vichente.com/app')
   })
 
   it('ningún link lleva src, para no contar scans falsos', () => {
-    for (const l of ownerLinks(publicado)) expect(l.url).not.toContain('src=')
+    for (const l of ownerLinks(publicado, opts)) expect(l.url).not.toContain('src=')
     expect(ownerMenuUrl(publicado, true)).not.toContain('src=')
   })
 })

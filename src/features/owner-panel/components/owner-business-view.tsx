@@ -205,7 +205,7 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
       : photos
   const cover = b.photo_url ?? gallery[0]?.url ?? null
   // Sin publicar, `ownerLinks` no da ninguno: la página pública daría 404.
-  const links = ownerLinks(b)
+  const links = ownerLinks(b, { hasServices: services.length > 0 })
   const publicUrl = links.find((l) => l.key === 'pagina')?.url ?? null
   const menuUrl = ownerMenuUrl(b, services.length > 0)
   // Mismo criterio de vigente que la app: una promo vencida o apagada ya no sale

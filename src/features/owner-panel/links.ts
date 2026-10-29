@@ -3,6 +3,11 @@ import { DOMINIO_PUBLICO, urlMenuPublico } from '@/features/material-grafico/url
 /**
  * Links públicos que el dueño puede compartir, con qué hace cada uno.
  *
+ * Punto ciego aceptado: `ownerMenuUrl` va sin `src`, así que un QR que el dueño
+ * haga por su cuenta con ese link no registra escaneos, y en las métricas del QR
+ * de mesa (canal `menu-qr`) ese negocio sale con 0. Ponerle `src` contaría
+ * también cada vez que el link se comparte suelto.
+ *
  * Ninguno lleva `?src=`: la landing registra un scan en `qr_scans` cuando viene
  * `src`, y un link copiado del panel no es un scan. Mismo criterio que
  * `urlMenuPublico`.
@@ -36,23 +41,39 @@ function isPublished(business: { slug: string | null; is_active: boolean }): bus
   return business.is_active && !!business.slug
 }
 
-export function ownerLinks(business: { slug: string | null; is_active: boolean }): OwnerLink[] {
+export function ownerLinks(
+  business: { slug: string | null; is_active: boolean },
+  opts: { hasServices: boolean },
+): OwnerLink[] {
   if (!isPublished(business)) return []
   const slug = business.slug
 
+  // El snapshot no dice si el negocio tiene pedidos activados
+  // (`accepts_orders`), así que el texto tiene que ser cierto en los dos casos.
+  // Sin nada capturado no hay precios que ver ni nada que pedir: el link sirve,
+  // pero no es el que conviene mandar cuando preguntan por el menú.
+  const ordenar: OwnerLink = opts.hasServices
+    ? {
+        key: 'ordenar',
+        title: 'Tu link para que te pidan',
+        url: `${DOMINIO_PUBLICO}/${slug}/ordenar`,
+        purpose:
+          'Abre tu negocio directo en la app de Vichente, con tus precios. Si tienes los pedidos activados, ahí mismo tu cliente arma su pedido y te llega a tu WhatsApp ya escrito.',
+        howTo:
+          'Es el link más importante para compartir. Mándalo cuando te pregunten «¿me mandas el menú?» o «¿qué tienes?», y ponlo en tus estados de WhatsApp.',
+        featured: true,
+      }
+    : {
+        key: 'ordenar',
+        title: 'Tu negocio en la app',
+        url: `${DOMINIO_PUBLICO}/${slug}/ordenar`,
+        purpose: 'Abre tu negocio directo en la app de Vichente.',
+        howTo:
+          'Cuando capturemos lo que ofreces con sus precios, este será el link para mandar cuando te pregunten «¿me mandas el menú?». Escríbenos para capturarlo.',
+      }
+
   return [
-    {
-      key: 'ordenar',
-      title: 'Tu link para que te pidan',
-      url: `${DOMINIO_PUBLICO}/${slug}/ordenar`,
-      // El snapshot no dice si el negocio tiene pedidos activados
-      // (`accepts_orders`), así que el texto tiene que ser cierto en los dos casos.
-      purpose:
-        'Abre tu negocio directo en la app de Vichente, con todo lo que ofreces y sus precios. Si tienes los pedidos activados, ahí mismo tu cliente arma su pedido y te llega a tu WhatsApp ya escrito.',
-      howTo:
-        'Es el link más importante para compartir. Mándalo cuando te pregunten «¿me mandas el menú?» o «¿qué tienes?», y ponlo en tus estados de WhatsApp y en tus redes.',
-      featured: true,
-    },
+    ordenar,
     {
       key: 'pagina',
       title: 'Tu página en Vichente',

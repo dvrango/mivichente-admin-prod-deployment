@@ -54,6 +54,6 @@ export const OWNER_FAQ: { q: string; a: string }[] = [
   },
   {
     q: '¿Qué link comparto?',
-    a: 'El más importante es tu link para que te pidan: mándalo cuando te pregunten «¿me mandas el menú?» y ponlo en tus estados y redes. Tu página es para quien busca tu dirección, tu horario o tu teléfono. El link de tu menú de mesa está en la tarjeta del QR, por si haces tus propios QR.',
+    a: 'El más importante es tu link para que te pidan: mándalo cuando te pregunten «¿me mandas el menú?» y ponlo en tus estados de WhatsApp. En la bio de tu Instagram y Facebook va tu página, que tiene tu dirección, tu horario y tu teléfono. Si ya tienes tu menú en Vichente, el link de tu menú de mesa está en la tarjeta del QR, por si haces tus propios QR.',
   },
 ]
