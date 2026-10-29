@@ -133,12 +133,15 @@ function StatTile({
   icon: Icon,
   label,
   value,
+  detail,
   missing = false,
 }: {
   href: string
   icon: LucideIcon
   label: string
   value: string
+  /** Segunda línea, más chica: el desglose del número. */
+  detail?: string
   missing?: boolean
 }) {
   return (
@@ -152,7 +155,10 @@ function StatTile({
       >
         {value}
       </span>
-      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className="text-muted-foreground text-xs">
+        {label}
+        {detail && <span className="block">{detail}</span>}
+      </span>
     </a>
   )
 }
@@ -205,7 +211,14 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
       : photos
   const cover = b.photo_url ?? gallery[0]?.url ?? null
   // Sin publicar, `ownerLinks` no da ninguno: la página pública daría 404.
-  const links = ownerLinks(b, { hasServices: services.length > 0 })
+  const links = ownerLinks(b, {
+    hasServices: services.length > 0,
+    acceptsOrders: b.accepts_orders,
+  })
+  // Sin la llave en ningún platillo, la función de prod todavía no trae fotos
+  // (antes del `db:push`): mejor no decir «0 con foto».
+  const knowsServicePhotos = services.some((s) => s.image_url !== undefined)
+  const servicesWithPhoto = services.filter((s) => s.image_url).length
   const publicUrl = links.find((l) => l.key === 'pagina')?.url ?? null
   const menuUrl = ownerMenuUrl(b, services.length > 0)
   // Mismo criterio de vigente que la app: una promo vencida o apagada ya no sale
@@ -309,6 +322,7 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
           icon={List}
           label={servicesLabel}
           value={String(services.length)}
+          detail={knowsServicePhotos ? `${servicesWithPhoto} con foto` : undefined}
           missing={services.length === 0}
         />
         <StatTile
@@ -444,31 +458,44 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
                   )}
                   <ul className="flex flex-col divide-y">
                     {group.items.map((s) => (
-                      <li key={s.id} className="flex flex-col gap-0.5 py-2.5">
-                        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                          <span className="text-sm font-medium">{s.name}</span>
-                          <span className="text-sm tabular-nums">{servicePrice(s)}</span>
+                      <li key={s.id} className="flex gap-3 py-2.5">
+                        {s.image_url && (
+                          <div className="bg-muted relative size-14 shrink-0 overflow-hidden rounded-lg">
+                            <Image
+                              src={s.image_url}
+                              alt=""
+                              fill
+                              sizes="56px"
+                              className="object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                            <span className="text-sm font-medium">{s.name}</span>
+                            <span className="text-sm tabular-nums">{servicePrice(s)}</span>
+                          </div>
+                          {s.description && (
+                            <p className="text-muted-foreground text-sm">{s.description}</p>
+                          )}
+                          {s.option_groups.map((g) => (
+                            <p key={g.name} className="text-muted-foreground text-xs">
+                              {g.name}:{' '}
+                              {g.options
+                                .map((o) =>
+                                  o.price_delta > 0
+                                    ? `${o.name} +${formatPrice(o.price_delta)}`
+                                    : o.name,
+                                )
+                                .join(', ')}
+                            </p>
+                          ))}
+                          {!s.show_in_profile && (
+                            <Badge variant="secondary" className="w-fit">
+                              Solo en el menú de mesa
+                            </Badge>
+                          )}
                         </div>
-                        {s.description && (
-                          <p className="text-muted-foreground text-sm">{s.description}</p>
-                        )}
-                        {s.option_groups.map((g) => (
-                          <p key={g.name} className="text-muted-foreground text-xs">
-                            {g.name}:{' '}
-                            {g.options
-                              .map((o) =>
-                                o.price_delta > 0
-                                  ? `${o.name} +${formatPrice(o.price_delta)}`
-                                  : o.name,
-                              )
-                              .join(', ')}
-                          </p>
-                        ))}
-                        {!s.show_in_profile && (
-                          <Badge variant="secondary" className="w-fit">
-                            Solo en el menú de mesa
-                          </Badge>
-                        )}
                       </li>
                     ))}
                   </ul>

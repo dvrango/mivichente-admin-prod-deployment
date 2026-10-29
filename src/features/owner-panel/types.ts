@@ -7,6 +7,10 @@ export type OwnerBusinessSummary =
 // fuente de verdad (`20261022120000_owner_read_only_panel`); los tipos
 // generados la declaran como `Json`, así que aquí se describe a mano y el
 // typecheck no avisa si la SQL cambia de forma: tocar las dos juntas.
+//
+// Los campos opcionales llegaron después (`20261029120000_owner_snapshot_service_photos`):
+// el admin se puede desplegar antes de que la migración llegue a prod, y ahí la
+// función todavía no los trae. `undefined` = "no sé", no `false`/`null`.
 
 export type OwnerHour = {
   day_of_week: number
@@ -29,6 +33,7 @@ export type OwnerService = {
   price: number | null
   section: string | null
   show_in_profile: boolean
+  image_url?: string | null
   variants: { name: string; price: number }[]
   option_groups: { name: string; options: { name: string; price_delta: number }[] }[]
 }
@@ -60,6 +65,7 @@ export type OwnerBusinessSnapshot = {
     offerings: string[] | null
     services_label: string | null
     has_delivery: boolean | null
+    accepts_orders?: boolean
     is_active: boolean
     promo_active: boolean
     promo_title: string | null
