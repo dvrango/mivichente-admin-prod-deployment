@@ -211,8 +211,10 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
       : photos
   const cover = b.photo_url ?? gallery[0]?.url ?? null
   // Sin publicar, `ownerLinks` no da ninguno: la página pública daría 404.
+  // La app solo arma pedidos con lo que sale en la ficha: lo que es «solo del
+  // menú de mesa» no cuenta para `/ordenar`, pero sí para el QR (`menuUrl`).
   const links = ownerLinks(b, {
-    hasServices: services.length > 0,
+    hasServices: services.some((s) => s.show_in_profile),
     acceptsOrders: b.accepts_orders,
   })
   // Sin la llave en ningún platillo, la función de prod todavía no trae fotos
