@@ -20,11 +20,23 @@ export type OwnerWhatsappTopic =
   | 'promocion'
   | 'qr'
 
-export function ownerWhatsappMessage(businessName: string, topic: OwnerWhatsappTopic): string {
+/**
+ * `section` solo aplica a `cambio`: es el título de la sección desde la que el
+ * dueño toca el botón («Horario», «Fotos», «Menú»…), para saber qué quiere
+ * cambiar sin preguntarle. Va entre comillas y no como «de mi horario» porque la
+ * etiqueta de servicios es del negocio y no siempre concuerda en género.
+ */
+export function ownerWhatsappMessage(
+  businessName: string,
+  topic: OwnerWhatsappTopic,
+  section?: string,
+): string {
   const saludo = `Hola, soy de ${businessName.trim()}.`
   switch (topic) {
     case 'cambio':
-      return `${saludo} Quiero cambiar algo de mi negocio en Vichente: `
+      return section
+        ? `${saludo} Quiero cambiar algo de mi negocio en Vichente, en «${section.trim()}»: `
+        : `${saludo} Quiero cambiar algo de mi negocio en Vichente: `
     case 'opiniones':
       return `${saludo} Me interesa: opiniones de mis clientes en Vichente.`
     case 'actividad':
@@ -46,6 +58,10 @@ export function vichenteWhatsappLink(text?: string): string {
   return text ? `${base}?text=${encodeURIComponent(text)}` : base
 }
 
-export function ownerWhatsappLink(businessName: string, topic: OwnerWhatsappTopic): string {
-  return vichenteWhatsappLink(ownerWhatsappMessage(businessName, topic))
+export function ownerWhatsappLink(
+  businessName: string,
+  topic: OwnerWhatsappTopic,
+  section?: string,
+): string {
+  return vichenteWhatsappLink(ownerWhatsappMessage(businessName, topic, section))
 }

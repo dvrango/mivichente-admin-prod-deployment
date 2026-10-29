@@ -22,7 +22,7 @@ export const OWNER_FAQ: { q: string; a: string }[] = [
   },
   {
     q: '¿Puedo cambiar mi información yo mismo?',
-    a: 'No, este panel es para que veas cómo aparece tu negocio en Vichente. Si ves algo mal o quieres cambiar tus datos, fotos, menú o precios, escríbenos por WhatsApp con el botón del panel y nosotros hacemos el cambio.',
+    a: 'No, este panel es para que veas cómo aparece tu negocio en Vichente. Si ves algo mal o quieres cambiar tus datos, fotos, menú o precios, toca «Quiero cambiar algo» en la sección que quieras corregir y nosotros hacemos el cambio.',
   },
   {
     q: '¿Qué hago si cambia mi horario?',
@@ -54,6 +54,6 @@ export const OWNER_FAQ: { q: string; a: string }[] = [
   },
   {
     q: '¿Qué link comparto?',
-    a: 'En «Tus links» cada uno dice para qué sirve. En corto: tu página es para tus redes; el de tu negocio en la app, para quien te pregunta «¿me mandas el menú?» si tienes pedidos activados; el del menú, para que lo consulten; y el de descargar, para quien quiera Vichente en su celular.',
+    a: 'El más importante es tu link para que te pidan: mándalo cuando te pregunten «¿me mandas el menú?» y ponlo en tus estados y redes. Tu página es para quien busca tu dirección, tu horario o tu teléfono. El link de tu menú de mesa está en la tarjeta del QR, por si haces tus propios QR.',
   },
 ]

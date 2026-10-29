@@ -30,8 +30,24 @@ describe('WhatsApp del panel del dueño', () => {
     expect(ownerWhatsappMessage('X', 'qr')).toContain('Me interesa: el QR para mis mesas')
   })
 
+  it('el cambio desde una sección dice cuál es', () => {
+    expect(ownerWhatsappMessage('X', 'cambio', 'Horario')).toContain(
+      'Quiero cambiar algo de mi negocio en Vichente, en «Horario»',
+    )
+    expect(ownerWhatsappMessage('X', 'cambio', ' Productos ')).toContain('en «Productos»')
+    expect(ownerWhatsappMessage('X', 'cambio')).not.toContain('«')
+  })
+
+  it('la sección solo cambia el mensaje de cambio', () => {
+    expect(ownerWhatsappMessage('X', 'qr', 'Horario')).toBe(ownerWhatsappMessage('X', 'qr'))
+  })
+
   it('codifica el texto para la URL', () => {
     const url = new URL(ownerWhatsappLink('Café & Pan', 'opiniones'))
     expect(url.searchParams.get('text')).toBe(ownerWhatsappMessage('Café & Pan', 'opiniones'))
+    const cambio = new URL(ownerWhatsappLink('Café & Pan', 'cambio', 'Fotos'))
+    expect(cambio.searchParams.get('text')).toBe(
+      ownerWhatsappMessage('Café & Pan', 'cambio', 'Fotos'),
+    )
   })
 })

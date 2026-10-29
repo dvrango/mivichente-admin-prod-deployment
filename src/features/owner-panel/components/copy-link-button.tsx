@@ -9,7 +9,14 @@ type CopyState = 'idle' | 'copied' | 'failed'
 // Copiar es lo que el dueño va a hacer con el link: pegarlo en WhatsApp o en su
 // bio. Si el navegador niega el portapapeles (http, WebView viejo), el link
 // sigue a la vista para copiarlo a mano.
-export function CopyLinkButton({ url }: { url: string }) {
+export function CopyLinkButton({
+  url,
+  variant = 'default',
+}: {
+  url: string
+  /** `outline` donde copiar no es la acción principal de la tarjeta. */
+  variant?: 'default' | 'outline'
+}) {
   const [state, setState] = useState<CopyState>('idle')
 
   async function copy() {
@@ -23,7 +30,13 @@ export function CopyLinkButton({ url }: { url: string }) {
   }
 
   return (
-    <Button type="button" size="sm" onClick={copy} className="flex-1 sm:flex-none">
+    <Button
+      type="button"
+      size="sm"
+      variant={variant}
+      onClick={copy}
+      className="flex-1 sm:flex-none"
+    >
       {state === 'copied' ? <Check className="size-4" /> : <Copy className="size-4" />}
       {state === 'copied' ? 'Copiado' : state === 'failed' ? 'Cópialo a mano' : 'Copiar link'}
     </Button>

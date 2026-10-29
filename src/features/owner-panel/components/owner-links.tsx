@@ -16,8 +16,20 @@ export function OwnerLinks({ links }: { links: OwnerLink[] }) {
   return (
     <ul className="flex flex-col gap-3">
       {links.map((l) => (
-        <li key={l.key} className="bg-card flex flex-col gap-3 rounded-xl border p-4">
+        <li
+          key={l.key}
+          className={cn(
+            'bg-card flex flex-col gap-3 rounded-xl border p-4',
+            l.featured &&
+              'border-emerald-300 ring-1 ring-emerald-300 dark:border-emerald-800 dark:ring-emerald-800',
+          )}
+        >
           <div className="flex flex-col gap-1">
+            {l.featured && (
+              <span className="inline-flex h-6 w-fit items-center rounded-full bg-emerald-50 px-2.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                El más importante
+              </span>
+            )}
             <h3 className="text-base font-semibold">{l.title}</h3>
             <p className="bg-muted rounded-md px-2.5 py-1.5 font-mono text-xs [overflow-wrap:anywhere]">
               {l.url.replace('https://', '')}
