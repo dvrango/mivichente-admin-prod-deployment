@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils'
 import type { OwnerBusinessSnapshot, OwnerHour, OwnerService } from '../types'
 import { ownerLinks } from '../links'
+import { OwnerFaq } from './owner-faq'
 import { OwnerFeatureCards } from './owner-feature-cards'
 import { OwnerLinks } from './owner-links'
 import { OwnerWhatsappButton } from './owner-whatsapp-button'
@@ -36,6 +37,7 @@ const SECTIONS = {
   fotos: 'fotos',
   menu: 'menu',
   opiniones: 'opiniones',
+  faq: 'preguntas',
 } as const
 
 function formatPrice(price: number | null): string {
@@ -167,6 +169,7 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
     { id: SECTIONS.fotos, label: 'Fotos' },
     { id: SECTIONS.menu, label: servicesLabel },
     { id: SECTIONS.opiniones, label: 'Opiniones' },
+    { id: SECTIONS.faq, label: 'Preguntas' },
   ]
 
   return (
@@ -484,6 +487,9 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
           )}
         </CardContent>
       </Card>
+
+      <SectionTitle id={SECTIONS.faq} title="Preguntas frecuentes" />
+      <OwnerFaq />
     </div>
   )
 }

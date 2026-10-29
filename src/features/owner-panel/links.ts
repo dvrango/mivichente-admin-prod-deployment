@@ -48,10 +48,12 @@ export function ownerLinks(
       // solo, porque "Tu productos" no concuerda.
       title: opts.servicesLabel,
       url: urlMenuPublico(slug),
+      // Consultar y ordenar son usos distintos (guía «Preparar y entregar el menú
+      // y los pedidos»): este es para ver, el de la app es para pedir.
       purpose:
-        'Todo lo que ofreces, con precios, en una página que se abre directo en el navegador.',
+        'Todo lo que ofreces, con precios, en una página que se abre directo en el navegador. Es para consultar, no para pedir.',
       howTo:
-        'Mándalo cuando te pregunten por WhatsApp qué tienes y cuánto cuesta, o súbelo a tu estado para que tus clientes lo tengan a la mano.',
+        'Es el mismo que abre el QR de mesa, si tienes uno. Úsalo para que lo vean en tu local o en tus redes.',
     })
   }
 
@@ -63,7 +65,7 @@ export function ownerLinks(
       purpose:
         'Abre tu negocio dentro de la app de Vichente. Si tienes pedidos activados, ahí tu cliente arma su pedido y te llega por WhatsApp.',
       howTo:
-        'Compártelo con quien te pide seguido, para que la próxima vez arme su pedido sin preguntarte precios.',
+        'Si tienes pedidos activados, mándalo cuando te pregunten «¿me mandas el menú?»: quien pregunta ya quiere pedir, y ahí lo arma solo.',
     },
     {
       key: 'app-descarga',
