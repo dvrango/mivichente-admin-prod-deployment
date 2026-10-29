@@ -43,47 +43,73 @@ function isPublished(business: { slug: string | null; is_active: boolean }): bus
 
 export function ownerLinks(
   business: { slug: string | null; is_active: boolean },
-  opts: { hasServices: boolean },
+  opts: {
+    hasServices: boolean
+    /** `undefined` cuando el snapshot todavía no trae `accepts_orders`. */
+    acceptsOrders?: boolean
+  },
 ): OwnerLink[] {
   if (!isPublished(business)) return []
   const slug = business.slug
+  const url = `${DOMINIO_PUBLICO}/${slug}/ordenar`
 
-  // El snapshot no dice si el negocio tiene pedidos activados
-  // (`accepts_orders`), así que el texto tiene que ser cierto en los dos casos.
+  return [ordenarLink(url, opts), paginaLink(slug)]
+}
+
+function ordenarLink(
+  url: string,
+  { hasServices, acceptsOrders }: { hasServices: boolean; acceptsOrders?: boolean },
+): OwnerLink {
   // Sin nada capturado no hay precios que ver ni nada que pedir: el link sirve,
   // pero no es el que conviene mandar cuando preguntan por el menú.
-  const ordenar: OwnerLink = opts.hasServices
-    ? {
-        key: 'ordenar',
-        title: 'Tu link para que te pidan',
-        url: `${DOMINIO_PUBLICO}/${slug}/ordenar`,
-        purpose:
-          'Abre tu negocio directo en la app de Vichente, con tus precios. Si tienes los pedidos activados, ahí mismo tu cliente arma su pedido y te llega a tu WhatsApp ya escrito.',
-        howTo:
-          'Es el link más importante para compartir. Mándalo cuando te pregunten «¿me mandas el menú?» o «¿qué tienes?», y ponlo en tus estados de WhatsApp.',
-        featured: true,
-      }
-    : {
-        key: 'ordenar',
-        title: 'Tu negocio en la app',
-        url: `${DOMINIO_PUBLICO}/${slug}/ordenar`,
-        purpose: 'Abre tu negocio directo en la app de Vichente.',
-        howTo:
-          'Cuando capturemos lo que ofreces con sus precios, este será el link para mandar cuando te pregunten «¿me mandas el menú?». Escríbenos para capturarlo.',
-      }
-
-  return [
-    ordenar,
-    {
-      key: 'pagina',
-      title: 'Tu página en Vichente',
-      url: `${DOMINIO_PUBLICO}/${slug}`,
-      purpose:
-        'Tu ficha con tus datos, horario, ubicación y botones para llamarte o escribirte. Se abre en cualquier celular, sin instalar nada.',
+  if (!hasServices) {
+    return {
+      key: 'ordenar',
+      title: 'Tu negocio en la app',
+      url,
+      purpose: 'Abre tu negocio directo en la app de Vichente.',
       howTo:
-        'Ponla en la bio de tu Instagram y Facebook, o mándala cuando alguien te pregunte dónde estás o a qué hora abres.',
-    },
-  ]
+        'Cuando capturemos lo que ofreces con sus precios, este será el link para mandar cuando te pregunten «¿me mandas el menú?». Escríbenos para capturarlo.',
+    }
+  }
+  if (acceptsOrders === false) {
+    return {
+      key: 'ordenar',
+      title: 'Tu menú en la app',
+      url,
+      purpose:
+        'Abre tu negocio directo en la app de Vichente, con tus precios. Todavía no tienes los pedidos activados: tu cliente ve lo que ofreces y te llama o te escribe.',
+      howTo:
+        'Mándalo cuando te pregunten «¿me mandas el menú?» y ponlo en tus estados de WhatsApp. Si quieres que te pidan desde ahí, escríbenos para activar los pedidos.',
+      featured: true,
+    }
+  }
+  return {
+    key: 'ordenar',
+    title: 'Tu link para que te pidan',
+    url,
+    // Sin el dato (la función de prod todavía no lo trae), el texto tiene que
+    // ser cierto con y sin pedidos activados.
+    purpose:
+      acceptsOrders === true
+        ? 'Abre tu negocio directo en la app de Vichente. Ahí tu cliente ve tus precios, arma su pedido y te llega a tu WhatsApp ya escrito.'
+        : 'Abre tu negocio directo en la app de Vichente, con tus precios. Si tienes los pedidos activados, ahí mismo tu cliente arma su pedido y te llega a tu WhatsApp ya escrito.',
+    howTo:
+      'Es el link más importante para compartir. Mándalo cuando te pregunten «¿me mandas el menú?» o «¿qué tienes?», y ponlo en tus estados de WhatsApp.',
+    featured: true,
+  }
+}
+
+function paginaLink(slug: string): OwnerLink {
+  return {
+    key: 'pagina',
+    title: 'Tu página en Vichente',
+    url: `${DOMINIO_PUBLICO}/${slug}`,
+    purpose:
+      'Tu ficha con tus datos, horario, ubicación y botones para llamarte o escribirte. Se abre en cualquier celular, sin instalar nada.',
+    howTo:
+      'Ponla en la bio de tu Instagram y Facebook, o mándala cuando alguien te pregunte dónde estás o a qué hora abres.',
+  }
 }
 
 /**

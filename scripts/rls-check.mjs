@@ -1411,6 +1411,14 @@ async function main() {
       nombres.includes('RLS check publicado') && !nombres.includes('RLS check borrador'),
       JSON.stringify(nombres),
     )
+    // 5b0eve153: la foto de cada platillo y si acepta pedidos. Son datos de su
+    // propio negocio; lo que se cuida es que sigan llegando solo por aquí.
+    check(
+      'snapshot trae accepts_orders y la foto de cada platillo',
+      typeof propio?.business?.accepts_orders === 'boolean' &&
+        (propio?.services ?? []).every((s) => 'image_url' in s),
+      JSON.stringify(propio?.business?.accepts_orders),
+    )
 
     for (const [label, biz] of [
       ['ajeno del mismo municipio', bizAjeno],
