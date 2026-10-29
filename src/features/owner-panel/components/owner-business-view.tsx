@@ -6,7 +6,9 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { OwnerBusinessSnapshot, OwnerHour, OwnerService } from '../types'
+import { ownerLinks } from '../links'
 import { OwnerFeatureCards } from './owner-feature-cards'
+import { OwnerLinks } from './owner-links'
 import { OwnerWhatsappButton } from './owner-whatsapp-button'
 
 // Vista de solo lectura de la ficha, para el dueño. Todo en texto plano: el
@@ -27,6 +29,7 @@ const DAYS: { value: number; label: string }[] = [
 ]
 
 const SECTIONS = {
+  links: 'links',
   herramientas: 'herramientas',
   ficha: 'ficha',
   horario: 'horario',
@@ -152,10 +155,12 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
       ? [{ id: 'principal', url: b.photo_url, caption: null, kind: 'principal' }, ...photos]
       : photos
   const cover = b.photo_url ?? gallery[0]?.url ?? null
-  // Sin publicar, la página pública todavía no existe: el link daría 404.
-  const publicUrl = b.is_active && b.slug ? `https://vichente.com/${b.slug}` : null
+  // Sin publicar, `ownerLinks` no da ninguno: la página pública daría 404.
+  const links = ownerLinks(b, { servicesLabel, hasServices: services.length > 0 })
+  const publicUrl = links.find((l) => l.key === 'pagina')?.url ?? null
 
   const nav = [
+    { id: SECTIONS.links, label: 'Tus links' },
     { id: SECTIONS.herramientas, label: 'Para tu negocio' },
     { id: SECTIONS.ficha, label: 'Tu ficha' },
     { id: SECTIONS.horario, label: 'Horario' },
@@ -277,6 +282,13 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
           ))}
         </ul>
       </nav>
+
+      <SectionTitle
+        id={SECTIONS.links}
+        title="Tus links"
+        hint="Cópialos y compártelos para que tus clientes te encuentren."
+      />
+      <OwnerLinks links={links} />
 
       <SectionTitle
         id={SECTIONS.herramientas}
