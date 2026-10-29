@@ -26,7 +26,10 @@ on:
 permissions:
   contents: read
 
-# Dos merges seguidos se despliegan en orden, sin pisarse.
+# Nunca corren dos deploys a la vez. GitHub deja una sola corrida en espera por
+# grupo: si llegan varios merges seguidos, las intermedias se cancelan y la última
+# despliega todo, porque compara contra el espejo. Un disparo manual en espera
+# también se cancela si entra un merge; en ese caso se vuelve a disparar.
 concurrency:
   group: deploy-prod
   cancel-in-progress: false
