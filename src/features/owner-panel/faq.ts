@@ -34,7 +34,7 @@ export const OWNER_FAQ: { q: string; a: string }[] = [
   },
   {
     q: '¿Cómo empiezo a recibir opiniones?',
-    a: 'Escríbenos por WhatsApp con el botón del panel y te llevamos un portafolletos con un QR para tu mostrador o tus mesas. Tu cliente lo escanea, te deja su opinión desde su celular y, a cambio, recibe un descuento para su siguiente compra. El descuento lo acordamos contigo.',
+    a: 'Escríbenos por WhatsApp con el botón del panel y vemos contigo cómo ponerlo: es un letrero acrílico con su propio QR para tu local, distinto del QR del menú. Tu cliente lo escanea, te deja su opinión desde su celular y, a cambio, recibe un descuento para su siguiente compra. El descuento lo acordamos contigo.',
   },
   {
     q: '¿Por qué no veo cuánta gente visita mi negocio?',
