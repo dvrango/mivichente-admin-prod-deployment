@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,13 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <header className="bg-background flex items-center justify-between gap-3 border-b px-4 py-3">
-        <span className="text-sm font-semibold">Vichente · Mi negocio</span>
+        <span className="flex items-center gap-2">
+          <Image src="/brand/vichente-isotipo.png" alt="" width={28} height={28} />
+          <span className="flex flex-col leading-tight">
+            <span className="text-sm font-semibold">Vichente</span>
+            <span className="text-muted-foreground text-xs">Mi negocio</span>
+          </span>
+        </span>
         <div className="flex min-w-0 items-center gap-2">
           <span
             className="text-muted-foreground max-w-48 truncate text-xs"
