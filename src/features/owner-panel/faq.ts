@@ -18,7 +18,7 @@ export const OWNER_FAQ: { q: string; a: string }[] = [
   },
   {
     q: '¿Cómo activo los pedidos en mi negocio?',
-    a: 'Escríbenos por WhatsApp con el botón del panel. Primero capturamos tu menú con sus precios, porque lo que no tiene precio no se puede pedir, y después nosotros activamos los pedidos.',
+    a: 'Escríbenos por WhatsApp con el botón del panel. Primero capturamos tu menú con sus precios, porque lo que no tiene precio no se puede pedir, y después vemos contigo si se pueden activar.',
   },
   {
     q: '¿Puedo cambiar mi información yo mismo?',
@@ -30,15 +30,15 @@ export const OWNER_FAQ: { q: string; a: string }[] = [
   },
   {
     q: '¿Quién ve las opiniones de mis clientes?',
-    a: 'Solo tú. Las opiniones que te dejan tus clientes son privadas: no se publican en tu ficha ni en ninguna parte de Vichente. Si todavía no recibes opiniones y te interesa, escríbenos por WhatsApp.',
+    a: 'Tú y el equipo de Vichente. Las opiniones que te dejan tus clientes son privadas: no se publican en tu ficha ni en ninguna parte de la app. Si todavía no recibes opiniones y te interesa, escríbenos por WhatsApp.',
   },
   {
     q: '¿Por qué no veo cuánta gente visita mi negocio?',
     a: 'Por ahora el panel no muestra esa información. Si quieres saber cómo le va a tu ficha, pídenoslo por WhatsApp y te lo platicamos.',
   },
   {
-    q: '¿Cómo consigo el sticker QR para mi local?',
-    a: 'Pídelo por WhatsApp con el botón del panel. El QR abre tu menú en el celular de tus clientes para que lo consulten; los pedidos se hacen desde la app.',
+    q: '¿Cómo consigo el QR para mis mesas?',
+    a: 'Pídelo por WhatsApp con el botón del panel. El QR abre tu menú en el celular de tus clientes para que lo consulten; los pedidos se hacen desde la app. Si todavía no tienes tu menú en Vichente, primero lo capturamos.',
   },
   {
     q: '¿Qué es la tarjeta de sellos?',

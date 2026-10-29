@@ -93,9 +93,9 @@ function features(b: OwnerBusinessSnapshot['business']): Feature[] {
     {
       topic: 'qr',
       icon: QrCode,
-      title: 'Sticker QR para tu local',
+      title: 'QR para tus mesas',
       status: 'disponible',
-      body: 'Un sticker con código QR que lleva a tus clientes directo a tu página en Vichente.',
+      body: 'Un sticker con código QR que abre tu menú en el celular de tus clientes, para que lo consulten desde la mesa.',
     },
     {
       topic: 'actividad',

@@ -36,7 +36,7 @@ export function ownerWhatsappMessage(businessName: string, topic: OwnerWhatsappT
     case 'promocion':
       return `${saludo} Me interesa: una promoción en Vichente.`
     case 'qr':
-      return `${saludo} Me interesa: el sticker QR de Vichente para mi local.`
+      return `${saludo} Me interesa: el QR para mis mesas.`
   }
 }
 
