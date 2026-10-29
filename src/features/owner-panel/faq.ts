@@ -30,7 +30,11 @@ export const OWNER_FAQ: { q: string; a: string }[] = [
   },
   {
     q: '¿Quién ve las opiniones de mis clientes?',
-    a: 'Tú y el equipo de Vichente. Las opiniones que te dejan tus clientes son privadas: no se publican en tu ficha ni en ninguna parte de la app. Si todavía no recibes opiniones y te interesa, escríbenos por WhatsApp.',
+    a: 'Tú y el equipo de Vichente. Las opiniones que te dejan tus clientes son privadas: no se publican en tu ficha ni en ninguna parte de la app.',
+  },
+  {
+    q: '¿Cómo empiezo a recibir opiniones?',
+    a: 'Escríbenos por WhatsApp con el botón del panel y te llevamos un portafolletos con un QR para tu mostrador o tus mesas. Tu cliente lo escanea, te deja su opinión desde su celular y, a cambio, recibe un descuento para su siguiente compra. El descuento lo acordamos contigo.',
   },
   {
     q: '¿Por qué no veo cuánta gente visita mi negocio?',
