@@ -19,6 +19,7 @@ import {
 } from './schema'
 import { parsePromoForm } from './promo'
 import { parseFeedbackRewardForm } from './feedback-reward'
+import { parseStampCardForm } from './stamp-card'
 import type { WeeklyHours } from './types'
 import { saveOwnerContact, splitOwnerContact } from './owner-contact'
 
@@ -541,6 +542,52 @@ export async function updateBusinessFeedbackReward(
 
   revalidatePath(`/businesses/${id}`)
   revalidatePath(`/businesses/${id}/opiniones`)
+  return { error: null, saved: true }
+}
+
+export type StampCardFormState = { error: string | null; saved: boolean }
+
+/**
+ * Guarda la configuración de la tarjeta de sellos. Solo admin: el trigger
+ * `businesses_stamp_card_admin_only` es la protección real (la RLS deja al
+ * reviewer editar el negocio y acota filas, no columnas); este guard evita que
+ * una llamada manual al Server Action llegue al update sin sesión de admin.
+ * Las tarjetas a medias no cambian: cada vuelta guarda su copia de sellos y
+ * premio, y la configuración nueva aplica desde la vuelta siguiente.
+ */
+export async function updateBusinessStampCard(
+  id: string,
+  _prev: StampCardFormState,
+  formData: FormData,
+): Promise<StampCardFormState> {
+  await requireAdmin()
+
+  const parsed = parseStampCardForm(formData)
+  if (!parsed.success) return { error: firstIssue(parsed.error), saved: false }
+  const { active, stampsRequired, reward } = parsed.data
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('businesses')
+    .update({
+      stamp_card_active: active,
+      stamp_card_stamps_required: stampsRequired,
+      stamp_card_reward: reward,
+      updated_by: await currentUserId(supabase),
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) {
+    if (error.code === '42501') {
+      return { error: 'Solo un administrador puede cambiar esto.', saved: false }
+    }
+    return { error: error.message, saved: false }
+  }
+  if (!data?.length) return { error: 'No se encontró el negocio.', saved: false }
+
+  revalidatePath(`/businesses/${id}`)
+  revalidatePath(`/businesses/${id}/sellos`)
   return { error: null, saved: true }
 }
 
