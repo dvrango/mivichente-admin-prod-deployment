@@ -38,6 +38,11 @@ export function QrMostradorPanel({ url, archivo }: Props) {
       color: { dark: '#000000', light: '#ffffff' },
     })
       .then(() => {
+        // `toCanvas` le pone `style.width/height` en px al canvas, y ese estilo
+        // en línea le gana a `w-full h-auto`: el QR de 1024 px se salía de la
+        // tarjeta. Se quita para que mande la clase.
+        canvas.style.removeProperty('width')
+        canvas.style.removeProperty('height')
         if (!cancelado) setEstado('listo')
       })
       .catch((e: Error) => {
