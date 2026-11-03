@@ -1,46 +1,49 @@
 CREATE TABLE "public"."businesses" (
-  "id"                      uuid                     NOT NULL DEFAULT gen_random_uuid(),
-  "name"                    text                     NOT NULL,
-  "category_id"             uuid,
-  "phone"                   text                     NOT NULL,
-  "address"                 text,
-  "schedule"                text,
-  "photo_url"               text,
-  "is_active"               boolean                  NOT NULL DEFAULT false,
-  "created_at"              timestamp with time zone NOT NULL DEFAULT now(),
-  "updated_at"              timestamp with time zone NOT NULL DEFAULT now(),
-  "aliases"                 text[]                   NOT NULL DEFAULT '{}'::text[],
-  "phone_is_whatsapp"       boolean                  NOT NULL DEFAULT false,
-  "maps_url"                text,
-  "is_verified"             boolean                  NOT NULL DEFAULT false,
-  "verified_at"             timestamp with time zone,
-  "data_source"             text                     NOT NULL DEFAULT 'scraping'::text,
-  "municipio"               text                     NOT NULL DEFAULT 'Vicente Guerrero'::text,
-  "colonia"                 text,
-  "description"             text,
-  "facebook_url"            text,
-  "instagram_url"           text,
-  "offerings"               text[]                   NOT NULL DEFAULT '{}'::text[],
-  "is_featured"             boolean                  NOT NULL DEFAULT false,
-  "created_by"              uuid,
-  "updated_by"              uuid,
-  "slug"                    text                     NOT NULL DEFAULT ''::text,
-  "has_delivery"            boolean                  NOT NULL DEFAULT false,
-  "services_label"          text,
-  "latitude"                double precision,
-  "longitude"               double precision,
-  "location_accuracy_m"     double precision,
-  "whatsapp_phone"          text,
-  "accepts_orders"          boolean                  NOT NULL DEFAULT false,
-  "delivery_fee"            numeric(10,2),
-  "promo_active"            boolean                  NOT NULL DEFAULT false,
-  "promo_title"             text,
-  "promo_body"              text,
-  "promo_ends_at"           date,
-  "promo_updated_at"        timestamp with time zone,
-  "feedback_reward_active"  boolean                  NOT NULL DEFAULT false,
-  "feedback_reward_benefit" text,
-  "feedback_reward_days"    integer                  NOT NULL DEFAULT 30,
+  "id"                         uuid                     NOT NULL DEFAULT gen_random_uuid(),
+  "name"                       text                     NOT NULL,
+  "category_id"                uuid,
+  "phone"                      text                     NOT NULL,
+  "address"                    text,
+  "schedule"                   text,
+  "photo_url"                  text,
+  "is_active"                  boolean                  NOT NULL DEFAULT false,
+  "created_at"                 timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at"                 timestamp with time zone NOT NULL DEFAULT now(),
+  "aliases"                    text[]                   NOT NULL DEFAULT '{}'::text[],
+  "phone_is_whatsapp"          boolean                  NOT NULL DEFAULT false,
+  "maps_url"                   text,
+  "is_verified"                boolean                  NOT NULL DEFAULT false,
+  "verified_at"                timestamp with time zone,
+  "data_source"                text                     NOT NULL DEFAULT 'scraping'::text,
+  "municipio"                  text                     NOT NULL DEFAULT 'Vicente Guerrero'::text,
+  "colonia"                    text,
+  "description"                text,
+  "facebook_url"               text,
+  "instagram_url"              text,
+  "offerings"                  text[]                   NOT NULL DEFAULT '{}'::text[],
+  "is_featured"                boolean                  NOT NULL DEFAULT false,
+  "created_by"                 uuid,
+  "updated_by"                 uuid,
+  "slug"                       text                     NOT NULL DEFAULT ''::text,
+  "has_delivery"               boolean                  NOT NULL DEFAULT false,
+  "services_label"             text,
+  "latitude"                   double precision,
+  "longitude"                  double precision,
+  "location_accuracy_m"        double precision,
+  "whatsapp_phone"             text,
+  "accepts_orders"             boolean                  NOT NULL DEFAULT false,
+  "delivery_fee"               numeric(10,2),
+  "promo_active"               boolean                  NOT NULL DEFAULT false,
+  "promo_title"                text,
+  "promo_body"                 text,
+  "promo_ends_at"              date,
+  "promo_updated_at"           timestamp with time zone,
+  "feedback_reward_active"     boolean                  NOT NULL DEFAULT false,
+  "feedback_reward_benefit"    text,
+  "feedback_reward_days"       integer                  NOT NULL DEFAULT 30,
+  "stamp_card_active"          boolean                  NOT NULL DEFAULT false,
+  "stamp_card_stamps_required" integer,
+  "stamp_card_reward"          text,
   CONSTRAINT "businesses_data_source_check" CHECK ((data_source = ANY (ARRAY['scraping'::text, 'self_registered'::text, 'admin'::text]))),
   CONSTRAINT "businesses_delivery_fee_valid" CHECK (((delivery_fee IS NULL) OR ((delivery_fee >= (0)::numeric) AND (delivery_fee <= 99999999.99)))),
   CONSTRAINT "businesses_feedback_reward_active_needs_benefit" CHECK (((NOT feedback_reward_active) OR (NULLIF(btrim(feedback_reward_benefit), ''::text) IS NOT NULL))),
@@ -53,6 +56,11 @@ CREATE TABLE "public"."businesses" (
   CONSTRAINT "businesses_promo_active_needs_title" CHECK (((NOT promo_active) OR (NULLIF(btrim(promo_title), ''::text) IS NOT NULL))),
   CONSTRAINT "businesses_promo_body_length" CHECK (((promo_body IS NULL) OR (char_length(promo_body) <= 2000))),
   CONSTRAINT "businesses_promo_title_length" CHECK (((promo_title IS NULL) OR ((char_length(promo_title) >= 1) AND (char_length(promo_title) <= 80)))),
+  CONSTRAINT "businesses_stamp_card_active_needs_config" CHECK (((NOT stamp_card_active) OR ((stamp_card_stamps_required IS
+    NOT NULL) AND (NULLIF(btrim(stamp_card_reward), ''::text) IS NOT NULL)))),
+  CONSTRAINT "businesses_stamp_card_reward_length" CHECK (((stamp_card_reward IS NULL) OR ((char_length(stamp_card_reward) >= 1) AND (char_length(stamp_card_reward) <= 40)))),
+  CONSTRAINT "businesses_stamp_card_stamps_required_range"
+    CHECK (((stamp_card_stamps_required IS NULL) OR ((stamp_card_stamps_required >= 2) AND (stamp_card_stamps_required <= 20)))),
   CONSTRAINT "businesses_category_id_fkey" FOREIGN KEY (category_id) REFERENCES public.categories(id) ON DELETE SET NULL,
   CONSTRAINT "businesses_created_by_fkey" FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON DELETE SET NULL,
   CONSTRAINT "businesses_updated_by_fkey" FOREIGN KEY (updated_by) REFERENCES public.profiles(id) ON DELETE SET NULL
@@ -103,6 +111,11 @@ CREATE TRIGGER businesses_set_updated_at
   BEFORE UPDATE ON public.businesses
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TRIGGER businesses_stamp_card_admin_only
+  BEFORE INSERT OR UPDATE OF stamp_card_active, stamp_card_stamps_required, stamp_card_reward ON public.businesses
+  FOR EACH ROW
+  EXECUTE FUNCTION public.guard_business_stamp_card_admin();
 
 CREATE TRIGGER businesses_stamp_promo
   BEFORE INSERT OR UPDATE OF promo_title, promo_body, promo_ends_at, promo_updated_at ON public.businesses
@@ -165,5 +178,11 @@ COMMENT ON COLUMN "public"."businesses"."promo_ends_at" IS 'Último día válido
 COMMENT ON COLUMN "public"."businesses"."promo_title" IS 'Titular de la promoción, el que se ve en la tarjeta de la ficha. Máximo 80 caracteres.';
 
 COMMENT ON COLUMN "public"."businesses"."promo_updated_at" IS 'Cuándo cambió el contenido de la promoción. La app lo usa como llave de "ya la vio" para mostrar el modal una vez por promoción y device. Lo sella un trigger.';
+
+COMMENT ON COLUMN "public"."businesses"."stamp_card_active" IS 'Interruptor de la tarjeta de sellos. Apagado (o el negocio inactivo), no se crean tarjetas ni se dan sellos; un premio ya ganado sí se puede canjear. Solo lo cambia un admin (trigger).';
+
+COMMENT ON COLUMN "public"."businesses"."stamp_card_reward" IS 'Premio que eligió el dueño, sin artículo ("frappé"): la tarjeta dice "para tu {premio}". Cada vuelta guarda su copia. Solo lo cambia un admin (trigger).';
+
+COMMENT ON COLUMN "public"."businesses"."stamp_card_stamps_required" IS 'Sellos que llenan la tarjeta (2 a 20). Cada vuelta guarda su copia al crearse: un cambio aplica desde la vuelta siguiente. Solo lo cambia un admin (trigger).';
 
 COMMENT ON COLUMN "public"."businesses"."whatsapp_phone" IS 'Número de WhatsApp cuando es distinto al de llamadas (businesses.phone). NULL = usar phone si phone_is_whatsapp.';
