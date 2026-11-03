@@ -2057,6 +2057,9 @@ export type Database = {
           schedule: string | null
           services_label: string | null
           slug: string
+          stamp_card_active: boolean
+          stamp_card_reward: string | null
+          stamp_card_stamps_required: number | null
           updated_at: string
           updated_by: string | null
           verified_at: string | null
@@ -2102,6 +2105,9 @@ export type Database = {
           schedule?: string | null
           services_label?: string | null
           slug?: string
+          stamp_card_active?: boolean
+          stamp_card_reward?: string | null
+          stamp_card_stamps_required?: number | null
           updated_at?: string
           updated_by?: string | null
           verified_at?: string | null
@@ -2147,6 +2153,9 @@ export type Database = {
           schedule?: string | null
           services_label?: string | null
           slug?: string
+          stamp_card_active?: boolean
+          stamp_card_reward?: string | null
+          stamp_card_stamps_required?: number | null
           updated_at?: string
           updated_by?: string | null
           verified_at?: string | null
@@ -2450,6 +2459,120 @@ export type Database = {
           },
         ]
       }
+      stamp_card_holders: {
+        Row: {
+          business_id: string
+          created_at: string
+          device_id: string
+          id: string
+          token: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          device_id: string
+          id?: string
+          token?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'stamp_card_holders_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      stamp_card_stamps: {
+        Row: {
+          card_id: string
+          created_at: string
+          holder_id: string
+          id: string
+          stamp_day: string
+          stamped_by: string | null
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          holder_id: string
+          id?: string
+          stamp_day: string
+          stamped_by?: string | null
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          holder_id?: string
+          id?: string
+          stamp_day?: string
+          stamped_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'stamp_card_stamps_card_holder_fkey'
+            columns: ['card_id', 'holder_id']
+            referencedRelation: 'stamp_cards'
+            referencedColumns: ['id', 'holder_id']
+          },
+          {
+            foreignKeyName: 'stamp_card_stamps_stamped_by_fkey'
+            columns: ['stamped_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      stamp_cards: {
+        Row: {
+          created_at: string
+          holder_id: string
+          id: string
+          redeemed_at: string | null
+          redeemed_by: string | null
+          reward: string
+          stamps_required: number
+        }
+        Insert: {
+          created_at?: string
+          holder_id: string
+          id?: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          reward: string
+          stamps_required: number
+        }
+        Update: {
+          created_at?: string
+          holder_id?: string
+          id?: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          reward?: string
+          stamps_required?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'stamp_cards_holder_id_fkey'
+            columns: ['holder_id']
+            referencedRelation: 'stamp_card_holders'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'stamp_cards_redeemed_by_fkey'
+            columns: ['redeemed_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2583,6 +2706,9 @@ export type Database = {
           schedule: string | null
           services_label: string | null
           slug: string
+          stamp_card_active: boolean
+          stamp_card_reward: string | null
+          stamp_card_stamps_required: number | null
           updated_at: string
           updated_by: string | null
           verified_at: string | null
@@ -2617,6 +2743,26 @@ export type Database = {
           valid_until: string
         }[]
       }
+      get_or_create_stamp_card: {
+        Args: { p_device_id: string; p_slug: string }
+        Returns: string
+      }
+      get_stamp_card: {
+        Args: { p_token: string }
+        Returns: {
+          business_name: string
+          business_slug: string
+          is_full: boolean
+          last_redeemed_at: string
+          last_redeemed_reward: string
+          last_stamp_at: string
+          program_active: boolean
+          reward: string
+          server_now: string
+          stamps: number
+          stamps_required: number
+        }[]
+      }
       immutable_unaccent: { Args: { '': string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_food: {
@@ -2626,6 +2772,21 @@ export type Database = {
       is_owner_of: { Args: { p_business_id: string }; Returns: boolean }
       is_search_stopword: { Args: { term: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      owner_add_stamp: {
+        Args: { p_token: string }
+        Returns: {
+          business_id: string
+          business_name: string
+          card_id: string
+          is_full: boolean
+          last_redeemed_at: string
+          program_active: boolean
+          reward: string
+          stamped_today: boolean
+          stamps: number
+          stamps_required: number
+        }[]
+      }
       owner_business_snapshot: {
         Args: { p_business_id: string }
         Returns: Json
@@ -2636,6 +2797,36 @@ export type Database = {
           id: string
           name: string
           slug: string
+        }[]
+      }
+      owner_get_stamp_card: {
+        Args: { p_token: string }
+        Returns: {
+          business_id: string
+          business_name: string
+          card_id: string
+          is_full: boolean
+          last_redeemed_at: string
+          program_active: boolean
+          reward: string
+          stamped_today: boolean
+          stamps: number
+          stamps_required: number
+        }[]
+      }
+      owner_redeem_stamp_card: {
+        Args: { p_card_id: string }
+        Returns: {
+          business_id: string
+          business_name: string
+          card_id: string
+          is_full: boolean
+          last_redeemed_at: string
+          program_active: boolean
+          reward: string
+          stamped_today: boolean
+          stamps: number
+          stamps_required: number
         }[]
       }
       qr_scan_channel_from_src: { Args: { p_src: string }; Returns: string }
@@ -2696,6 +2887,9 @@ export type Database = {
           schedule: string | null
           services_label: string | null
           slug: string
+          stamp_card_active: boolean
+          stamp_card_reward: string | null
+          stamp_card_stamps_required: number | null
           updated_at: string
           updated_by: string | null
           verified_at: string | null
@@ -2712,6 +2906,7 @@ export type Database = {
       show_trgm: { Args: { '': string }; Returns: string[] }
       slug_is_reserved: { Args: { candidate: string }; Returns: boolean }
       slugify: { Args: { txt: string }; Returns: string }
+      stamp_card_open_card: { Args: { p_holder_id: string }; Returns: string }
       submit_business_feedback: {
         Args: {
           p_device_id: string

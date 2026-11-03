@@ -1513,6 +1513,302 @@ async function main() {
     check('admin lee business_owners', Number(l) >= 1, l)
   })
 
+  // --- tarjeta de sellos (dewabsacd) --------------------------------------
+  // Primera escritura de un `owner`. Lo que se cuida: que solo selle y canjee
+  // tarjetas de SU negocio, un sello por cliente y día, canje una sola vez y
+  // solo con la tarjeta llena, y que nada de esto le abra las tablas. Las
+  // tarjetas se crean en su negocio Y en uno ajeno del mismo municipio, para que
+  // "no toca la ajena" no pase por vacío. Los sellos de días anteriores se
+  // insertan como postgres para llenar tarjetas sin esperar días.
+  // Negocios propios del fixture y no los de la base: en local hay negocios con
+  // created_by huérfano, y actualizar dos veces la misma fila en la transacción
+  // hace que Postgres revalide esa FK y truene.
+  console.log('\ntarjeta de sellos')
+  const negocioSellos = async (nombre) =>
+    (
+      await c.query(
+        `insert into businesses (name, phone, municipio, is_active, stamp_card_active,
+           stamp_card_stamps_required, stamp_card_reward)
+         values ($1, '6180000000', $2, true, true, 3, 'frappé') returning id`,
+        [nombre, suyo],
+      )
+    ).rows[0].id
+  const bizSellos = await negocioSellos('RLS check sellos propio')
+  const bizSellosAjeno = await negocioSellos('RLS check sellos ajeno')
+  await c.query('insert into business_owners (profile_id, business_id) values ($1, $2)', [
+    OWNER_ID,
+    bizSellos,
+  ])
+  const slugDe = async (id) =>
+    (await c.query('select slug from businesses where id = $1', [id])).rows[0].slug
+  const slugPropio = await slugDe(bizSellos)
+  const slugAjeno = await slugDe(bizSellosAjeno)
+  const slugSinSellos = (
+    await c.query('select slug from businesses where is_active and not stamp_card_active limit 1')
+  ).rows[0].slug
+  const tarjeta = async (slug, device) =>
+    (await c.query('select get_or_create_stamp_card($1, $2) as t', [slug, device])).rows[0].t
+  const tokPropio = await tarjeta(slugPropio, 'rls-sellos-1')
+  const tokLleno = await tarjeta(slugPropio, 'rls-sellos-2')
+  const tokAjeno = await tarjeta(slugAjeno, 'rls-sellos-3')
+  const vueltaDe = async (token) =>
+    (
+      await c.query(
+        `select c.id, c.holder_id from stamp_cards c join stamp_card_holders h on h.id = c.holder_id
+          where h.token = $1 and c.redeemed_at is null`,
+        [token],
+      )
+    ).rows[0]
+  const sellosPasados = async (token, dias) => {
+    const v = await vueltaDe(token)
+    for (const d of dias) {
+      await c.query(
+        `insert into stamp_card_stamps (card_id, holder_id, stamp_day)
+         values ($1, $2, (now() at time zone 'America/Mexico_City')::date - $3::int)`,
+        [v.id, v.holder_id, d],
+      )
+    }
+    return v.id
+  }
+  const vueltaLlena = await sellosPasados(tokLleno, [1, 2, 3])
+  const vueltaAjena = await sellosPasados(tokAjeno, [1, 2, 3])
+  const sellosDe = async (cardId) =>
+    Number(
+      (await c.query('select count(*) from stamp_card_stamps where card_id = $1', [cardId])).rows[0]
+        .count,
+    )
+  const esError = (r, code) => r.outcome.includes(code)
+
+  await asAnon(c, async () => {
+    const tok = (
+      await c.query("select get_or_create_stamp_card($1, 'rls-sellos-anon') as t", [slugPropio])
+    ).rows[0].t
+    check(
+      'anon obtiene tarjeta con el programa prendido',
+      typeof tok === 'string' && tok.length === 24,
+    )
+    const otra = await attempt(c, "select get_or_create_stamp_card($1, 'rls-sellos-anon')", [
+      slugPropio,
+    ])
+    check('mismo celular no obtiene otra tarjeta', esError(otra, 'already_has_card'), otra.outcome)
+    const apagado = await attempt(c, "select get_or_create_stamp_card($1, 'rls-sellos-anon')", [
+      slugSinSellos,
+    ])
+    check(
+      'programa apagado no da tarjeta',
+      esError(apagado, 'stamp_card_not_available'),
+      apagado.outcome,
+    )
+    const suya = (await c.query('select * from get_stamp_card($1)', [tok])).rows
+    check(
+      'anon lee su tarjeta por token',
+      suya.length === 1 &&
+        suya[0].stamps === 0 &&
+        suya[0].stamps_required === 3 &&
+        suya[0].reward === 'frappé',
+      JSON.stringify(suya[0]),
+    )
+    const nada = (await c.query("select * from get_stamp_card('no-es-un-token')")).rows
+    check('token inventado no devuelve filas', nada.length === 0)
+    for (const t of ['stamp_card_holders', 'stamp_cards', 'stamp_card_stamps']) {
+      const r = await attempt(c, `select count(*) from ${t}`)
+      check(`anon NO lee ${t}`, r.outcome === 'denied', r.outcome)
+    }
+    const v = await attempt(
+      c,
+      `insert into stamp_card_stamps (card_id, holder_id, stamp_day) values ($1, $1, current_date)`,
+      [vueltaLlena],
+    )
+    check('anon NO inserta sellos directo', v.outcome === 'denied', v.outcome)
+    for (const [fn, arg] of [
+      ['owner_get_stamp_card($1)', tokPropio],
+      ['owner_add_stamp($1)', tokPropio],
+      ['owner_redeem_stamp_card($1)', vueltaLlena],
+      ['stamp_card_open_card($1)', vueltaLlena],
+    ]) {
+      const r = await attempt(c, `select * from ${fn}`, [arg])
+      check(`anon NO ejecuta ${fn.split('(')[0]}`, r.outcome === 'denied', r.outcome)
+    }
+  })
+
+  await as(c, OWNER_ID, async () => {
+    const n = (q) => c.query(q).then((r) => Number(r.rows[0].count))
+    const ajena = await attempt(c, 'select * from owner_get_stamp_card($1)', [tokAjeno])
+    check('owner no ve tarjeta ajena', esError(ajena, 'not_your_business'), ajena.outcome)
+    const falsa = await attempt(c, "select * from owner_get_stamp_card('no-es-un-token')")
+    check('owner: código que no es tarjeta', esError(falsa, 'not_a_card'), falsa.outcome)
+
+    const sello = (await c.query('select * from owner_add_stamp($1)', [tokPropio])).rows[0]
+    check(
+      'owner sella tarjeta de su negocio',
+      sello?.stamps === 1 && sello.stamped_today === true,
+      JSON.stringify(sello),
+    )
+    const otroHoy = await attempt(c, 'select * from owner_add_stamp($1)', [tokPropio])
+    check(
+      'segundo sello del mismo día falla',
+      esError(otroHoy, 'already_stamped_today'),
+      otroHoy.outcome,
+    )
+    const selloAjeno = await attempt(c, 'select * from owner_add_stamp($1)', [tokAjeno])
+    check(
+      'owner NO sella tarjeta ajena',
+      esError(selloAjeno, 'not_your_business'),
+      selloAjeno.outcome,
+    )
+    const llena = await attempt(c, 'select * from owner_add_stamp($1)', [tokLleno])
+    check('tarjeta llena no recibe sello', esError(llena, 'card_full'), llena.outcome)
+
+    const vueltaPropia = sello.card_id
+    const sinLlenar = await attempt(c, 'select * from owner_redeem_stamp_card($1)', [vueltaPropia])
+    check('no canjea sin llenar', esError(sinLlenar, 'card_not_full'), sinLlenar.outcome)
+    const canjeAjeno = await attempt(c, 'select * from owner_redeem_stamp_card($1)', [vueltaAjena])
+    check(
+      'owner NO canjea tarjeta ajena',
+      esError(canjeAjeno, 'not_your_business'),
+      canjeAjeno.outcome,
+    )
+
+    const canje = (await c.query('select * from owner_redeem_stamp_card($1)', [vueltaLlena]))
+      .rows[0]
+    check(
+      'owner canjea tarjeta llena y abre la vuelta siguiente',
+      canje?.card_id &&
+        canje.card_id !== vueltaLlena &&
+        canje.stamps === 0 &&
+        canje.last_redeemed_at !== null,
+      JSON.stringify(canje),
+    )
+    const doble = await attempt(c, 'select * from owner_redeem_stamp_card($1)', [vueltaLlena])
+    check('el premio se canjea una sola vez', esError(doble, 'already_redeemed'), doble.outcome)
+
+    for (const t of ['stamp_card_holders', 'stamp_cards', 'stamp_card_stamps']) {
+      const r = await attempt(c, `select count(*) from ${t}`)
+      const filas = r.outcome === 'ok' ? await n(`select count(*) from ${t}`) : 0
+      check(
+        `owner no lee ${t} directo`,
+        r.outcome === 'denied' || filas === 0,
+        `${r.outcome}, ${filas} filas`,
+      )
+    }
+    for (const [label, sql, params] of [
+      [
+        'insertar sellos directo',
+        `insert into stamp_card_stamps (card_id, holder_id, stamp_day)
+         select id, holder_id, current_date + 1 from stamp_cards`,
+        [],
+      ],
+      ['desmarcar un canje', 'update stamp_cards set redeemed_at = null', []],
+      [
+        'prender su programa',
+        'update businesses set stamp_card_reward = $2 where id = $1',
+        [bizSellos, 'pastel'],
+      ],
+    ]) {
+      const w = await attempt(c, sql, params)
+      check(
+        `owner NO puede ${label}`,
+        w.outcome === 'denied' || (w.outcome === 'ok' && w.rows === 0),
+        w.outcome,
+      )
+    }
+
+    // Se mira dentro del bloque, antes de que as() haga rollback: afuera, un
+    // sello o canje que se hubiera colado ya estaría revertido y el check
+    // pasaría por vacío. Se lee como postgres, porque el owner no lee la tabla.
+    await c.query('reset role')
+    const ajenaIntacta =
+      (await sellosDe(vueltaAjena)) === 3 &&
+      (await c.query('select redeemed_at from stamp_cards where id = $1', [vueltaAjena])).rows[0]
+        .redeemed_at === null
+    await c.query('set local role authenticated')
+    check('la tarjeta ajena sigue sin sellos nuevos ni canje', ajenaIntacta)
+  })
+
+  // Un sello del día que llena la tarjeta y el canje van en la misma visita: la
+  // vuelta nueva no recibe otro sello ese día. Y un cambio de configuración no
+  // toca las tarjetas a medias.
+  const tokVisita = await tarjeta(slugPropio, 'rls-sellos-4')
+  await sellosPasados(tokVisita, [1, 2])
+  await c.query('update businesses set stamp_card_stamps_required = 5 where id = $1', [bizSellos])
+  await as(c, OWNER_ID, async () => {
+    const tercero = (await c.query('select * from owner_add_stamp($1)', [tokVisita])).rows[0]
+    check(
+      'la vuelta a medias conserva sus 3 sellos tras el cambio de configuración',
+      tercero?.stamps_required === 3 && tercero.is_full === true,
+      JSON.stringify(tercero),
+    )
+    const canje = (await c.query('select * from owner_redeem_stamp_card($1)', [tercero.card_id]))
+      .rows[0]
+    check(
+      'la vuelta siguiente toma la configuración vigente',
+      canje?.stamps_required === 5 && canje.stamped_today === true,
+      JSON.stringify(canje),
+    )
+    const mismoDia = await attempt(c, 'select * from owner_add_stamp($1)', [tokVisita])
+    check(
+      'la vuelta nueva no recibe sello el mismo día del canje',
+      esError(mismoDia, 'already_stamped_today'),
+      mismoDia.outcome,
+    )
+  })
+
+  // Programa apagado: no hay sellos nuevos, pero el premio ganado se canjea.
+  // Nace con 5 sellos: la configuración cambió en el bloque de arriba.
+  const tokApagado = await tarjeta(slugPropio, 'rls-sellos-5')
+  const vueltaApagada = await sellosPasados(tokApagado, [1, 2, 3, 4, 5])
+  const tokSinLlenar = await tarjeta(slugPropio, 'rls-sellos-6')
+  await c.query('update businesses set stamp_card_active = false where id = $1', [bizSellos])
+  await as(c, OWNER_ID, async () => {
+    const sello = await attempt(c, 'select * from owner_add_stamp($1)', [tokSinLlenar])
+    check(
+      'programa apagado no da sellos',
+      esError(sello, 'stamp_card_not_available'),
+      sello.outcome,
+    )
+    const canje = (await c.query('select * from owner_redeem_stamp_card($1)', [vueltaApagada]))
+      .rows[0]
+    check(
+      'programa apagado sí canjea un premio ganado, sin abrir vuelta',
+      canje?.card_id === null && canje.program_active === false,
+      JSON.stringify(canje),
+    )
+  })
+  await c.query('update businesses set stamp_card_active = true where id = $1', [bizSellos])
+
+  await as(c, reviewer.id, async () => {
+    for (const [col, val] of [
+      ['stamp_card_active', 'false'],
+      ['stamp_card_stamps_required', '10'],
+      ['stamp_card_reward', "'pastel'"],
+    ]) {
+      const w = await attempt(c, `update businesses set ${col} = ${val} where id = $1`, [bizSellos])
+      check(`reviewer NO cambia ${col}`, w.outcome === 'denied', w.outcome)
+    }
+    const r = await attempt(c, 'select * from owner_add_stamp($1)', [tokPropio])
+    check('reviewer no sella (no es dueño)', esError(r, 'not_your_business'), r.outcome)
+    const lee = Number((await c.query('select count(*) from stamp_card_holders')).rows[0].count)
+    check('reviewer no lee tarjetas', lee === 0, String(lee))
+  })
+  await as(c, admin.id, async () => {
+    const w = await attempt(
+      c,
+      'update businesses set stamp_card_stamps_required = 10, stamp_card_reward = $2 where id = $1',
+      [bizSellos, 'pastel'],
+    )
+    check('admin cambia la configuración', w.outcome === 'ok' && w.rows === 1, w.outcome)
+    const lee = Number((await c.query('select count(*) from stamp_card_holders')).rows[0].count)
+    check('admin lee tarjetas', lee >= 1, String(lee))
+    const r = await attempt(c, 'select * from owner_add_stamp($1)', [tokPropio])
+    check('admin no sella (no es dueño)', esError(r, 'not_your_business'), r.outcome)
+  })
+  const sinConfig = await attempt(
+    c,
+    'update businesses set stamp_card_reward = null where id = $1',
+    [bizSellos],
+  )
+  check('DB rechaza programa prendido sin premio', sinConfig.outcome !== 'ok', sinConfig.outcome)
+
   // Avisos de negocio faltante (tarea k4mu1g2sv). anon solo inserta, y solo en
   // `pending`; el staff (admin y reviewer de cualquier municipio) lee y cambia
   // el status; nadie borra. El aviso fixture se crea como postgres para que los
