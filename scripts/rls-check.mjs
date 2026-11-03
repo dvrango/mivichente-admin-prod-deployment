@@ -1712,13 +1712,18 @@ async function main() {
         w.outcome,
       )
     }
-  })
-  check(
-    'la tarjeta ajena sigue sin sellos nuevos ni canje',
-    (await sellosDe(vueltaAjena)) === 3 &&
+
+    // Se mira dentro del bloque, antes de que as() haga rollback: afuera, un
+    // sello o canje que se hubiera colado ya estaría revertido y el check
+    // pasaría por vacío. Se lee como postgres, porque el owner no lee la tabla.
+    await c.query('reset role')
+    const ajenaIntacta =
+      (await sellosDe(vueltaAjena)) === 3 &&
       (await c.query('select redeemed_at from stamp_cards where id = $1', [vueltaAjena])).rows[0]
-        .redeemed_at === null,
-  )
+        .redeemed_at === null
+    await c.query('set local role authenticated')
+    check('la tarjeta ajena sigue sin sellos nuevos ni canje', ajenaIntacta)
+  })
 
   // Un sello del día que llena la tarjeta y el canje van en la misma visita: la
   // vuelta nueva no recibe otro sello ese día. Y un cambio de configuración no
