@@ -1,0 +1,128 @@
+# Despliega el admin a prod empujando master al repo espejo que tiene conectado Vercel.
+#
+# Vercel Hobby no despliega desde repos privados de organización, por eso existe
+# dvrango/mivichente-admin-prod-deployment. Antes este push se hacía a mano con
+# `git push deploy master`; ahora sale solo en cada merge a master.
+#
+# Excepción: si lo que falta desplegar trae migraciones nuevas, el job se detiene en
+# rojo. El código no puede llegar a prod antes que su migración. Se corre
+# `npm run db:push` y se dispara este workflow a mano desde la pestaña Actions,
+# marcando la casilla de que ya se corrió.
+#
+# La escritura en el espejo va por una deploy key (secret MIRROR_DEPLOY_KEY) que solo
+# tiene acceso a ese repo. El GITHUB_TOKEN no puede escribir en un repo de otra cuenta.
+name: Deploy a prod
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      db_push_done:
+        description: "Ya corrí npm run db:push (solo hace falta si hay migraciones sin desplegar)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Nunca corren dos deploys a la vez. GitHub deja una sola corrida en espera por
+# grupo: si llegan varios merges seguidos, las intermedias se cancelan y la última
+# despliega todo, porque compara contra el espejo. Un disparo manual en espera
+# también se cancela si entra un merge; en ese caso se vuelve a disparar.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # El espejo recibe master tal cual, este archivo incluido. Sin esta guarda el
+    # workflow también correría allá en cada deploy.
+    if: github.repository == 'DvranLabs/mivichente-admin'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Solo se despliega master
+        if: github.ref != 'refs/heads/master'
+        run: |
+          echo "::error::Este workflow solo despliega master. Se disparó sobre ${GITHUB_REF}."
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          # Historia completa: con un clon superficial el push al espejo no entra.
+          fetch-depth: 0
+
+      - name: Conectar con el espejo
+        env:
+          MIRROR_DEPLOY_KEY: ${{ secrets.MIRROR_DEPLOY_KEY }}
+        run: |
+          if [ -z "$MIRROR_DEPLOY_KEY" ]; then
+            echo "::error::Falta el secret MIRROR_DEPLOY_KEY. Ver «Flujo de deploy» en Produccion.md."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$MIRROR_DEPLOY_KEY" > ~/.ssh/mirror_key
+          chmod 600 ~/.ssh/mirror_key
+          # Llave publicada por GitHub en `gh api meta`; fijarla evita confiar en
+          # lo que conteste ssh-keyscan.
+          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > ~/.ssh/known_hosts
+          git config core.sshCommand "ssh -i $HOME/.ssh/mirror_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          git remote add mirror git@github.com:dvrango/mivichente-admin-prod-deployment.git
+          git fetch --quiet mirror master
+
+      - name: Revisar migraciones sin desplegar
+        id: migraciones
+        env:
+          EVENTO: ${{ github.event_name }}
+          DB_PUSH_DONE: ${{ inputs.db_push_done }}
+        run: |
+          if [ "$(git rev-parse mirror/master)" = "$(git rev-parse HEAD)" ]; then
+            echo "El espejo ya tiene $(git rev-parse --short HEAD). No hay nada que desplegar."
+            echo "al_dia=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! migraciones="$(bash scripts/deploy/check-migrations.sh mirror/master HEAD)"; then
+            echo "::error::La historia del espejo divergió de master y el push no entraría en fast-forward. Revísalo a mano; no se fuerza."
+            exit 1
+          fi
+
+          if [ -z "$migraciones" ]; then
+            echo "Sin migraciones nuevas desde lo desplegado."
+            exit 0
+          fi
+
+          {
+            echo "### Hay migraciones sin desplegar"
+            echo
+            echo "Lo que falta desplegar trae estas migraciones:"
+            echo
+            # shellcheck disable=SC2016 # los backticks son markdown, no una expansión
+            echo "$migraciones" | sed 's/^/- `/; s/$/`/'
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$EVENTO" = "workflow_dispatch" ] && [ "$DB_PUSH_DONE" = "true" ]; then
+            echo "Se confirmó el db:push al dispararlo a mano. Sigue el deploy." >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Deploy con migraciones; se confirmó el db:push al dispararlo."
+            exit 0
+          fi
+
+          {
+            echo "**No se desplegó.** El código no puede llegar a prod antes que su migración."
+            echo
+            echo "1. Corre \`npm run db:push\` desde \`admin/\`."
+            echo "2. En la pestaña Actions, abre «Deploy a prod» › «Run workflow» sobre \`master\` y marca «Ya corrí npm run db:push»."
+          } >> "$GITHUB_STEP_SUMMARY"
+          while read -r archivo; do
+            echo "::error file=${archivo}::Migración sin desplegar. Corre npm run db:push y dispara «Deploy a prod» a mano."
+          done <<< "$migraciones"
+          exit 1
+
+      - name: Empujar al espejo
+        if: steps.migraciones.outputs.al_dia != 'true'
+        run: |
+          # Sin --force: si el espejo no avanza en fast-forward, que falle.
+          git push mirror HEAD:refs/heads/master
+          echo "Desplegado $(git rev-parse --short HEAD) al espejo. Vercel toma el push." >> "$GITHUB_STEP_SUMMARY"

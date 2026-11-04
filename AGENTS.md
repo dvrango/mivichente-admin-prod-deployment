@@ -107,6 +107,14 @@ Migraciones en `supabase/migrations/`: son la fuente de verdad y se escriben a m
 
 El porqué de cada tabla y función (decisiones, trampas, historia de RLS) vive en Obsidian: `02 Apps/v2-admin-web/Database Schema.md`. Ahí no se pegan columnas ni cuerpos de funciones.
 
+## Deploy
+
+**Un push a `master` es un deploy a producción.** `.github/workflows/deploy-prod.yml` empuja `master` al repo espejo `dvrango/mivichente-admin-prod-deployment`, que es el que Vercel tiene conectado (Vercel Hobby no despliega desde repos privados de organización). El asistente no empuja `master`: la rama de la tarea llega a la base por PR, y el merge lo hace el usuario.
+
+Si lo que falta desplegar trae migraciones nuevas en `supabase/migrations/`, el workflow no despliega y termina en rojo: el código no puede llegar a prod antes que su migración. El usuario corre `npm run db:push` y dispara el workflow a mano desde Actions, marcando la casilla del `db:push`. La detección vive en `scripts/deploy/check-migrations.sh` y compara contra lo que tiene el espejo, no contra el último push.
+
+Detalle, credencial y salida de emergencia: `02 Apps/v2-admin-web/Produccion.md` en Obsidian.
+
 ## Acceso
 
 Un solo usuario admin. Login email/password via Supabase Auth. RLS en todas las tablas: admin escribe, app mobile lee como anónimo.
