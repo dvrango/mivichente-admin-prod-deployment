@@ -117,6 +117,19 @@ export default async function EditBusinessPage({
                   : 'Opiniones'}
               </Link>
             )}
+            {/* Solo admin: la configuración la protege el trigger
+                businesses_stamp_card_admin_only. */}
+            {profile?.role === 'admin' && (
+              <Link
+                href={`/businesses/${id}/sellos`}
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                {/* Mismo criterio que get_or_create_stamp_card: inactivo no da tarjetas. */}
+                {business.stamp_card_active && business.is_active
+                  ? 'Tarjeta de sellos · activa'
+                  : 'Tarjeta de sellos'}
+              </Link>
+            )}
             {readOnly ? (
               <Badge variant="outline">Solo lectura · {business.municipio}</Badge>
             ) : (

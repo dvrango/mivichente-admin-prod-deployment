@@ -13,6 +13,16 @@ export function urlMenuImpresa(slug: string): string {
   return `${DOMINIO_PUBLICO}/${slug}/menu?src=${SRC_MENU_QR}`
 }
 
+export const SRC_SELLOS_QR = 'sellos-qr'
+
+/** El QR del mostrador de la tarjeta de sellos (tarea o3w5njyf0). Forma
+ *  decidida por el usuario el 2026-11-03, mismo patrón que el menú y las
+ *  opiniones: slug, ruta fija y `src` sin el nombre del negocio. La página la
+ *  sirve la landing (`hnururkb2`); el canal lo mapea `qr_scan_channel_from_src`. */
+export function urlSellosMostrador(slug: string): string {
+  return `${DOMINIO_PUBLICO}/${slug}/sellos?src=${SRC_SELLOS_QR}`
+}
+
 /** El menú de mesa tal como lo abre el cliente, para revisarlo desde el admin.
  *  SIN `?src=`: la landing solo registra un scan cuando viene `src`, así que
  *  abrirlo desde aquí no ensucia los conteos del QR. */

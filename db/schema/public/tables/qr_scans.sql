@@ -34,7 +34,7 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 
 COMMENT ON COLUMN "public"."qr_scans"."business_id" IS 'Negocio dueño del QR/enlace escaneado. Lo deriva el servidor de la ruta, no del parámetro impreso. Null en canales que no son por negocio (los stickers de la campaña de julio).';
 
-COMMENT ON COLUMN "public"."qr_scans"."channel" IS 'Canal por el que llegó el scan: menu-qr, opinion-qr, sticker, share, post-ig, post-fb, landing, bot, otro. Lo pone siempre el trigger (ignora el del cliente): bot si el user-agent es de un crawler; si no, lo deriva de `src`.';
+COMMENT ON COLUMN "public"."qr_scans"."channel" IS 'Canal por el que llegó el scan: menu-qr, opinion-qr, sellos-qr, sticker, share, post-ig, post-fb, landing, bot, otro. Lo pone siempre el trigger (ignora el del cliente): bot si el user-agent es de un crawler; si no, lo deriva de `src`.';
 
 COMMENT ON COLUMN "public"."qr_scans"."slug_at_scan" IS 'Slug tal como venía impreso al momento del scan. El negocio puede renombrarse; el papel pegado en la mesa no. Guardarlo deja saber qué QR físico se usó.';
 

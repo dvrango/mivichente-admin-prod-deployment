@@ -242,6 +242,22 @@ export async function getBusinessById(id: string): Promise<BusinessWithAuthors |
   return { ...data, owner_contact } as BusinessWithAuthors
 }
 
+/**
+ * Si el negocio tiene al menos un dueño con cuenta en `business_owners`. Solo
+ * un admin lee esa tabla (policy "admin reads business owners"); para
+ * cualquier otro rol devuelve `false`. Lo usa la página de la tarjeta de
+ * sellos: sin dueño, nadie podría dar sellos.
+ */
+export async function businessHasOwner(businessId: string): Promise<boolean> {
+  const supabase = await createClient()
+  const { count, error } = await supabase
+    .from('business_owners')
+    .select('profile_id', { count: 'exact', head: true })
+    .eq('business_id', businessId)
+  if (error) throw error
+  return (count ?? 0) > 0
+}
+
 export async function getActiveCategoryOptions(): Promise<CategoryOption[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
