@@ -19,9 +19,9 @@ CREATE OR REPLACE FUNCTION public.owner_redeem_stamp_card (
   AS $function$
 #variable_conflict use_column
 declare
-  v_card   public.stamp_cards%rowtype;
-  v_holder public.stamp_card_holders%rowtype;
-  v_stamps integer;
+  v_card     public.stamp_cards%rowtype;
+  v_customer public.business_customers%rowtype;
+  v_stamps   integer;
 begin
   select * into v_card
     from public.stamp_cards c
@@ -32,11 +32,11 @@ begin
     raise exception 'not_a_card' using errcode = 'P0001';
   end if;
 
-  select * into v_holder
-    from public.stamp_card_holders h
-   where h.id = v_card.holder_id;
+  select * into v_customer
+    from public.business_customers bc
+   where bc.id = v_card.customer_id;
 
-  if not public.is_owner_of(v_holder.business_id) then
+  if not public.is_owner_of(v_customer.business_id) then
     raise exception 'not_your_business' using errcode = 'P0001';
   end if;
   if v_card.redeemed_at is not null then
@@ -57,9 +57,9 @@ begin
    where c.id = v_card.id
      and c.redeemed_at is null;
 
-  perform public.stamp_card_open_card(v_holder.id);
+  perform public.stamp_card_open_card(v_customer.id);
 
-  return query select * from public.owner_get_stamp_card(v_holder.token);
+  return query select * from public.stamp_card_owner_state(v_customer.id);
 end;
 $function$;
 

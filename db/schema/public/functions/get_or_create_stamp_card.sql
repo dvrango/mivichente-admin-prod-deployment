@@ -8,10 +8,10 @@ CREATE OR REPLACE FUNCTION public.get_or_create_stamp_card (
   SET search_path TO ''
   AS $function$
 declare
-  v_business  public.businesses%rowtype;
-  v_device    text := nullif(btrim(p_device_id), '');
-  v_holder_id uuid;
-  v_token     text;
+  v_business    public.businesses%rowtype;
+  v_device      text := nullif(btrim(p_device_id), '');
+  v_customer_id uuid;
+  v_token       text;
 begin
   if v_device is null or char_length(v_device) > 100 then
     raise exception 'invalid_device_id' using errcode = '22023';
@@ -25,16 +25,16 @@ begin
     raise exception 'stamp_card_not_available' using errcode = 'P0001';
   end if;
 
-  insert into public.stamp_card_holders (business_id, device_id)
+  insert into public.business_customers (business_id, device_id)
   values (v_business.id, v_device)
   on conflict (business_id, device_id) do nothing
-  returning id, token into v_holder_id, v_token;
+  returning id, token into v_customer_id, v_token;
 
-  if v_holder_id is null then
+  if v_customer_id is null then
     raise exception 'already_has_card' using errcode = 'P0001';
   end if;
 
-  perform public.stamp_card_open_card(v_holder_id);
+  perform public.stamp_card_open_card(v_customer_id);
 
   return v_token;
 end;

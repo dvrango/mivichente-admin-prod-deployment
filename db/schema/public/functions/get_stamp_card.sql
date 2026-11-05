@@ -31,10 +31,11 @@ CREATE OR REPLACE FUNCTION public.get_stamp_card (
     lr.redeemed_at,
     lr.reward,
     now()
-  from public.stamp_card_holders h
-  join public.businesses b on b.id = h.business_id
+  from public.resolve_customer_token(p_token) r
+  join public.business_customers bc on bc.id = r.customer_id
+  join public.businesses b on b.id = bc.business_id
   left join public.stamp_cards oc
-    on oc.holder_id = h.id and oc.redeemed_at is null
+    on oc.customer_id = bc.id and oc.redeemed_at is null
   left join lateral (
     select count(*)::integer as n, max(s.created_at) as last_at
       from public.stamp_card_stamps s
@@ -43,16 +44,16 @@ CREATE OR REPLACE FUNCTION public.get_stamp_card (
   left join lateral (
     select c.redeemed_at, c.reward
       from public.stamp_cards c
-     where c.holder_id = h.id
+     where c.customer_id = bc.id
        and c.redeemed_at is not null
      order by c.redeemed_at desc
      limit 1
   ) lr on true
-  where h.token = p_token
+  where r.linked
 $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."get_stamp_card"(text) TO "anon", "authenticated", "postgres";
 
-COMMENT ON FUNCTION "public"."get_stamp_card"(text) IS 'Estado de una tarjeta de sellos por su token: negocio, si el programa sigue prendido, premio y sellos de la vuelta abierta, si está llena, último sello y último canje. Sin token válido no devuelve filas.';
+COMMENT ON FUNCTION "public"."get_stamp_card"(text) IS 'Estado de una tarjeta de sellos por el token de la digital o de una física asociada y vigente: negocio, si el programa sigue prendido, premio y sellos de la vuelta abierta, si está llena, último sello y último canje. Sin token válido no devuelve filas.';
 
 REVOKE ALL ON FUNCTION "public"."get_stamp_card"(text) FROM PUBLIC;

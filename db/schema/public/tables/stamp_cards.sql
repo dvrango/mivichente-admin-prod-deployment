@@ -1,13 +1,13 @@
 CREATE TABLE "public"."stamp_cards" (
   "id"              uuid                     NOT NULL DEFAULT gen_random_uuid(),
-  "holder_id"       uuid                     NOT NULL,
+  "customer_id"     uuid                     NOT NULL,
   "stamps_required" integer                  NOT NULL,
   "reward"          text                     NOT NULL,
   "redeemed_at"     timestamp with time zone,
   "redeemed_by"     uuid,
   "created_at"      timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT "stamp_cards_holder_id_fkey" FOREIGN KEY (holder_id) REFERENCES public.stamp_card_holders(id) ON DELETE CASCADE,
-  CONSTRAINT "stamp_cards_id_holder_key" UNIQUE (id, holder_id),
+  CONSTRAINT "stamp_cards_customer_id_fkey" FOREIGN KEY (customer_id) REFERENCES public.business_customers(id) ON DELETE CASCADE,
+  CONSTRAINT "stamp_cards_id_customer_key" UNIQUE (id, customer_id),
   CONSTRAINT "stamp_cards_pkey" PRIMARY KEY (id),
   CONSTRAINT "stamp_cards_redeemed_after_created" CHECK (((redeemed_at IS NULL) OR (redeemed_at >= created_at))),
   CONSTRAINT "stamp_cards_redeemed_by_fkey" FOREIGN KEY (redeemed_by) REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -19,9 +19,9 @@ CREATE TABLE "public"."stamp_cards" (
 ALTER TABLE "public"."stamp_cards"
   ENABLE ROW LEVEL SECURITY;
 
-CREATE INDEX stamp_cards_holder_created_idx ON public.stamp_cards USING btree (holder_id, created_at DESC);
+CREATE INDEX stamp_cards_customer_created_idx ON public.stamp_cards USING btree (customer_id, created_at DESC);
 
-CREATE UNIQUE INDEX stamp_cards_one_open_per_holder ON public.stamp_cards USING btree (holder_id)
+CREATE UNIQUE INDEX stamp_cards_one_open_per_customer ON public.stamp_cards USING btree (customer_id)
   WHERE (redeemed_at IS NULL);
 
 CREATE POLICY "admin reads stamp cards" ON "public"."stamp_cards"

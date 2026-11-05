@@ -1437,6 +1437,37 @@ export type Database = {
           },
         ]
       }
+      business_customers: {
+        Row: {
+          business_id: string
+          created_at: string
+          device_id: string
+          id: string
+          token: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          device_id: string
+          id?: string
+          token?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'business_customers_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       business_feedback: {
         Row: {
           business_id: string
@@ -2343,6 +2374,58 @@ export type Database = {
           },
         ]
       }
+      physical_cards: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          id: string
+          linked_at: string | null
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          linked_at?: string | null
+          revoked_at?: string | null
+          token?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          linked_at?: string | null
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'physical_cards_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'physical_cards_created_by_fkey'
+            columns: ['created_by']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'physical_cards_customer_fkey'
+            columns: ['customer_id', 'business_id']
+            referencedRelation: 'business_customers'
+            referencedColumns: ['id', 'business_id']
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -2459,42 +2542,11 @@ export type Database = {
           },
         ]
       }
-      stamp_card_holders: {
-        Row: {
-          business_id: string
-          created_at: string
-          device_id: string
-          id: string
-          token: string
-        }
-        Insert: {
-          business_id: string
-          created_at?: string
-          device_id: string
-          id?: string
-          token?: string
-        }
-        Update: {
-          business_id?: string
-          created_at?: string
-          device_id?: string
-          id?: string
-          token?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'stamp_card_holders_business_id_fkey'
-            columns: ['business_id']
-            referencedRelation: 'businesses'
-            referencedColumns: ['id']
-          },
-        ]
-      }
       stamp_card_stamps: {
         Row: {
           card_id: string
           created_at: string
-          holder_id: string
+          customer_id: string
           id: string
           stamp_day: string
           stamped_by: string | null
@@ -2502,7 +2554,7 @@ export type Database = {
         Insert: {
           card_id: string
           created_at?: string
-          holder_id: string
+          customer_id: string
           id?: string
           stamp_day: string
           stamped_by?: string | null
@@ -2510,17 +2562,17 @@ export type Database = {
         Update: {
           card_id?: string
           created_at?: string
-          holder_id?: string
+          customer_id?: string
           id?: string
           stamp_day?: string
           stamped_by?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: 'stamp_card_stamps_card_holder_fkey'
-            columns: ['card_id', 'holder_id']
+            foreignKeyName: 'stamp_card_stamps_card_customer_fkey'
+            columns: ['card_id', 'customer_id']
             referencedRelation: 'stamp_cards'
-            referencedColumns: ['id', 'holder_id']
+            referencedColumns: ['id', 'customer_id']
           },
           {
             foreignKeyName: 'stamp_card_stamps_stamped_by_fkey'
@@ -2533,7 +2585,7 @@ export type Database = {
       stamp_cards: {
         Row: {
           created_at: string
-          holder_id: string
+          customer_id: string
           id: string
           redeemed_at: string | null
           redeemed_by: string | null
@@ -2542,7 +2594,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          holder_id: string
+          customer_id: string
           id?: string
           redeemed_at?: string | null
           redeemed_by?: string | null
@@ -2551,7 +2603,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          holder_id?: string
+          customer_id?: string
           id?: string
           redeemed_at?: string | null
           redeemed_by?: string | null
@@ -2560,9 +2612,9 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'stamp_cards_holder_id_fkey'
-            columns: ['holder_id']
-            referencedRelation: 'stamp_card_holders'
+            foreignKeyName: 'stamp_cards_customer_id_fkey'
+            columns: ['customer_id']
+            referencedRelation: 'business_customers'
             referencedColumns: ['id']
           },
           {
@@ -2578,6 +2630,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_create_physical_cards: {
+        Args: { p_business_id: string; p_count: number }
+        Returns: {
+          token: string
+        }[]
+      }
       admin_menu_qr_by_business: {
         Args: { p_now?: string; p_window_days?: number }
         Returns: {
@@ -2729,6 +2787,15 @@ export type Database = {
         Args: { object_name: string }
         Returns: boolean
       }
+      get_card_entry: {
+        Args: { p_token: string }
+        Returns: {
+          active_mechanic: string
+          business_name: string
+          business_slug: string
+          status: string
+        }[]
+      }
       get_coupon: {
         Args: { p_token: string }
         Returns: {
@@ -2772,6 +2839,14 @@ export type Database = {
       is_owner_of: { Args: { p_business_id: string }; Returns: boolean }
       is_search_stopword: { Args: { term: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      link_physical_card: {
+        Args: {
+          p_customer_token?: string
+          p_device_id: string
+          p_token: string
+        }
+        Returns: string
+      }
       owner_add_stamp: {
         Args: { p_token: string }
         Returns: {
@@ -2845,6 +2920,14 @@ export type Database = {
           valid_until: string
         }[]
       }
+      resolve_customer_token: {
+        Args: { p_token: string }
+        Returns: {
+          business_id: string
+          customer_id: string
+          linked: boolean
+        }[]
+      }
       search_businesses: {
         Args: { search_query: string }
         Returns: {
@@ -2906,7 +2989,22 @@ export type Database = {
       show_trgm: { Args: { '': string }; Returns: string[] }
       slug_is_reserved: { Args: { candidate: string }; Returns: boolean }
       slugify: { Args: { txt: string }; Returns: string }
-      stamp_card_open_card: { Args: { p_holder_id: string }; Returns: string }
+      stamp_card_open_card: { Args: { p_customer_id: string }; Returns: string }
+      stamp_card_owner_state: {
+        Args: { p_customer_id: string }
+        Returns: {
+          business_id: string
+          business_name: string
+          card_id: string
+          is_full: boolean
+          last_redeemed_at: string
+          program_active: boolean
+          reward: string
+          stamped_today: boolean
+          stamps: number
+          stamps_required: number
+        }[]
+      }
       submit_business_feedback: {
         Args: {
           p_device_id: string
