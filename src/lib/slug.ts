@@ -47,6 +47,9 @@ export const RESERVED_SLUGS = [
   // vichente.com/buscar/<termino> desde src/app/buscar/
   // (ver migration reserve_buscar_slug)
   'buscar',
+  // QR de la tarjeta física de cliente: la landing sirve vichente.com/t/<token>
+  // desde src/app/t/[token]/ (ver migration physical_customer_cards)
+  't',
 ] as const
 
 // Un slug válido: minúsculas, dígitos y guiones simples, sin guion al inicio/fin.

@@ -181,17 +181,19 @@ stable
 security definer
 set search_path = ''
 as $$
-  (
-    select bc.id, bc.business_id, true
-      from public.business_customers bc
-     where bc.token = p_token
-    union all
-    select pc.customer_id, pc.business_id, pc.customer_id is not null
-      from public.physical_cards pc
-     where pc.token = p_token
-       and pc.revoked_at is null
-  )
-  limit 1
+  select t.customer_id, t.business_id, t.linked
+    from (
+      select bc.id as customer_id, bc.business_id, true as linked, 0 as priority
+        from public.business_customers bc
+       where bc.token = p_token
+      union all
+      select pc.customer_id, pc.business_id, pc.customer_id is not null, 1
+        from public.physical_cards pc
+       where pc.token = p_token
+         and pc.revoked_at is null
+    ) t
+   order by t.priority
+   limit 1
 $$;
 
 comment on function public.resolve_customer_token(text) is
@@ -468,7 +470,19 @@ declare
   v_device   text := nullif(btrim(p_device_id), '');
   v_ctoken   text := nullif(btrim(p_customer_token), '');
 begin
-  -- La fila bloqueada serializa dos asociaciones de la misma física.
+  -- Orden de bloqueo fijo: primero el cliente y después la física. El cliente
+  -- bloqueado serializa dos físicas distintas para el mismo cliente (el índice
+  -- único parcial respalda); la física bloqueada serializa dos asociaciones de
+  -- la misma física. Al revés, reasociar la física vigente y asociar una nueva
+  -- al mismo cliente a la vez podían trabarse (40P01). Los errores se revisan
+  -- después, en el orden de siempre.
+  if v_ctoken is not null then
+    select * into v_customer
+      from public.business_customers bc
+     where bc.token = v_ctoken
+       for update;
+  end if;
+
   select * into v_card
     from public.physical_cards pc
    where pc.token = p_token
@@ -485,13 +499,7 @@ begin
   end if;
 
   if v_ctoken is not null then
-    -- El cliente bloqueado serializa dos físicas distintas para el mismo
-    -- cliente; el índice único parcial respalda.
-    select * into v_customer
-      from public.business_customers bc
-     where bc.token = v_ctoken
-       for update;
-    if not found then
+    if v_customer.id is null then
       raise exception 'invalid_customer_token' using errcode = 'P0001';
     end if;
     if v_customer.business_id <> v_card.business_id then
@@ -688,8 +696,11 @@ comment on function public.owner_add_stamp(text) is
 
 -- Canjea el premio de una vuelta. Recibe la vuelta y no el token, igual que
 -- antes; el card_id solo se obtiene de owner_get_stamp_card / owner_add_stamp,
--- que ya rechazan una física revocada. Reglas sin cambio: not_a_card,
--- not_your_business, already_redeemed, card_not_full.
+-- que ya rechazan una física revocada. Ojo: la vuelta es del CLIENTE, no de la
+-- física. Un card_id obtenido antes de revocar la física sigue canjeando, y está
+-- bien: el premio es del cliente. Lo que la revocación corta es llegar a la
+-- vuelta con la física. Reglas sin cambio: not_a_card, not_your_business,
+-- already_redeemed, card_not_full.
 create or replace function public.owner_redeem_stamp_card(p_card_id uuid)
 returns table (
   card_id          uuid,

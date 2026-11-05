@@ -14,7 +14,19 @@ declare
   v_device   text := nullif(btrim(p_device_id), '');
   v_ctoken   text := nullif(btrim(p_customer_token), '');
 begin
-  -- La fila bloqueada serializa dos asociaciones de la misma física.
+  -- Orden de bloqueo fijo: primero el cliente y después la física. El cliente
+  -- bloqueado serializa dos físicas distintas para el mismo cliente (el índice
+  -- único parcial respalda); la física bloqueada serializa dos asociaciones de
+  -- la misma física. Al revés, reasociar la física vigente y asociar una nueva
+  -- al mismo cliente a la vez podían trabarse (40P01). Los errores se revisan
+  -- después, en el orden de siempre.
+  if v_ctoken is not null then
+    select * into v_customer
+      from public.business_customers bc
+     where bc.token = v_ctoken
+       for update;
+  end if;
+
   select * into v_card
     from public.physical_cards pc
    where pc.token = p_token
@@ -31,13 +43,7 @@ begin
   end if;
 
   if v_ctoken is not null then
-    -- El cliente bloqueado serializa dos físicas distintas para el mismo
-    -- cliente; el índice único parcial respalda.
-    select * into v_customer
-      from public.business_customers bc
-     where bc.token = v_ctoken
-       for update;
-    if not found then
+    if v_customer.id is null then
       raise exception 'invalid_customer_token' using errcode = 'P0001';
     end if;
     if v_customer.business_id <> v_card.business_id then

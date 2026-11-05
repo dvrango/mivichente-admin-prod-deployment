@@ -1856,6 +1856,8 @@ async function main() {
   ).rows[0].id
   const [fisSinPrograma] = await fisicas(bizSinPrograma, 1)
   const entrada = async (tok) => (await c.query('select * from get_card_entry($1)', [tok])).rows
+  const idDe = async (tok) =>
+    (await c.query('select id from business_customers where token = $1', [tok])).rows[0].id
 
   // Clientes del fixture:
   //   P: digital del QR del mostrador (tokPropio) + física fis[2];
@@ -1900,6 +1902,7 @@ async function main() {
     check('admin lee físicas', lee >= 10, String(lee))
   })
 
+  const idP = await idDe(tokPropio)
   for (const [quien, uid] of [
     ['owner', OWNER_ID],
     ['reviewer', reviewer.id],
@@ -1915,6 +1918,15 @@ async function main() {
         w.outcome === 'denied' || w.rows === 0,
         `${w.outcome}, ${w.rows} filas`,
       )
+      // Las internas no revisan permisos adentro: solo las protege el grant.
+      for (const [fn, arg] of [
+        ['resolve_customer_token($1)', tokPropio],
+        ['stamp_card_owner_state($1)', idP],
+        ['stamp_card_open_card($1)', idP],
+      ]) {
+        const r = await attempt(c, `select * from ${fn}`, [arg])
+        check(`${quien} NO ejecuta ${fn.split('(')[0]}`, r.outcome === 'denied', r.outcome)
+      }
     })
   }
 
@@ -2079,7 +2091,9 @@ async function main() {
     check('la física reemplazada no se vuelve a asociar', esError(re, 'not_a_card'), re.outcome)
   })
   await as(c, OWNER_ID, async () => {
-    // Sin owner_get_stamp_card no hay card_id: tampoco se canjea con ella.
+    // Sin owner_get_stamp_card no hay card_id: con la física revocada ya no se
+    // llega a la vuelta para canjear. Un card_id obtenido antes sí canjea: la
+    // vuelta es del cliente, no de la física.
     for (const fn of ['owner_get_stamp_card', 'owner_add_stamp']) {
       const r = await attempt(c, `select * from ${fn}($1)`, [fis[2]])
       check(`la física reemplazada no sirve en ${fn}`, esError(r, 'not_a_card'), r.outcome)
@@ -2093,8 +2107,6 @@ async function main() {
   })
 
   // Las reglas viven también en la tabla, no solo en las funciones.
-  const idDe = async (tok) =>
-    (await c.query('select id from business_customers where token = $1', [tok])).rows[0].id
   const dosVigentes = await attempt(
     c,
     'update physical_cards set customer_id = $2, linked_at = now() where token = $1',
