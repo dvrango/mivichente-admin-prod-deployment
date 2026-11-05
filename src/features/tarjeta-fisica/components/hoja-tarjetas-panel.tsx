@@ -169,7 +169,7 @@ export function HojaTarjetasPanel({ businessId, slug, nombre, portadaUrl }: Prop
     try {
       const resultado = await crearHojaTarjetas(businessId)
       if (!resultado.ok) {
-        setEstado({ fase: 'error', error: resultado.error, tarjetasCreadas: false })
+        setEstado({ fase: 'error', error: resultado.error, tarjetasCreadas: resultado.creadas })
         return
       }
       tokens = resultado.tokens

@@ -5,7 +5,11 @@ import { requireAdmin } from '@/features/auth/queries'
 import { TARJETAS_POR_HOJA } from './geometria'
 import { TOKEN_FISICA, crearHojaSchema } from './schema'
 
-export type ResultadoHoja = { ok: true; tokens: string[] } | { ok: false; error: string }
+/** `creadas` dice si las físicas ya existen en la DB aunque la hoja falló:
+ *  así el panel no le dice al admin que no se creó nada cuando sí. */
+export type ResultadoHoja =
+  | { ok: true; tokens: string[] }
+  | { ok: false; error: string; creadas: boolean }
 
 /**
  * Crea en la DB las tarjetas físicas de una hoja y regresa sus tokens para que
@@ -23,7 +27,11 @@ export async function crearHojaTarjetas(businessId: string): Promise<ResultadoHo
 
   const parsed = crearHojaSchema.safeParse({ businessId })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Datos inválidos.',
+      creadas: false,
+    }
   }
 
   const supabase = await createClient()
@@ -34,16 +42,17 @@ export async function crearHojaTarjetas(businessId: string): Promise<ResultadoHo
 
   if (error) {
     if (error.code === '42501') {
-      return { ok: false, error: 'Solo un administrador puede generar tarjetas.' }
+      return { ok: false, error: 'Solo un administrador puede generar tarjetas.', creadas: false }
     }
     if (error.message.includes('business_not_found')) {
-      return { ok: false, error: 'No se encontró el negocio.' }
+      return { ok: false, error: 'No se encontró el negocio.', creadas: false }
     }
-    return { ok: false, error: error.message }
+    return { ok: false, error: error.message, creadas: false }
   }
 
   const tokens = (data ?? []).map((fila) => fila.token)
-  // Una hoja mal formada no se imprime: mejor fallar aquí que en caja.
+  // Una hoja mal formada no se imprime: mejor fallar aquí que en caja. La RPC
+  // ya respondió, así que las físicas existen aunque no sirvan.
   if (
     tokens.length !== TARJETAS_POR_HOJA ||
     new Set(tokens).size !== tokens.length ||
@@ -52,6 +61,7 @@ export async function crearHojaTarjetas(businessId: string): Promise<ResultadoHo
     return {
       ok: false,
       error: `La base de datos regresó ${tokens.length} tarjetas que no sirven para una hoja. Genera otra.`,
+      creadas: tokens.length > 0,
     }
   }
 
