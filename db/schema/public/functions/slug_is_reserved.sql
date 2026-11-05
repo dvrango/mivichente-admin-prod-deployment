@@ -18,7 +18,9 @@ CREATE OR REPLACE FUNCTION public.slug_is_reserved (
     -- rutas estáticas top-level de un solo segmento en app_router.dart
     'splash', 'favoritos', 'filtro', 'omnibus-schedule',
     -- raíz de los resultados de búsqueda compartibles (landing: src/app/buscar/)
-    'buscar'
+    'buscar',
+    -- QR de la tarjeta física de cliente (landing: src/app/t/[token]/)
+    't'
   ]);
 $function$;
 

@@ -1568,7 +1568,7 @@ async function main() {
   const vueltaDe = async (token) =>
     (
       await c.query(
-        `select c.id, c.holder_id from stamp_cards c join stamp_card_holders h on h.id = c.holder_id
+        `select c.id, c.customer_id from stamp_cards c join business_customers h on h.id = c.customer_id
           where h.token = $1 and c.redeemed_at is null`,
         [token],
       )
@@ -1577,9 +1577,9 @@ async function main() {
     const v = await vueltaDe(token)
     for (const d of dias) {
       await c.query(
-        `insert into stamp_card_stamps (card_id, holder_id, stamp_day)
+        `insert into stamp_card_stamps (card_id, customer_id, stamp_day)
          values ($1, $2, (now() at time zone 'America/Mexico_City')::date - $3::int)`,
-        [v.id, v.holder_id, d],
+        [v.id, v.customer_id, d],
       )
     }
     return v.id
@@ -1624,13 +1624,13 @@ async function main() {
     )
     const nada = (await c.query("select * from get_stamp_card('no-es-un-token')")).rows
     check('token inventado no devuelve filas', nada.length === 0)
-    for (const t of ['stamp_card_holders', 'stamp_cards', 'stamp_card_stamps']) {
+    for (const t of ['business_customers', 'physical_cards', 'stamp_cards', 'stamp_card_stamps']) {
       const r = await attempt(c, `select count(*) from ${t}`)
       check(`anon NO lee ${t}`, r.outcome === 'denied', r.outcome)
     }
     const v = await attempt(
       c,
-      `insert into stamp_card_stamps (card_id, holder_id, stamp_day) values ($1, $1, current_date)`,
+      `insert into stamp_card_stamps (card_id, customer_id, stamp_day) values ($1, $1, current_date)`,
       [vueltaLlena],
     )
     check('anon NO inserta sellos directo', v.outcome === 'denied', v.outcome)
@@ -1639,6 +1639,9 @@ async function main() {
       ['owner_add_stamp($1)', tokPropio],
       ['owner_redeem_stamp_card($1)', vueltaLlena],
       ['stamp_card_open_card($1)', vueltaLlena],
+      ['stamp_card_owner_state($1)', vueltaLlena],
+      ['resolve_customer_token($1)', tokPropio],
+      ['admin_create_physical_cards($1, 1)', bizSellos],
     ]) {
       const r = await attempt(c, `select * from ${fn}`, [arg])
       check(`anon NO ejecuta ${fn.split('(')[0]}`, r.outcome === 'denied', r.outcome)
@@ -1696,7 +1699,7 @@ async function main() {
     const doble = await attempt(c, 'select * from owner_redeem_stamp_card($1)', [vueltaLlena])
     check('el premio se canjea una sola vez', esError(doble, 'already_redeemed'), doble.outcome)
 
-    for (const t of ['stamp_card_holders', 'stamp_cards', 'stamp_card_stamps']) {
+    for (const t of ['business_customers', 'physical_cards', 'stamp_cards', 'stamp_card_stamps']) {
       const r = await attempt(c, `select count(*) from ${t}`)
       const filas = r.outcome === 'ok' ? await n(`select count(*) from ${t}`) : 0
       check(
@@ -1708,8 +1711,8 @@ async function main() {
     for (const [label, sql, params] of [
       [
         'insertar sellos directo',
-        `insert into stamp_card_stamps (card_id, holder_id, stamp_day)
-         select id, holder_id, current_date + 1 from stamp_cards`,
+        `insert into stamp_card_stamps (card_id, customer_id, stamp_day)
+         select id, customer_id, current_date + 1 from stamp_cards`,
         [],
       ],
       ['desmarcar un canje', 'update stamp_cards set redeemed_at = null', []],
@@ -1801,7 +1804,7 @@ async function main() {
     }
     const r = await attempt(c, 'select * from owner_add_stamp($1)', [tokPropio])
     check('reviewer no sella (no es dueño)', esError(r, 'not_your_business'), r.outcome)
-    const lee = Number((await c.query('select count(*) from stamp_card_holders')).rows[0].count)
+    const lee = Number((await c.query('select count(*) from business_customers')).rows[0].count)
     check('reviewer no lee tarjetas', lee === 0, String(lee))
   })
   await as(c, admin.id, async () => {
@@ -1811,7 +1814,7 @@ async function main() {
       [bizSellos, 'pastel'],
     )
     check('admin cambia la configuración', w.outcome === 'ok' && w.rows === 1, w.outcome)
-    const lee = Number((await c.query('select count(*) from stamp_card_holders')).rows[0].count)
+    const lee = Number((await c.query('select count(*) from business_customers')).rows[0].count)
     check('admin lee tarjetas', lee >= 1, String(lee))
     const r = await attempt(c, 'select * from owner_add_stamp($1)', [tokPropio])
     check('admin no sella (no es dueño)', esError(r, 'not_your_business'), r.outcome)
@@ -1822,6 +1825,309 @@ async function main() {
     [bizSellos],
   )
   check('DB rechaza programa prendido sin premio', sinConfig.outcome !== 'ok', sinConfig.outcome)
+
+  // --- tarjeta física de cliente (0m4h4mjmm) -------------------------------
+  // La física es un accesorio de la digital: el dueño llega al mismo cliente
+  // con cualquiera de las dos. Lo que se cuida: solo el admin genera físicas,
+  // nadie las lista, una física asociada no se reasigna, asociar pide el token
+  // de la digital (el device_id no basta), una física reemplazada deja de servir
+  // en todos lados, y el dueño solo sella las de su negocio. Las físicas y sus
+  // asociaciones se crean como postgres porque as()/asAnon() revierten todo al
+  // salir y los bloques siguientes necesitan ese estado; que anon pueda llamar
+  // a link_physical_card se prueba aparte, dentro de su bloque.
+  console.log('\ntarjeta física de cliente')
+  const fisicas = async (biz, n) =>
+    (
+      await c.query(
+        'insert into physical_cards (business_id) select $1 from generate_series(1, $2) returning token',
+        [biz, n],
+      )
+    ).rows.map((r) => r.token)
+  const asociar = async (tok, device, cliente = null) =>
+    (await c.query('select link_physical_card($1, $2, $3) as t', [tok, device, cliente])).rows[0].t
+  const fis = await fisicas(bizSellos, 7)
+  const fisAjena = await fisicas(bizSellosAjeno, 2)
+  const bizSinPrograma = (
+    await c.query(
+      `insert into businesses (name, phone, municipio, is_active)
+       values ('RLS check física sin programa', '6180000000', $1, true) returning id`,
+      [suyo],
+    )
+  ).rows[0].id
+  const [fisSinPrograma] = await fisicas(bizSinPrograma, 1)
+  const entrada = async (tok) => (await c.query('select * from get_card_entry($1)', [tok])).rows
+  const idDe = async (tok) =>
+    (await c.query('select id from business_customers where token = $1', [tok])).rows[0].id
+
+  // Clientes del fixture:
+  //   P: digital del QR del mostrador (tokPropio) + física fis[2];
+  //   A: nace de la física fis[1], sin digital previa;
+  //   R: nace de la física fis[4] y llena su vuelta, para canjear con la física;
+  //   ajeno: física fisAjena[1] de otro negocio, asociada.
+  const tokA = await asociar(fis[1], 'rls-fis-1')
+  check(
+    'asociar la física de P con su token regresa su digital',
+    (await asociar(fis[2], 'rls-fis-p', tokPropio)) === tokPropio,
+  )
+  const tokR = await asociar(fis[4], 'rls-fis-r')
+  await asociar(fisAjena[1], 'rls-fis-ajeno')
+  const vueltaR = await sellosPasados(tokR, [1, 2, 3, 4, 5])
+
+  await as(c, admin.id, async () => {
+    const t = (await c.query('select * from admin_create_physical_cards($1, 3)', [bizSellos])).rows
+    const filas = (
+      await c.query(
+        'select business_id, customer_id, created_by, created_at from physical_cards where token = any($1)',
+        [t.map((r) => r.token)],
+      )
+    ).rows
+    check(
+      'admin genera una hoja de físicas',
+      t.length === 3 &&
+        new Set(t.map((r) => r.token)).size === 3 &&
+        t.every((r) => r.token.length === 24) &&
+        filas.length === 3 &&
+        filas.every(
+          (f) =>
+            f.business_id === bizSellos &&
+            f.customer_id === null &&
+            f.created_by === admin.id &&
+            f.created_at.getTime() === filas[0].created_at.getTime(),
+        ),
+      JSON.stringify(filas),
+    )
+    const cero = await attempt(c, 'select * from admin_create_physical_cards($1, 0)', [bizSellos])
+    check('admin no genera 0 físicas', esError(cero, 'invalid_count'), cero.outcome)
+    const lee = Number((await c.query('select count(*) from physical_cards')).rows[0].count)
+    check('admin lee físicas', lee >= 10, String(lee))
+  })
+
+  const idP = await idDe(tokPropio)
+  for (const [quien, uid] of [
+    ['owner', OWNER_ID],
+    ['reviewer', reviewer.id],
+  ]) {
+    await as(c, uid, async () => {
+      const g = await attempt(c, 'select * from admin_create_physical_cards($1, 1)', [bizSellos])
+      check(`${quien} NO genera físicas`, g.outcome === 'denied', g.outcome)
+      const lee = Number((await c.query('select count(*) from physical_cards')).rows[0].count)
+      check(`${quien} no lista físicas`, lee === 0, String(lee))
+      const w = await attempt(c, 'update physical_cards set revoked_at = now()')
+      check(
+        `${quien} NO toca físicas directo`,
+        w.outcome === 'denied' || w.rows === 0,
+        `${w.outcome}, ${w.rows} filas`,
+      )
+      // Las internas no revisan permisos adentro: solo las protege el grant.
+      for (const [fn, arg] of [
+        ['resolve_customer_token($1)', tokPropio],
+        ['stamp_card_owner_state($1)', idP],
+        ['stamp_card_open_card($1)', idP],
+      ]) {
+        const r = await attempt(c, `select * from ${fn}`, [arg])
+        check(`${quien} NO ejecuta ${fn.split('(')[0]}`, r.outcome === 'denied', r.outcome)
+      }
+    })
+  }
+
+  await asAnon(c, async () => {
+    const g = await attempt(c, 'select * from admin_create_physical_cards($1, 1)', [bizSellos])
+    check('anon NO genera físicas', g.outcome === 'denied', g.outcome)
+
+    const antes = await entrada(fis[0])
+    check(
+      'entrada de una física sin asociar: unlinked, con su negocio y su mecánica',
+      antes.length === 1 &&
+        antes[0].status === 'unlinked' &&
+        antes[0].business_slug === slugPropio &&
+        antes[0].active_mechanic === 'stamp_card',
+      JSON.stringify(antes),
+    )
+    const sinAsociar = (await c.query('select * from get_stamp_card($1)', [fis[0]])).rows
+    check('una física sin asociar no muestra tarjeta', sinAsociar.length === 0)
+
+    const nuevo = (await c.query("select link_physical_card($1, 'rls-fis-anon') as t", [fis[0]]))
+      .rows[0].t
+    const porDigital = (await c.query('select * from get_stamp_card($1)', [nuevo])).rows
+    const porFisica = (await c.query('select * from get_stamp_card($1)', [fis[0]])).rows
+    check(
+      'anon asocia una física sin digital previa: crea su cliente y la tarjeta es la misma',
+      typeof nuevo === 'string' &&
+        nuevo.length === 24 &&
+        porDigital.length === 1 &&
+        porFisica.length === 1 &&
+        JSON.stringify(porDigital[0]) === JSON.stringify(porFisica[0]),
+      JSON.stringify({ porDigital, porFisica }),
+    )
+    const despues = await entrada(fis[0])
+    check('entrada de una física asociada: linked', despues[0]?.status === 'linked')
+
+    const sinMecanica = await entrada(fisSinPrograma)
+    check(
+      'negocio sin nada activo: la entrada manda a la ficha, no da error',
+      sinMecanica.length === 1 &&
+        sinMecanica[0].active_mechanic === null &&
+        typeof sinMecanica[0].business_slug === 'string',
+      JSON.stringify(sinMecanica),
+    )
+    check(
+      'entrada de un token inventado: sin filas',
+      (await entrada('no-es-un-token')).length === 0,
+    )
+
+    for (const [label, args, code] of [
+      [
+        'otro celular no reasigna una física asociada',
+        [fis[1], 'rls-fis-otro', null],
+        'card_already_linked',
+      ],
+      [
+        'otro cliente no se queda una física asociada',
+        [fis[1], 'rls-fis-otro', tokPropio],
+        'card_already_linked',
+      ],
+      [
+        'física de otro negocio con el token de P',
+        [fisAjena[0], 'rls-fis-otro', tokPropio],
+        'wrong_business',
+      ],
+      [
+        'token de cliente inventado',
+        [fis[3], 'rls-fis-otro', 'no-es-un-token'],
+        'invalid_customer_token',
+      ],
+      ['celular con cliente, sin su token', [fis[3], 'rls-sellos-1', null], 'already_has_card'],
+      ['física inventada', ['no-es-un-token', 'rls-fis-otro', null], 'not_a_card'],
+    ]) {
+      const r = await attempt(c, 'select link_physical_card($1, $2, $3)', args)
+      check(`asociar: ${label}`, esError(r, code), r.outcome)
+    }
+    const doble = (await c.query('select link_physical_card($1, $2, $3) as t', [fis[1], 'x', tokA]))
+      .rows[0].t
+    check('asociar dos veces la misma física al mismo cliente no cambia nada', doble === tokA)
+  })
+
+  await as(c, OWNER_ID, async () => {
+    const porDigital = (await c.query('select * from owner_get_stamp_card($1)', [tokPropio]))
+      .rows[0]
+    const porFisica = (await c.query('select * from owner_get_stamp_card($1)', [fis[2]])).rows[0]
+    check(
+      'owner llega a la misma vuelta con la digital y con la física',
+      porDigital?.card_id && porDigital.card_id === porFisica?.card_id,
+      JSON.stringify({ porDigital, porFisica }),
+    )
+    const sello = (await c.query('select * from owner_add_stamp($1)', [fis[2]])).rows[0]
+    check('owner sella con la física de su negocio', sello?.stamps === 1, JSON.stringify(sello))
+    const mismoDia = await attempt(c, 'select * from owner_add_stamp($1)', [tokPropio])
+    check(
+      'sello por la física cuenta para la digital el mismo día',
+      esError(mismoDia, 'already_stamped_today'),
+      mismoDia.outcome,
+    )
+    await c.query('select * from owner_add_stamp($1)', [tokA])
+    const alReves = await attempt(c, 'select * from owner_add_stamp($1)', [fis[1]])
+    check(
+      'sello por la digital cuenta para la física el mismo día',
+      esError(alReves, 'already_stamped_today'),
+      alReves.outcome,
+    )
+
+    for (const [fn, tok, code, label] of [
+      ['owner_get_stamp_card', fis[3], 'card_not_linked', 'física propia sin asociar: ver'],
+      ['owner_add_stamp', fis[3], 'card_not_linked', 'física propia sin asociar: sellar'],
+      ['owner_get_stamp_card', fisAjena[0], 'not_your_business', 'física ajena sin asociar: ver'],
+      ['owner_add_stamp', fisAjena[1], 'not_your_business', 'física ajena asociada: sellar'],
+      ['owner_get_stamp_card', 'no-es-un-token', 'not_a_card', 'física inventada'],
+    ]) {
+      const r = await attempt(c, `select * from ${fn}($1)`, [tok])
+      check(`owner: ${label}`, esError(r, code), r.outcome)
+    }
+
+    const llenaR = (await c.query('select * from owner_get_stamp_card($1)', [fis[4]])).rows[0]
+    const canje = (await c.query('select * from owner_redeem_stamp_card($1)', [llenaR.card_id]))
+      .rows[0]
+    check(
+      'owner canjea la vuelta que obtuvo con la física',
+      llenaR.card_id === vueltaR && llenaR.is_full === true && canje?.last_redeemed_at !== null,
+      JSON.stringify({ llenaR, canje }),
+    )
+
+    // Se mira dentro del bloque, antes del rollback, como postgres.
+    await c.query('reset role')
+    const ajenaSinSello = Number(
+      (
+        await c.query(
+          `select count(*) from stamp_card_stamps s
+             join physical_cards pc on pc.customer_id = s.customer_id
+            where pc.token = $1`,
+          [fisAjena[1]],
+        )
+      ).rows[0].count,
+    )
+    await c.query('set local role authenticated')
+    check('la física ajena sigue sin sellos', ajenaSinSello === 0, String(ajenaSinSello))
+  })
+
+  // P pierde su física: se le asocia fis[5] con su token y fis[2] deja de servir.
+  check('P asocia una física nueva', (await asociar(fis[5], 'rls-fis-p', tokPropio)) === tokPropio)
+  const vigentesP = Number(
+    (
+      await c.query(
+        `select count(*) from physical_cards pc
+           join business_customers bc on bc.id = pc.customer_id
+          where bc.token = $1 and pc.revoked_at is null`,
+        [tokPropio],
+      )
+    ).rows[0].count,
+  )
+  check('P tiene una sola física vigente', vigentesP === 1, String(vigentesP))
+  await asAnon(c, async () => {
+    check(
+      'la física reemplazada no muestra la tarjeta',
+      (await c.query('select * from get_stamp_card($1)', [fis[2]])).rows.length === 0,
+    )
+    check('la física reemplazada no tiene entrada', (await entrada(fis[2])).length === 0)
+    const re = await attempt(c, "select link_physical_card($1, 'rls-fis-q')", [fis[2]])
+    check('la física reemplazada no se vuelve a asociar', esError(re, 'not_a_card'), re.outcome)
+  })
+  await as(c, OWNER_ID, async () => {
+    // Sin owner_get_stamp_card no hay card_id: con la física revocada ya no se
+    // llega a la vuelta para canjear. Un card_id obtenido antes sí canjea: la
+    // vuelta es del cliente, no de la física.
+    for (const fn of ['owner_get_stamp_card', 'owner_add_stamp']) {
+      const r = await attempt(c, `select * from ${fn}($1)`, [fis[2]])
+      check(`la física reemplazada no sirve en ${fn}`, esError(r, 'not_a_card'), r.outcome)
+    }
+    const nueva = (await c.query('select * from owner_get_stamp_card($1)', [fis[5]])).rows[0]
+    const digital = (await c.query('select * from owner_get_stamp_card($1)', [tokPropio])).rows[0]
+    check(
+      'la física nueva llega a la misma tarjeta',
+      nueva?.card_id && nueva.card_id === digital?.card_id,
+    )
+  })
+
+  // Las reglas viven también en la tabla, no solo en las funciones.
+  const dosVigentes = await attempt(
+    c,
+    'update physical_cards set customer_id = $2, linked_at = now() where token = $1',
+    [fis[6], await idDe(tokPropio)],
+  )
+  check(
+    'la DB no deja dos físicas vigentes por cliente',
+    dosVigentes.outcome.includes('physical_cards_one_active_per_customer'),
+    dosVigentes.outcome,
+  )
+  const cruzada = await attempt(
+    c,
+    'update physical_cards set customer_id = $2, linked_at = now() where token = $1',
+    // tokLleno no tiene física: así truena la FK y no el índice de una vigente.
+    [fisAjena[0], await idDe(tokLleno)],
+  )
+  check(
+    'la DB no deja asociar una física a un cliente de otro negocio',
+    cruzada.outcome.includes('physical_cards_customer_fkey'),
+    cruzada.outcome,
+  )
 
   // Avisos de negocio faltante (tarea k4mu1g2sv). anon solo inserta, y solo en
   // `pending`; el staff (admin y reviewer de cualquier municipio) lee y cambia
