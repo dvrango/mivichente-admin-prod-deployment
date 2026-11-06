@@ -11,6 +11,7 @@ CREATE OR REPLACE FUNCTION public.qr_scan_channel_from_src (
     when p_src like 'share%'         then 'share'
     when p_src like 'menu-qr%'       then 'menu-qr'
     when p_src like 'opinion-qr%'    then 'opinion-qr'
+    when p_src like 'tarjeta-qr%'    then 'tarjeta-qr'
     when p_src like 'sellos-qr%'     then 'sellos-qr'
     when p_src like 'sticker%'       then 'sticker'
     when p_src like 'post-ig%'       then 'post-ig'

@@ -13,14 +13,16 @@ export function urlMenuImpresa(slug: string): string {
   return `${DOMINIO_PUBLICO}/${slug}/menu?src=${SRC_MENU_QR}`
 }
 
-export const SRC_SELLOS_QR = 'sellos-qr'
+export const SRC_TARJETA_QR = 'tarjeta-qr'
 
-/** El QR del mostrador de la tarjeta de sellos (tarea o3w5njyf0). Forma
+/** El QR del mostrador de la tarjeta de cliente (tarea o3w5njyf0). Forma
  *  decidida por el usuario el 2026-11-03, mismo patrón que el menú y las
  *  opiniones: slug, ruta fija y `src` sin el nombre del negocio. La página la
- *  sirve la landing (`hnururkb2`); el canal lo mapea `qr_scan_channel_from_src`. */
-export function urlSellosMostrador(slug: string): string {
-  return `${DOMINIO_PUBLICO}/${slug}/sellos?src=${SRC_SELLOS_QR}`
+ *  sirve la landing (`hnururkb2`); el canal lo mapea `qr_scan_channel_from_src`.
+ *  Hasta el 2026-11-06 era `/{slug}/sellos?src=sellos-qr`; se cambió a
+ *  `/tarjeta` antes de imprimir ningún QR (`m7r8es7op`). */
+export function urlTarjetaMostrador(slug: string): string {
+  return `${DOMINIO_PUBLICO}/${slug}/tarjeta?src=${SRC_TARJETA_QR}`
 }
 
 /** El QR de una tarjeta física de cliente (tarea 0m4h4mjmm, PDF en e69q7q4fy).

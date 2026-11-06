@@ -1283,19 +1283,18 @@ async function main() {
   ).rows[0].channel
   check('un scan con src=opinion-qr cae en su propio canal', canal === 'opinion-qr', canal)
 
-  // El QR del mostrador de la tarjeta de sellos (o3w5njyf0) imprime este src.
-  const canalSellos = (
-    await c.query(
-      `insert into qr_scans (src, business_id, user_agent)
-       values ('sellos-qr', $1, 'Mozilla/5.0 (Linux; Android 14)') returning channel`,
-      [bizFeedback],
-    )
-  ).rows[0].channel
-  check(
-    'un scan con src=sellos-qr cae en su propio canal',
-    canalSellos === 'sellos-qr',
-    canalSellos,
-  )
+  // El QR del mostrador de la tarjeta de cliente (o3w5njyf0, m7r8es7op) imprime
+  // tarjeta-qr. sellos-qr es su dirección vieja: ya hay scans con ese src en prod.
+  for (const src of ['tarjeta-qr', 'sellos-qr']) {
+    const canalMostrador = (
+      await c.query(
+        `insert into qr_scans (src, business_id, user_agent)
+         values ($1, $2, 'Mozilla/5.0 (Linux; Android 14)') returning channel`,
+        [src, bizFeedback],
+      )
+    ).rows[0].channel
+    check(`un scan con src=${src} cae en su propio canal`, canalMostrador === src, canalMostrador)
+  }
 
   // Las métricas agregadas leen telemetría y solo las ejecuta service_role.
   // Postgres y Supabase dan `execute` a toda función nueva: si un día falta el
