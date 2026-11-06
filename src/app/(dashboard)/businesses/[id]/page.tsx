@@ -130,6 +130,16 @@ export default async function EditBusinessPage({
                   : 'Tarjeta de sellos'}
               </Link>
             )}
+            {/* Solo admin: generar la hoja crea tarjetas físicas en la DB y
+                admin_create_physical_cards rechaza a cualquier otro rol. */}
+            {profile?.role === 'admin' && (
+              <Link
+                href={`/businesses/${id}/tarjetas`}
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                Tarjetas físicas
+              </Link>
+            )}
             {readOnly ? (
               <Badge variant="outline">Solo lectura · {business.municipio}</Badge>
             ) : (

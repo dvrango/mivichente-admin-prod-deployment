@@ -23,6 +23,15 @@ export function urlSellosMostrador(slug: string): string {
   return `${DOMINIO_PUBLICO}/${slug}/sellos?src=${SRC_SELLOS_QR}`
 }
 
+/** El QR de una tarjeta física de cliente (tarea 0m4h4mjmm, PDF en e69q7q4fy).
+ *  Forma decidida por el usuario el 2026-11-05: sin slug, sin «sellos» y sin
+ *  `?src=`, para que la tarjeta impresa no quede atada a una mecánica ni a un
+ *  nombre de negocio que puede cambiar. La página la sirve la landing
+ *  (`hnururkb2`). El token es secreto al portador: va solo dentro del QR. */
+export function urlTarjetaFisica(token: string): string {
+  return `${DOMINIO_PUBLICO}/t/${encodeURIComponent(token)}`
+}
+
 /** El menú de mesa tal como lo abre el cliente, para revisarlo desde el admin.
  *  SIN `?src=`: la landing solo registra un scan cuando viene `src`, así que
  *  abrirlo desde aquí no ensucia los conteos del QR. */
