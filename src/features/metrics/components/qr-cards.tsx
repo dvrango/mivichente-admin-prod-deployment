@@ -12,7 +12,8 @@ const CHANNEL_LABELS: Record<string, string> = {
   'post-ig': 'Posts de Instagram',
   sticker: 'Stickers',
   'opinion-qr': 'QR de opiniones',
-  'sellos-qr': 'QR de tarjeta de sellos',
+  'tarjeta-qr': 'QR del mostrador (tarjeta de cliente)',
+  'sellos-qr': 'QR del mostrador, dirección vieja (/sellos)',
   otro: 'Otro origen (src sin mapear)',
 }
 

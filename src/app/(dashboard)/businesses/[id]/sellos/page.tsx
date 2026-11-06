@@ -8,7 +8,7 @@ import { updateBusinessStampCard, type StampCardFormState } from '@/features/bus
 import { BusinessStampCardForm } from '@/features/businesses/components/business-stamp-card-form'
 import { businessHasOwner, getBusinessById } from '@/features/businesses/queries'
 import { QrMostradorPanel } from '@/features/material-grafico/components/qr-mostrador-panel'
-import { urlSellosMostrador } from '@/features/material-grafico/url-menu'
+import { urlTarjetaMostrador } from '@/features/material-grafico/url-menu'
 
 // Página hija de /businesses/[id], hermana de /opiniones y con la misma forma
 // (A1 y A2 del mockup `mvp-design/tarjeta-de-sellos/`). Va aparte del form del
@@ -78,8 +78,8 @@ export default async function BusinessStampCardPage({
           <CardContent>
             {qrDisponible ? (
               <QrMostradorPanel
-                url={urlSellosMostrador(business.slug)}
-                archivo={`vichente-qr-sellos-${business.slug}`}
+                url={urlTarjetaMostrador(business.slug)}
+                archivo={`vichente-qr-tarjeta-${business.slug}`}
               />
             ) : (
               <p className="text-muted-foreground text-sm">
