@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest'
+import {
+  cardTokenFromScan,
+  errorCopy,
+  errorScreenOf,
+  redeemedLine,
+  rewardTitle,
+  screenAfterScan,
+  stampCardErrorOf,
+  type StampCardState,
+} from './stamp-card'
+
+const TOKEN = 'Ab3_-xYz0123456789abcdEF'
+
+const base: StampCardState = {
+  cardId: '00000000-0000-0000-0000-000000000001',
+  businessId: '00000000-0000-0000-0000-000000000002',
+  businessName: 'K-fféss',
+  programActive: true,
+  reward: 'frappé gratis',
+  stampsRequired: 8,
+  stamps: 5,
+  isFull: false,
+  stampedToday: false,
+  lastRedeemedAt: null,
+}
+
+describe('token de la tarjeta desde el QR', () => {
+  it('lee la URL de la digital y de la física', () => {
+    expect(cardTokenFromScan(`https://vichente.com/t/${TOKEN}`)).toBe(TOKEN)
+    expect(cardTokenFromScan(`https://www.vichente.com/t/${TOKEN}/`)).toBe(TOKEN)
+    expect(cardTokenFromScan(`  https://vichente.com/t/${TOKEN}?src=x  `)).toBe(TOKEN)
+  })
+
+  it('el QR del mostrador y el del menú no son tarjetas', () => {
+    expect(cardTokenFromScan('https://vichente.com/k-ffess/tarjeta?src=tarjeta-qr')).toBeNull()
+    expect(cardTokenFromScan('https://vichente.com/k-ffess/menu')).toBeNull()
+    expect(cardTokenFromScan('https://vichente.com/k-ffess')).toBeNull()
+  })
+
+  it('rechaza otros dominios, http, texto suelto y tokens raros', () => {
+    expect(cardTokenFromScan(`https://vichente.com.mx/t/${TOKEN}`)).toBeNull()
+    expect(cardTokenFromScan(`https://evil.com/t/${TOKEN}`)).toBeNull()
+    expect(cardTokenFromScan(`http://vichente.com/t/${TOKEN}`)).toBeNull()
+    expect(cardTokenFromScan(TOKEN)).toBeNull()
+    expect(cardTokenFromScan('https://vichente.com/t/abc')).toBeNull()
+    expect(cardTokenFromScan(`https://vichente.com/t/${TOKEN}/extra`)).toBeNull()
+    expect(cardTokenFromScan('https://vichente.com/t/%E0%A4%A')).toBeNull()
+  })
+})
+
+describe('pantalla después de leer', () => {
+  it('a medias y sin sello de hoy: D3', () => {
+    expect(screenAfterScan(base)).toBe('leida')
+  })
+
+  it('llena: D5, aunque el programa esté apagado', () => {
+    expect(screenAfterScan({ ...base, stamps: 8, isFull: true })).toBe('llena')
+    expect(screenAfterScan({ ...base, stamps: 8, isFull: true, programActive: false })).toBe(
+      'llena',
+    )
+  })
+
+  it('programa apagado sin llenar: E8', () => {
+    expect(screenAfterScan({ ...base, programActive: false })).toBe('apagada')
+  })
+
+  it('ya recibió el sello de hoy: E4', () => {
+    expect(screenAfterScan({ ...base, stampedToday: true })).toBe('ya_sellada')
+  })
+})
+
+describe('errores de la DB', () => {
+  it('reconoce solo los mensajes de la tarjeta', () => {
+    expect(stampCardErrorOf('not_your_business')).toBe('not_your_business')
+    expect(stampCardErrorOf('card_not_linked')).toBe('card_not_linked')
+    expect(stampCardErrorOf('permission denied for function')).toBe('unknown')
+    expect(stampCardErrorOf(undefined)).toBe('unknown')
+  })
+
+  it('cada error lleva su pantalla, y las carreras no llevan ninguna', () => {
+    expect(errorScreenOf('not_your_business')).toBe('otro_negocio')
+    expect(errorScreenOf('not_a_card')).toBe('no_es_tarjeta')
+    expect(errorScreenOf('card_not_linked')).toBe('no_activada')
+    expect(errorScreenOf('already_redeemed')).toBe('ya_canjeado')
+    expect(errorScreenOf('already_stamped_today')).toBe('ya_sellada')
+    expect(errorScreenOf('stamp_card_not_available')).toBe('apagada')
+    expect(errorScreenOf('card_full')).toBeNull()
+    expect(errorScreenOf('card_not_full')).toBeNull()
+  })
+
+  it('E1 dice el negocio del dueño y no el de la tarjeta', () => {
+    expect(errorCopy('otro_negocio', { businessName: 'K-fféss' }).title).toBe(
+      'Esta tarjeta no es de K‑fféss',
+    )
+  })
+
+  it('E8 manda a WhatsApp', () => {
+    const e8 = errorCopy('apagada', { businessName: 'K-fféss' })
+    expect(e8.title).toBe('Tu tarjeta de sellos está apagada')
+    expect(e8.whatsapp).toBe(true)
+  })
+})
+
+describe('textos', () => {
+  it('título del premio', () => {
+    expect(rewardTitle('frappé gratis')).toBe('Frappé gratis')
+    expect(rewardTitle(null)).toBe('Premio')
+  })
+
+  it('hora del canje en hora de Durango', () => {
+    const now = new Date('2026-11-06T22:00:00Z') // 16:00 en Durango
+    expect(redeemedLine('2026-11-06T19:42:00Z', now)).toBe('Se entregó hoy a las 13:42.')
+    expect(redeemedLine('2026-11-05T19:42:00Z', now)).toMatch(/^Se entregó el 5 nov a las 13:42\.$/)
+    expect(redeemedLine(null, now)).toBe('Ya se entregó antes.')
+  })
+})

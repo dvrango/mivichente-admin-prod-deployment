@@ -8,7 +8,8 @@ export type OwnerBusinessSummary =
 // generados la declaran como `Json`, así que aquí se describe a mano y el
 // typecheck no avisa si la SQL cambia de forma: tocar las dos juntas.
 //
-// Los campos opcionales llegaron después (`20261029120000_owner_snapshot_service_photos`):
+// Los campos opcionales llegaron después (`20261029120000_owner_snapshot_service_photos`
+// y `20261107120000_owner_snapshot_stamp_card`):
 // el admin se puede desplegar antes de que la migración llegue a prod, y ahí la
 // función todavía no los trae. `undefined` = "no sé", no `false`/`null`.
 
@@ -71,6 +72,8 @@ export type OwnerBusinessSnapshot = {
     promo_title: string | null
     promo_body: string | null
     promo_ends_at: string | null
+    /** La tarjeta de sellos está prendida. Solo decide si el panel enseña la pantalla de caja. */
+    stamp_card_active?: boolean
   }
   hours: OwnerHour[]
   photos: OwnerPhoto[]

@@ -1,0 +1,176 @@
+/* Tarjeta de sellos del dueño: la rejilla de seis zonas del mockup v4
+   (mvp-design/tarjeta-de-sellos/tarjeta-de-sellos-vichente-v4.html). Mismas
+   filas, a la misma altura, en todas las pantallas: encabezado, aviso, mensaje,
+   progreso, objeto y acción. Una pantalla deja zonas vacías, nunca las mueve. */
+
+.screen {
+  --accent: #ff6a1f;
+  --empty: #eae3da;
+  --line: #e8e2da;
+
+  display: grid;
+  row-gap: 12px;
+  grid-template-columns: 100%;
+  grid-template-rows: 32px 28px 96px 28px 1fr 96px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 8px 8px 4px;
+  /* La pantalla del panel menos su encabezado y el padding de <main>. */
+  min-height: calc(100dvh - 7rem);
+}
+
+.screen > * {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.head {
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+}
+
+.aviso {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+}
+
+.msg {
+  grid-row: 3;
+}
+
+.prog {
+  grid-row: 4;
+}
+
+.act {
+  grid-row: 6;
+  display: grid;
+  grid-template-rows: 52px 40px;
+  row-gap: 4px;
+}
+
+/* ── Cámara (D2): mismas zonas sobre fondo oscuro, a pantalla completa ── */
+
+.camera {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  max-width: none;
+  min-height: 0;
+  height: 100dvh;
+  padding: 40px 24px 20px;
+  background: #161616;
+  color: #fff;
+}
+
+.viewer {
+  grid-row: 4 / 6;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.frame {
+  position: relative;
+  width: 216px;
+  height: 216px;
+  border: 3px solid rgb(255 255 255 / 0.92);
+  border-radius: 24px;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.35);
+}
+
+/* ── Progreso: la barra por etapas, el mismo componente que ve el cliente ── */
+
+.stamps {
+  display: flex;
+  align-items: center;
+  height: 28px;
+}
+
+.segs {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  align-items: center;
+}
+
+.seg {
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 28px;
+  border-radius: 6px;
+  background: var(--empty);
+}
+
+.segOn {
+  background: var(--accent);
+}
+
+.fresh {
+  animation: llena 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.2s both;
+}
+
+@keyframes llena {
+  0% {
+    background: var(--empty);
+    transform: scale(0.6);
+  }
+  55% {
+    background: var(--accent);
+    transform: scale(1.12);
+  }
+  100% {
+    background: var(--accent);
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fresh {
+    animation: none;
+  }
+}
+
+.sep {
+  width: 1px;
+  height: 24px;
+  margin: 0 10px;
+  flex: none;
+  background: var(--line);
+}
+
+.gift {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.giftWon {
+  color: var(--accent);
+}
+
+.gift svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+:global(.dark) .screen:not(.camera) {
+  --empty: #3a352f;
+  --line: #3a352f;
+}

@@ -1412,6 +1412,12 @@ async function main() {
 
     const propio = (await c.query('select owner_business_snapshot($1) as s', [bizActivo])).rows[0].s
     check('snapshot de su negocio trae datos', propio?.business?.id === bizActivo)
+    // El panel solo enseña la pantalla de caja con el programa prendido (w26gamoh8).
+    check(
+      'snapshot dice si su tarjeta de sellos está prendida',
+      typeof propio?.business?.stamp_card_active === 'boolean',
+      JSON.stringify(propio?.business?.stamp_card_active),
+    )
     const liked = (propio?.feedback?.recent ?? []).map((f) => f.liked)
     check(
       'snapshot trae sus opiniones y no las ajenas',

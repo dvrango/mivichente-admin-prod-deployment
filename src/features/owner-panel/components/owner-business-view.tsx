@@ -366,7 +366,13 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
         title="Para tu negocio"
         hint="Lo que ya puedes pedir y lo que estamos construyendo. Si algo te interesa, escríbenos."
       />
-      <OwnerFeatureCards businessName={b.name} menuUrl={menuUrl} />
+      <OwnerFeatureCards
+        businessName={b.name}
+        menuUrl={menuUrl}
+        stampCardHref={
+          b.is_active && b.stamp_card_active === true ? `/mi-negocio/sellos?negocio=${b.id}` : null
+        }
+      />
 
       <SectionTitle
         id={SECTIONS.ficha}

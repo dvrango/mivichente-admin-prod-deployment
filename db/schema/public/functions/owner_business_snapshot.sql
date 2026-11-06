@@ -32,7 +32,8 @@ CREATE OR REPLACE FUNCTION public.owner_business_snapshot (
       'promo_active', b.promo_active,
       'promo_title', b.promo_title,
       'promo_body', b.promo_body,
-      'promo_ends_at', b.promo_ends_at
+      'promo_ends_at', b.promo_ends_at,
+      'stamp_card_active', b.stamp_card_active
     ),
     'hours', coalesce((
       select jsonb_agg(
@@ -126,6 +127,6 @@ $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."owner_business_snapshot"(uuid) TO "authenticated", "postgres";
 
-COMMENT ON FUNCTION "public"."owner_business_snapshot"(uuid) IS 'Ficha de un negocio para el panel del dueño: datos públicos (incluye accepts_orders), horarios, fotos, servicios publicados con su foto y las 50 opiniones más recientes con el total. Null si la cuenta no es owner o el negocio no está ligado a ella.';
+COMMENT ON FUNCTION "public"."owner_business_snapshot"(uuid) IS 'Ficha de un negocio para el panel del dueño: datos públicos (incluye accepts_orders y stamp_card_active), horarios, fotos, servicios publicados con su foto y las 50 opiniones más recientes con el total. Null si la cuenta no es owner o el negocio no está ligado a ella.';
 
 REVOKE ALL ON FUNCTION "public"."owner_business_snapshot"(uuid) FROM PUBLIC;

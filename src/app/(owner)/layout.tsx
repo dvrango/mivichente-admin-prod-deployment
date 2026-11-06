@@ -7,8 +7,11 @@ import { signOut } from '@/features/auth/actions'
 import { getCurrentProfile } from '@/features/auth/queries'
 
 // Grupo de rutas hermano de (dashboard) y (field): el dueño no ve el chrome del
-// staff. Solo lectura — la DB le niega cualquier escritura de todos modos, y
-// sus datos le llegan por owner_business_snapshot(), no por las tablas.
+// staff. Solo lectura, con una excepción: dar sellos y canjear el premio de la
+// tarjeta de sellos (`/mi-negocio/sellos`, mikitasks w26gamoh8). La DB le niega
+// cualquier otra escritura, sus datos le llegan por owner_business_snapshot()
+// y no por las tablas, y los sellos pasan solo por owner_add_stamp() y
+// owner_redeem_stamp_card(), que revisan is_owner_of().
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile()
