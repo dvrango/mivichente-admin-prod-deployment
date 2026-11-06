@@ -74,6 +74,8 @@ export type OwnerBusinessSnapshot = {
     promo_ends_at: string | null
     /** La tarjeta de sellos está prendida. Solo decide si el panel enseña la pantalla de caja. */
     stamp_card_active?: boolean
+    /** Vueltas llenas sin canjear. Con el programa apagado, la entrada sigue para canjearlas. */
+    stamp_card_pending_rewards?: number
   }
   hours: OwnerHour[]
   photos: OwnerPhoto[]

@@ -6,6 +6,7 @@ import {
   redeemedLine,
   rewardTitle,
   screenAfterScan,
+  showsStampCardEntry,
   stampCardErrorOf,
   type StampCardState,
 } from './stamp-card'
@@ -46,6 +47,23 @@ describe('token de la tarjeta desde el QR', () => {
     expect(cardTokenFromScan('https://vichente.com/t/abc')).toBeNull()
     expect(cardTokenFromScan(`https://vichente.com/t/${TOKEN}/extra`)).toBeNull()
     expect(cardTokenFromScan('https://vichente.com/t/%E0%A4%A')).toBeNull()
+  })
+})
+
+describe('entrada en el panel', () => {
+  it('sale con el programa prendido en un negocio activo', () => {
+    expect(showsStampCardEntry({ is_active: true, stamp_card_active: true })).toBe(true)
+    expect(showsStampCardEntry({ is_active: false, stamp_card_active: true })).toBe(false)
+  })
+
+  it('apagado, solo mientras quede un premio por entregar', () => {
+    const apagado = { is_active: true, stamp_card_active: false }
+    expect(showsStampCardEntry({ ...apagado, stamp_card_pending_rewards: 0 })).toBe(false)
+    expect(showsStampCardEntry({ ...apagado, stamp_card_pending_rewards: 2 })).toBe(true)
+  })
+
+  it('un snapshot sin las llaves no la enseña', () => {
+    expect(showsStampCardEntry({ is_active: true })).toBe(false)
   })
 })
 

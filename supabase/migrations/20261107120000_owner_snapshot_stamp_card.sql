@@ -1,13 +1,18 @@
 -- Panel del dueño: el snapshot dice si el negocio tiene prendida la tarjeta de
--- sellos (mikitasks w26gamoh8).
+-- sellos y cuántos premios ganados faltan por canjear (mikitasks w26gamoh8).
 --
--- La entrada «Tarjeta de sellos» del panel solo aparece con el programa
--- prendido (decisión del usuario, 2026-11-06), y hasta aquí el dueño no tenía
--- cómo saberlo: no tiene grants sobre `businesses` y ni este snapshot ni
+-- La entrada «Tarjeta de sellos» del panel aparece con el programa prendido
+-- (decisión del usuario, 2026-11-06), y hasta aquí el dueño no tenía cómo
+-- saberlo: no tiene grants sobre `businesses` y ni este snapshot ni
 -- `owner_businesses()` traían `stamp_card_active`.
 --
--- Solo se agrega la llave. Es un dato de su propio negocio, que el cliente ya
--- deduce de la landing. La autorización no cambia: el filtro
+-- `stamp_card_pending_rewards`: vueltas llenas sin canjear. Con el programa
+-- apagado, el cliente con la tarjeta llena sigue viendo su premio como ganado
+-- (la landing y `owner_redeem_stamp_card` no revisan el programa), así que la
+-- entrada sigue apareciendo mientras quede alguno por entregar, solo para
+-- canjear (decisión del usuario, 2026-11-06). Es un conteo: no expone clientes.
+--
+-- Solo se agregan las dos llaves. Son datos de su propio negocio. La autorización no cambia: el filtro
 -- `is_owner_of(b.id)` sigue igual, y quién sella lo deciden `owner_add_stamp` y
 -- `owner_redeem_stamp_card`, no esta llave. Los grants se repiten abajo para que
 -- la migración no dependa de que `create or replace` los conserve.
@@ -45,7 +50,17 @@ as $$
       'promo_title', b.promo_title,
       'promo_body', b.promo_body,
       'promo_ends_at', b.promo_ends_at,
-      'stamp_card_active', b.stamp_card_active
+      'stamp_card_active', b.stamp_card_active,
+      'stamp_card_pending_rewards', (
+        select count(*)::integer
+          from public.stamp_cards sc
+          join public.business_customers bc on bc.id = sc.customer_id
+         where bc.business_id = b.id
+           and sc.redeemed_at is null
+           and (
+             select count(*) from public.stamp_card_stamps s where s.card_id = sc.id
+           ) >= sc.stamps_required
+      )
     ),
     'hours', coalesce((
       select jsonb_agg(
@@ -138,7 +153,7 @@ as $$
 $$;
 
 comment on function public.owner_business_snapshot(uuid) is
-  'Ficha de un negocio para el panel del dueño: datos públicos (incluye accepts_orders y stamp_card_active), horarios, fotos, servicios publicados con su foto y las 50 opiniones más recientes con el total. Null si la cuenta no es owner o el negocio no está ligado a ella.';
+  'Ficha de un negocio para el panel del dueño: datos públicos (incluye accepts_orders, stamp_card_active y stamp_card_pending_rewards), horarios, fotos, servicios publicados con su foto y las 50 opiniones más recientes con el total. Null si la cuenta no es owner o el negocio no está ligado a ella.';
 
 revoke all on function public.owner_business_snapshot(uuid) from public, anon, authenticated;
 grant execute on function public.owner_business_snapshot(uuid) to authenticated;

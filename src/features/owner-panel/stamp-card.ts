@@ -85,6 +85,22 @@ export function cardTokenFromScan(text: string): string | null {
   return CARD_TOKEN.test(token) ? token : null
 }
 
+/**
+ * Si el panel enseña la entrada «Tarjeta de sellos» (decisiones del usuario,
+ * 2026-11-06): con el programa prendido, o apagado mientras quede algún premio
+ * ganado sin canjear, solo para entregarlo. Un snapshot viejo sin las llaves
+ * (admin desplegado antes del `db:push`) no la enseña. Solo decide qué se ve:
+ * quién sella o canjea lo decide la DB en cada llamada.
+ */
+export function showsStampCardEntry(b: {
+  is_active: boolean
+  stamp_card_active?: boolean
+  stamp_card_pending_rewards?: number
+}): boolean {
+  if (b.is_active && b.stamp_card_active === true) return true
+  return (b.stamp_card_pending_rewards ?? 0) > 0
+}
+
 /** Qué pantalla del flujo toca después de leer una tarjeta. */
 export type ScanScreen = 'leida' | 'llena' | 'ya_sellada' | 'apagada'
 

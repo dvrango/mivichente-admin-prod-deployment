@@ -33,7 +33,17 @@ CREATE OR REPLACE FUNCTION public.owner_business_snapshot (
       'promo_title', b.promo_title,
       'promo_body', b.promo_body,
       'promo_ends_at', b.promo_ends_at,
-      'stamp_card_active', b.stamp_card_active
+      'stamp_card_active', b.stamp_card_active,
+      'stamp_card_pending_rewards', (
+        select count(*)::integer
+          from public.stamp_cards sc
+          join public.business_customers bc on bc.id = sc.customer_id
+         where bc.business_id = b.id
+           and sc.redeemed_at is null
+           and (
+             select count(*) from public.stamp_card_stamps s where s.card_id = sc.id
+           ) >= sc.stamps_required
+      )
     ),
     'hours', coalesce((
       select jsonb_agg(
@@ -127,6 +137,6 @@ $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."owner_business_snapshot"(uuid) TO "authenticated", "postgres";
 
-COMMENT ON FUNCTION "public"."owner_business_snapshot"(uuid) IS 'Ficha de un negocio para el panel del dueño: datos públicos (incluye accepts_orders y stamp_card_active), horarios, fotos, servicios publicados con su foto y las 50 opiniones más recientes con el total. Null si la cuenta no es owner o el negocio no está ligado a ella.';
+COMMENT ON FUNCTION "public"."owner_business_snapshot"(uuid) IS 'Ficha de un negocio para el panel del dueño: datos públicos (incluye accepts_orders, stamp_card_active y stamp_card_pending_rewards), horarios, fotos, servicios publicados con su foto y las 50 opiniones más recientes con el total. Null si la cuenta no es owner o el negocio no está ligado a ella.';
 
 REVOKE ALL ON FUNCTION "public"."owner_business_snapshot"(uuid) FROM PUBLIC;

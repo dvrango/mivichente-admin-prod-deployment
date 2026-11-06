@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { addStamp, readStampCard, redeemStampCard } from '../actions'
 import {
@@ -136,7 +136,8 @@ export function StampCardFlow({
     }
     const s = errorScreenOf(error) ?? 'desconocido'
     showError(s, {
-      name,
+      // E1 dice el negocio del panel, nunca el de la tarjeta ajena.
+      name: error === 'not_your_business' ? undefined : name,
       retry: s === 'desconocido' ? () => void once(() => read(token)) : undefined,
     })
   }
@@ -153,18 +154,64 @@ export function StampCardFlow({
     else await handleError(res.error, token)
   }
 
+  // Sin respuesta (la red, o la DB respondió algo que no es una regla), el
+  // sello o el canje pudo haber entrado igual. Antes de decir «no se dio» se lee
+  // la tarjeta: si ya entró se pinta D4 o D7, y el reintento solo vuelve a
+  // escribir cuando la lectura dice que no entró. Si no, «Intentar otra vez»
+  // chocaría con `already_stamped_today` o `already_redeemed` y enseñaría un
+  // error por un sello que sí se dio.
+  type Cause = 'red' | 'desconocido'
+
+  async function verifyStamp(token: string, before: StampCardState, cause: Cause): Promise<void> {
+    let res
+    try {
+      res = await readStampCard(token)
+    } catch {
+      return showError('sin_conexion_sello', {
+        name: before.businessName,
+        retry: () => void once(() => verifyStamp(token, before, 'red')),
+      })
+    }
+    if (!res.ok) return handleError(res.error, token, before.businessName)
+    const c = res.card
+    if (c.stampedToday) {
+      return setScreen({ kind: 'sellada', token, card: c, before: before.stamps })
+    }
+    showError(cause === 'red' ? 'sin_conexion_sello' : 'desconocido', {
+      name: c.businessName,
+      retry: () => void once(() => stamp(token, c)),
+    })
+  }
+
   async function stamp(token: string, card: StampCardState): Promise<void> {
     let res
     try {
       res = await addStamp(token)
     } catch {
-      return showError('sin_conexion_sello', {
-        name: card.businessName,
-        retry: () => void once(() => stamp(token, card)),
-      })
+      return verifyStamp(token, card, 'red')
     }
     if (res.ok) setScreen({ kind: 'sellada', token, card: res.card, before: card.stamps })
+    else if (res.error === 'unknown') await verifyStamp(token, card, 'desconocido')
     else await handleError(res.error, token, card.businessName)
+  }
+
+  async function verifyRedeem(token: string, before: StampCardState, cause: Cause): Promise<void> {
+    let res
+    try {
+      res = await readStampCard(token)
+    } catch {
+      return showError('sin_conexion_canje', {
+        name: before.businessName,
+        retry: () => void once(() => verifyRedeem(token, before, 'red')),
+      })
+    }
+    if (!res.ok) return handleError(res.error, token, before.businessName)
+    const c = res.card
+    if (c.lastRedeemedAt !== before.lastRedeemedAt) return setScreen({ kind: 'canjeada', card: c })
+    showError(cause === 'red' ? 'sin_conexion_canje' : 'desconocido', {
+      name: c.businessName,
+      retry: () => void once(() => redeem(token, c)),
+    })
   }
 
   async function redeem(token: string, card: StampCardState): Promise<void> {
@@ -173,12 +220,10 @@ export function StampCardFlow({
     try {
       res = await redeemStampCard(card.cardId)
     } catch {
-      return showError('sin_conexion_canje', {
-        name: card.businessName,
-        retry: () => void once(() => redeem(token, card)),
-      })
+      return verifyRedeem(token, card, 'red')
     }
     if (res.ok) setScreen({ kind: 'canjeada', card: res.card })
+    else if (res.error === 'unknown') await verifyRedeem(token, card, 'desconocido')
     else await handleError(res.error, token, card.businessName)
   }
 
@@ -335,13 +380,10 @@ function Body({
             title={`¿Ya le entregaste su ${rewardText(screen.card.reward)}?`}
             line="No se puede deshacer."
           />
-          <Actions
-            primary={{
-              label: busy ? 'Canjeando…' : 'Sí, ya se lo di',
-              onClick: () => onRedeem(screen),
-              disabled: busy,
-            }}
-            secondary={{ label: 'Todavía no', onClick: () => onBackToFull(screen), disabled: busy }}
+          <ConfirmRedeem
+            busy={busy}
+            onYes={() => onRedeem(screen)}
+            onNo={() => onBackToFull(screen)}
           />
         </>
       )
@@ -385,6 +427,39 @@ function Body({
       )
     }
   }
+}
+
+/**
+ * «Sí, ya se lo di» cae en la misma ranura que «Canjear…» de D5. Sin la pausa,
+ * el segundo toque de un doble toque en D5 confirmaría el canje sin que el dueño
+ * leyera la pregunta, y esta es la única confirmación del flujo.
+ */
+const CONFIRM_ARM_MS = 700
+
+function ConfirmRedeem({
+  busy,
+  onYes,
+  onNo,
+}: {
+  busy: boolean
+  onYes: () => void
+  onNo: () => void
+}) {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setArmed(true), CONFIRM_ARM_MS)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <Actions
+      primary={{
+        label: busy ? 'Canjeando…' : 'Sí, ya se lo di',
+        onClick: armed ? onYes : undefined,
+        disabled: busy || !armed,
+      }}
+      secondary={{ label: 'Todavía no', onClick: onNo, disabled: busy }}
+    />
+  )
 }
 
 function Message({ title, line }: { title: string; line?: string }) {

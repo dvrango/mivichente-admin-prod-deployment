@@ -1414,8 +1414,9 @@ async function main() {
     check('snapshot de su negocio trae datos', propio?.business?.id === bizActivo)
     // El panel solo enseña la pantalla de caja con el programa prendido (w26gamoh8).
     check(
-      'snapshot dice si su tarjeta de sellos está prendida',
-      typeof propio?.business?.stamp_card_active === 'boolean',
+      'snapshot dice si su tarjeta de sellos está prendida y cuántos premios faltan',
+      typeof propio?.business?.stamp_card_active === 'boolean' &&
+        Number.isInteger(propio?.business?.stamp_card_pending_rewards),
       JSON.stringify(propio?.business?.stamp_card_active),
     )
     const liked = (propio?.feedback?.recent ?? []).map((f) => f.liked)
