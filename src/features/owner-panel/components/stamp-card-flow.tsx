@@ -162,14 +162,21 @@ export function StampCardFlow({
   // error por un sello que sí se dio.
   type Cause = 'red' | 'desconocido'
 
-  async function verifyStamp(token: string, before: StampCardState, cause: Cause): Promise<void> {
+  // `thenWrite`: viene de «Intentar otra vez», así que si no entró se vuelve a
+  // escribir de una vez en vez de enseñar el mismo error otra vez.
+  async function verifyStamp(
+    token: string,
+    before: StampCardState,
+    cause: Cause,
+    thenWrite = false,
+  ): Promise<void> {
     let res
     try {
       res = await readStampCard(token)
     } catch {
       return showError('sin_conexion_sello', {
         name: before.businessName,
-        retry: () => void once(() => verifyStamp(token, before, 'red')),
+        retry: () => void once(() => verifyStamp(token, before, 'red', true)),
       })
     }
     if (!res.ok) return handleError(res.error, token, before.businessName)
@@ -177,6 +184,7 @@ export function StampCardFlow({
     if (c.stampedToday) {
       return setScreen({ kind: 'sellada', token, card: c, before: before.stamps })
     }
+    if (thenWrite) return stamp(token, c)
     showError(cause === 'red' ? 'sin_conexion_sello' : 'desconocido', {
       name: c.businessName,
       retry: () => void once(() => stamp(token, c)),
@@ -195,19 +203,25 @@ export function StampCardFlow({
     else await handleError(res.error, token, card.businessName)
   }
 
-  async function verifyRedeem(token: string, before: StampCardState, cause: Cause): Promise<void> {
+  async function verifyRedeem(
+    token: string,
+    before: StampCardState,
+    cause: Cause,
+    thenWrite = false,
+  ): Promise<void> {
     let res
     try {
       res = await readStampCard(token)
     } catch {
       return showError('sin_conexion_canje', {
         name: before.businessName,
-        retry: () => void once(() => verifyRedeem(token, before, 'red')),
+        retry: () => void once(() => verifyRedeem(token, before, 'red', true)),
       })
     }
     if (!res.ok) return handleError(res.error, token, before.businessName)
     const c = res.card
     if (c.lastRedeemedAt !== before.lastRedeemedAt) return setScreen({ kind: 'canjeada', card: c })
+    if (thenWrite) return redeem(token, c)
     showError(cause === 'red' ? 'sin_conexion_canje' : 'desconocido', {
       name: c.businessName,
       retry: () => void once(() => redeem(token, c)),
