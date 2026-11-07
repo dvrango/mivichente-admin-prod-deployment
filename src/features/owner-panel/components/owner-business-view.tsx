@@ -370,7 +370,7 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
       <OwnerFeatureCards
         businessName={b.name}
         menuUrl={menuUrl}
-        stampCardHref={showsStampCardEntry(b) ? `/mi-negocio/sellos?negocio=${b.id}` : null}
+        stampCardHref={showsStampCardEntry(b) ? `/mi-negocio/tarjeta?negocio=${b.id}` : null}
       />
 
       <SectionTitle

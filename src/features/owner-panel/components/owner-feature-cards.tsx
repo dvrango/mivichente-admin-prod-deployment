@@ -17,7 +17,7 @@ import { OwnerWhatsappButton } from './owner-whatsapp-button'
 //
 // La tarjeta de sellos es la excepción que ya funciona: con el programa
 // prendido para el negocio, la tarjeta pasa a «Disponible», va primero y su
-// botón abre la pantalla de caja (`/mi-negocio/sellos`) en vez de WhatsApp.
+// botón abre la pantalla de caja (`/mi-negocio/tarjeta`) en vez de WhatsApp.
 // Sin programa sigue en construcción, midiendo interés (mikitasks w26gamoh8).
 
 type FeatureStatus = 'construccion' | 'disponible'
