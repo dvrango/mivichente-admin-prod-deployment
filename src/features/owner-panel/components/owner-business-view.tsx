@@ -17,6 +17,7 @@ import { promoStatus } from '@/features/businesses/promo'
 import { cn } from '@/lib/utils'
 import type { OwnerBusinessSnapshot, OwnerHour, OwnerService } from '../types'
 import { ownerLinks, ownerMenuUrl } from '../links'
+import { showsStampCardEntry } from '../stamp-card'
 import { OwnerFaq } from './owner-faq'
 import { OwnerFeatureCards } from './owner-feature-cards'
 import { OwnerLinks } from './owner-links'
@@ -366,7 +367,11 @@ export function OwnerBusinessView({ snapshot }: { snapshot: OwnerBusinessSnapsho
         title="Para tu negocio"
         hint="Lo que ya puedes pedir y lo que estamos construyendo. Si algo te interesa, escríbenos."
       />
-      <OwnerFeatureCards businessName={b.name} menuUrl={menuUrl} />
+      <OwnerFeatureCards
+        businessName={b.name}
+        menuUrl={menuUrl}
+        stampCardHref={showsStampCardEntry(b) ? `/mi-negocio/tarjeta?negocio=${b.id}` : null}
+      />
 
       <SectionTitle
         id={SECTIONS.ficha}

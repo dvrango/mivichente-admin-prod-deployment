@@ -1,5 +1,7 @@
-import { ChartColumn, QrCode, ShoppingBag, Stamp } from 'lucide-react'
+import Link from 'next/link'
+import { ChartColumn, QrCode, ScanLine, ShoppingBag, Stamp } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { OwnerWhatsappTopic } from '../whatsapp'
 import { CopyLinkButton } from './copy-link-button'
@@ -12,6 +14,11 @@ import { OwnerWhatsappButton } from './owner-whatsapp-button'
 // la edición está pospuesta (decisión "Posponer portal de dueños"). La
 // promoción tampoco: tiene su propia sección, porque es parte de lo que el
 // cliente ve en la ficha.
+//
+// La tarjeta de sellos es la excepción que ya funciona: con el programa
+// prendido para el negocio, la tarjeta pasa a «Disponible», va primero y su
+// botón abre la pantalla de caja (`/mi-negocio/tarjeta`) en vez de WhatsApp.
+// Sin programa sigue en construcción, midiendo interés (mikitasks w26gamoh8).
 
 type FeatureStatus = 'construccion' | 'disponible'
 
@@ -23,6 +30,8 @@ type Feature = {
   status: FeatureStatus
   /** Va debajo del texto, fuera del párrafo. */
   extra?: React.ReactNode
+  /** Si está, el botón abre esta pantalla del panel en vez del WhatsApp de «Me interesa». */
+  action?: { label: string; href: string }
 }
 
 const STATUS_LABEL: Record<FeatureStatus, string> = {
@@ -50,8 +59,8 @@ function StatusPill({ status }: { status: FeatureStatus }) {
   )
 }
 
-function features(menuUrl: string | null): Feature[] {
-  return [
+function features(menuUrl: string | null, stampCardHref: string | null): Feature[] {
+  const list: Feature[] = [
     {
       topic: 'pedidos',
       icon: ShoppingBag,
@@ -63,7 +72,8 @@ function features(menuUrl: string | null): Feature[] {
       topic: 'sellos',
       icon: Stamp,
       title: 'Tarjeta de sellos',
-      status: 'construccion',
+      status: stampCardHref ? 'disponible' : 'construccion',
+      action: stampCardHref ? { label: 'Escanear tarjeta', href: stampCardHref } : undefined,
       body: 'Es como la tarjeta de papel de «junta 10 sellos y llévate uno gratis», pero en el celular. Tu cliente la saca escaneando un QR en tu mostrador, sin instalar nada; tú le das un sello desde este panel cada vez que te compra, y al llenarla gana el premio que tú decidas. Le das una razón para regresar contigo en vez de ir a otro lado, y te olvidas de imprimir tarjetas que se pierden.',
     },
     {
@@ -94,17 +104,23 @@ function features(menuUrl: string | null): Feature[] {
       body: '¿Quieres saber cuánta gente busca tu negocio y te contacta desde Vichente? Escríbenos y te contamos.',
     },
   ]
+  // La que ya se puede usar en caja va primero, destacada.
+  if (!stampCardHref) return list
+  return [...list.filter((f) => f.topic === 'sellos'), ...list.filter((f) => f.topic !== 'sellos')]
 }
 
 export function OwnerFeatureCards({
   businessName,
   menuUrl,
+  stampCardHref,
 }: {
   businessName: string
   /** Link al que apunta el QR de mesa; null si el negocio no tiene menú publicado. */
   menuUrl: string | null
+  /** Pantalla de caja de la tarjeta de sellos; null si el negocio no tiene el programa prendido. */
+  stampCardHref: string | null
 }) {
-  const [highlight, ...rest] = features(menuUrl)
+  const [highlight, ...rest] = features(menuUrl, stampCardHref)
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -144,13 +160,26 @@ function FeatureCard({
         <p className="text-muted-foreground text-sm [overflow-wrap:anywhere]">{f.body}</p>
       </div>
       {f.extra}
-      <OwnerWhatsappButton
-        businessName={businessName}
-        topic={f.topic}
-        label="Me interesa"
-        variant={wide ? 'default' : 'outline'}
-        className="w-full sm:w-fit"
-      />
+      {f.action ? (
+        <Link
+          href={f.action.href}
+          className={cn(
+            buttonVariants({ variant: wide ? 'default' : 'outline' }),
+            'w-full sm:w-fit',
+          )}
+        >
+          <ScanLine className="size-4" aria-hidden />
+          {f.action.label}
+        </Link>
+      ) : (
+        <OwnerWhatsappButton
+          businessName={businessName}
+          topic={f.topic}
+          label="Me interesa"
+          variant={wide ? 'default' : 'outline'}
+          className="w-full sm:w-fit"
+        />
+      )}
     </article>
   )
 }

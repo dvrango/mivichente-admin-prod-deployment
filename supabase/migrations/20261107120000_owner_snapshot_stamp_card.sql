@@ -1,0 +1,159 @@
+-- Panel del dueño: el snapshot dice si el negocio tiene prendida la tarjeta de
+-- sellos y cuántos premios ganados faltan por canjear (mikitasks w26gamoh8).
+--
+-- La entrada «Tarjeta de sellos» del panel aparece con el programa prendido
+-- (decisión del usuario, 2026-11-06), y hasta aquí el dueño no tenía cómo
+-- saberlo: no tiene grants sobre `businesses` y ni este snapshot ni
+-- `owner_businesses()` traían `stamp_card_active`.
+--
+-- `stamp_card_pending_rewards`: vueltas llenas sin canjear. Con el programa
+-- apagado, el cliente con la tarjeta llena sigue viendo su premio como ganado
+-- (la landing y `owner_redeem_stamp_card` no revisan el programa), así que la
+-- entrada sigue apareciendo mientras quede alguno por entregar, solo para
+-- canjear (decisión del usuario, 2026-11-06). Es un conteo: no expone clientes.
+--
+-- Solo se agregan las dos llaves. Son datos de su propio negocio. La autorización no cambia: el filtro
+-- `is_owner_of(b.id)` sigue igual, y quién sella lo deciden `owner_add_stamp` y
+-- `owner_redeem_stamp_card`, no esta llave. Los grants se repiten abajo para que
+-- la migración no dependa de que `create or replace` los conserve.
+
+create or replace function public.owner_business_snapshot(p_business_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'business', jsonb_build_object(
+      'id', b.id,
+      'name', b.name,
+      'slug', b.slug,
+      'description', b.description,
+      'category', (select c.name from public.categories c where c.id = b.category_id),
+      'phone', b.phone,
+      'phone_is_whatsapp', b.phone_is_whatsapp,
+      'whatsapp_phone', b.whatsapp_phone,
+      'address', b.address,
+      'colonia', b.colonia,
+      'municipio', b.municipio,
+      'maps_url', b.maps_url,
+      'facebook_url', b.facebook_url,
+      'instagram_url', b.instagram_url,
+      'photo_url', b.photo_url,
+      'offerings', b.offerings,
+      'services_label', b.services_label,
+      'has_delivery', b.has_delivery,
+      'accepts_orders', b.accepts_orders,
+      'is_active', b.is_active,
+      'promo_active', b.promo_active,
+      'promo_title', b.promo_title,
+      'promo_body', b.promo_body,
+      'promo_ends_at', b.promo_ends_at,
+      'stamp_card_active', b.stamp_card_active,
+      'stamp_card_pending_rewards', (
+        select count(*)::integer
+          from public.stamp_cards sc
+          join public.business_customers bc on bc.id = sc.customer_id
+         where bc.business_id = b.id
+           and sc.redeemed_at is null
+           and (
+             select count(*) from public.stamp_card_stamps s where s.card_id = sc.id
+           ) >= sc.stamps_required
+      )
+    ),
+    'hours', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'day_of_week', h.day_of_week,
+          'opens_at', h.opens_at,
+          'closes_at', h.closes_at
+        )
+        order by h.day_of_week, h.opens_at
+      )
+      from public.business_hours h
+      where h.business_id = b.id
+    ), '[]'::jsonb),
+    'photos', coalesce((
+      select jsonb_agg(
+        jsonb_build_object('id', ph.id, 'url', ph.url, 'caption', ph.caption, 'kind', ph.kind)
+        order by ph.order_index
+      )
+      from public.business_photos ph
+      where ph.business_id = b.id
+    ), '[]'::jsonb),
+    'services', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'id', s.id,
+          'name', s.name,
+          'description', s.description,
+          'price', s.price,
+          'section', s.section,
+          'show_in_profile', s.show_in_profile,
+          'image_url', s.image_url,
+          'variants', coalesce((
+            select jsonb_agg(
+              jsonb_build_object('name', v.name, 'price', v.price)
+              order by v.order_index
+            )
+            from public.business_service_variants v
+            where v.service_id = s.id
+          ), '[]'::jsonb),
+          'option_groups', coalesce((
+            select jsonb_agg(
+              jsonb_build_object(
+                'name', g.name,
+                'options', coalesce((
+                  select jsonb_agg(
+                    jsonb_build_object('name', o.name, 'price_delta', o.price_delta)
+                    order by o.order_index
+                  )
+                  from public.business_service_options o
+                  where o.group_id = g.id
+                ), '[]'::jsonb)
+              )
+              order by g.order_index
+            )
+            from public.business_service_option_groups g
+            where g.service_id = s.id
+          ), '[]'::jsonb)
+        )
+        order by s.order_index
+      )
+      from public.business_services s
+      where s.business_id = b.id
+        and s.is_published
+    ), '[]'::jsonb),
+    'feedback', jsonb_build_object(
+      'total', (select count(*) from public.business_feedback f where f.business_id = b.id),
+      'recent', coalesce((
+        select jsonb_agg(
+          jsonb_build_object(
+            'rating', f.rating,
+            'liked', f.liked,
+            'improve', f.improve,
+            'created_at', f.created_at
+          )
+          order by f.created_at desc
+        )
+        from (
+          select rating, liked, improve, created_at
+          from public.business_feedback
+          where business_id = b.id
+          order by created_at desc
+          limit 50
+        ) f
+      ), '[]'::jsonb)
+    )
+  )
+  from public.businesses b
+  where b.id = p_business_id
+    and public.is_owner_of(b.id);
+$$;
+
+comment on function public.owner_business_snapshot(uuid) is
+  'Ficha de un negocio para el panel del dueño: datos públicos (incluye accepts_orders, stamp_card_active y stamp_card_pending_rewards), horarios, fotos, servicios publicados con su foto y las 50 opiniones más recientes con el total. Null si la cuenta no es owner o el negocio no está ligado a ella.';
+
+revoke all on function public.owner_business_snapshot(uuid) from public, anon, authenticated;
+grant execute on function public.owner_business_snapshot(uuid) to authenticated;
