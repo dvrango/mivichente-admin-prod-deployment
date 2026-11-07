@@ -31,12 +31,18 @@ function salir(mensaje) {
 
 function urlLocal() {
   const url = process.env.LOCAL_DATABASE_URL || DEFAULT_LOCAL_DATABASE_URL
-  let host
+  let parsed
   try {
-    host = new URL(url).hostname
+    parsed = new URL(url)
   } catch {
     salir('LOCAL_DATABASE_URL no es una URL de Postgres válida.')
   }
+  // `?host=` y `?hostaddr=` le ganan al host de la URL en pg y en el CLI: con ellos la
+  // lista de abajo validaría un host y la conexión iría a otro.
+  if (parsed.searchParams.has('host') || parsed.searchParams.has('hostaddr')) {
+    salir('LOCAL_DATABASE_URL no puede traer ?host= ni ?hostaddr=: pon el host en la URL.')
+  }
+  const host = parsed.hostname.toLowerCase()
   if (!HOSTS_LOCALES.has(host)) {
     salir(
       `LOCAL_DATABASE_URL apunta a ${host}, que no es la DB local. Hosts permitidos: ${[...HOSTS_LOCALES].join(', ')}.`,
