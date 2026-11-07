@@ -17,8 +17,8 @@
 
 import pg from 'pg'
 
-const CONN =
-  process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@100.96.221.80:54322/postgres'
+import { LOCAL_DATABASE_URL as CONN } from './db-local-url.mjs'
+
 const PENDING_ID = '00000000-0000-4000-8000-00000000dead'
 const OWNER_ID = '00000000-0000-4000-8000-0000000000aa'
 

@@ -12,10 +12,14 @@
 # El snapshot refleja la DB LOCAL. Si hay una migración aplicada a local que todavía
 # no tiene `db:push`, el snapshot ya la trae, aunque prod no la tenga.
 #
-# La DB local es una sola para todas las ramas. Si otra rama ya aplicó su migración, o
-# alguien cambió algo a mano, el snapshot lo trae también. Antes de commitearlo, revisar
-# que `git diff db/schema` solo tenga lo de la migración de esta rama. `db:replay:check`
+# La DB local es una sola para todas las ramas. Si otra rama ya aplicó su migración, el
+# snapshot la trae también: por eso `npm run db:schema:snapshot` y `db:schema:check`
+# corren antes `db:local:check`, que falla y nombra la tarea dueña. Un cambio hecho a
+# mano, sin migración, ese check no lo ve: antes de commitear, revisar que
+# `git diff db/schema` solo tenga lo de la migración de esta rama. `db:replay:check`
 # muestra lo que local tiene fuera de las migraciones (solo de `public`).
+#
+# La URL sale de LOCAL_DATABASE_URL (ver db-local-url.mjs).
 #
 set -euo pipefail
 
@@ -29,7 +33,12 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"
 ADMIN="$(cd "$AQUI/.." && pwd)"
 DESTINO="$ADMIN/db/schema"
 # connect_timeout: sin él, un minipc inalcanzable deja el comando colgado y callado.
-DB_LOCAL='postgresql://postgres:postgres@100.96.221.80:54322/postgres?sslmode=disable&connect_timeout=10'
+DB_LOCAL="$(node "$AQUI/db-local-url.mjs")"
+# Vacía, el CLI caería a los defaults de libpq y exportaría otra base encima de db/schema/.
+[ -n "$DB_LOCAL" ] || { echo "✗ No se pudo leer la URL de la DB local (db-local-url.mjs no imprimió nada)." >&2; exit 1; }
+case "$DB_LOCAL" in *\?*) sep='&' ;; *) sep='?' ;; esac
+case "$DB_LOCAL" in *sslmode=*) ;; *) DB_LOCAL="${DB_LOCAL}${sep}sslmode=disable"; sep='&' ;; esac
+case "$DB_LOCAL" in *connect_timeout=*) ;; *) DB_LOCAL="${DB_LOCAL}${sep}connect_timeout=10" ;; esac
 
 modo="snapshot"
 case "${1:-}" in

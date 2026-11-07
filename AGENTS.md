@@ -42,6 +42,7 @@ npm run db:replay:check   # comprobar que las migrations reconstruyen la DB desd
 npm run db:rls:check      # verificar las policies RLS contra la DB local (impersona y hace ROLLBACK)
 npm run db:schema:snapshot # regenerar db/schema/ desde la DB local (sin Docker)
 npm run db:schema:check   # fallar si db/schema/ no coincide con la DB local
+npm run db:local:check    # fallar si la DB local tiene una migración de otra rama (y decir de qué tarea)
 ```
 
 > **REGLA DE BASE DE DATOS (no la rompas):** el asistente **solo toca la DB
@@ -103,7 +104,11 @@ Migraciones en `supabase/migrations/`: son la fuente de verdad y se escriben a m
 
 `db/schema/` es un snapshot generado de la DB local: `public` (un archivo por tabla y función, con policies y grants), más `storage/tables/objects.sql` con **las policies de los buckets**, `auth/tables/users.sql` con el trigger `on_auth_user_created`, y las extensiones en `_cluster/`. Es solo para leer: no se edita a mano y no va en `supabase/schemas/` ni en ninguna ruta de `[db.migrations] schema_paths`, porque el flujo declarativo del CLI lo tomaría como fuente. Lo genera `supabase db schema declarative generate --experimental`, con la versión del CLI fijada en `scripts/db-schema-snapshot.sh` (`CLI_VERSION`); en la Mac conviene `brew pin supabase` para que un `brew upgrade` no la mueva. Al subir el CLI, se sube esa línea y se regenera el snapshot en el mismo commit.
 
-**La DB local es una sola para todas las ramas.** Si otra rama ya aplicó su migración a local, o alguien cambió algo a mano, `db:schema:snapshot` lo mete en el commit de esta rama, y `db:schema:check` falla en ramas que no tocaron la DB. Antes de commitear, revisar que `git diff db/schema` solo traiga lo de la migración de la rama. `npm run db:replay:check` muestra lo que local tiene fuera de las migraciones, aunque solo de `public`: las policies de `storage` no las compara.
+**La DB local es una sola para todas las ramas, así que las tareas con migración van una a la vez.** Si otra rama ya aplicó su migración a local, `db:schema:snapshot` la mete en el commit de esta rama, `db:schema:check` falla en ramas que no tocaron la DB y `db:rls:check` mide policies ajenas. Lo hace cumplir `npm run db:local:check`: compara `supabase_migrations.schema_migrations` contra `supabase/migrations/` de `origin/master` más la rama actual, falla si local tiene una migración que no es de ninguno de los dos y dice en qué rama vive (y de qué tarea, por el nombre `{taskId}-admin`). `db:migrate:local`, `db:schema:snapshot`, `db:schema:check` y `db:rls:check` lo corren antes y se detienen si falla. Si falla, no apliques tu migración: espera a que esa tarea se mergee a `master`. Si la tarea se abandonó, revertir su migración en local lo decide el usuario. También falla si la rama está atrás de `origin/master` y local ya tiene una migración que la rama no trae: rebasea antes de migrar o de regenerar el snapshot. Que a local le falte una migración de `origin/master` que la rama sí trae solo avisa: corre `db:migrate:local` (si ya aplicaste una propia con timestamp posterior, el CLI pide `--include-all`). La URL solo acepta hosts locales, para que `db:migrate:local` no pueda apuntar a prod.
+
+El check no ve cambios hechos a mano sin migración: antes de commitear, revisar que `git diff db/schema` solo traiga lo de la migración de la rama. `npm run db:replay:check` muestra lo que local tiene fuera de las migraciones, aunque solo de `public`: las policies de `storage` no las compara.
+
+La URL de la DB local sale de `LOCAL_DATABASE_URL` (fuente única en `scripts/db-local-url.mjs`); sin la variable es la del minipc. La usan `db:migrate:local`, `db:schema:snapshot`/`check`, `db:rls:check` y `db:local:check`. `db:types:local` no: pasa por postgres-meta vía Kong, que siempre lee la base `postgres`.
 
 El porqué de cada tabla y función (decisiones, trampas, historia de RLS) vive en Obsidian: `02 Apps/v2-admin-web/Database Schema.md`. Ahí no se pegan columnas ni cuerpos de funciones.
 
