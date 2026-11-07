@@ -10,7 +10,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "db:migrate:local": "node scripts/db-local-check.mjs && PGSSLMODE=disable supabase migration up --db-url \"$(node scripts/db-local-url.mjs)\"",
+    "db:migrate:local": "bash scripts/db-migrate-local.sh",
     "db:push": "supabase db push",
     "db:types:local": "sh scripts/gen-types-local.sh",
     "db:types:prod": "supabase gen types typescript --linked > src/lib/database.types.ts",

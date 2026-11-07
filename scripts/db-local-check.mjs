@@ -56,6 +56,8 @@ try {
     cwd: ADMIN,
     stdio: 'ignore',
     timeout: 20000,
+    // Sin esto, una llave SSH con passphrase pide la clave por la terminal y cuelga el check.
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' },
   })
 } catch {
   console.warn(
@@ -112,7 +114,10 @@ function duenoDe(version) {
 }
 
 const ajenas = [...enLocal.keys()].filter((v) => !enBase.has(v) && !enRama.has(v))
-const atrasadas = [...enBase.keys()].filter((v) => !enLocal.has(v))
+// En master y en local, pero no en esta rama: la rama salió antes de que se mergeara. El
+// snapshot de aquí arrastraría ese schema y `migration up` no podría correr.
+const rezagadas = [...enBase.keys()].filter((v) => !enRama.has(v) && enLocal.has(v))
+const atrasadas = [...enBase.keys()].filter((v) => enRama.has(v) && !enLocal.has(v))
 
 const propias = [...enRama.keys()].filter((v) => !enBase.has(v))
 console.log(
@@ -132,39 +137,66 @@ if (atrasadas.length) {
     `! A local le faltan ${atrasadas.length} migraciones de ${BASE}: ${atrasadas.map((v) => enBase.get(v)).join(', ')}`,
   )
   console.warn(
-    '  Corre npm run db:migrate:local antes de confiar en el snapshot o en el rls-check.',
+    '  Corre npm run db:migrate:local antes de confiar en el snapshot o en el rls-check. Si ya',
+  )
+  console.warn(
+    '  aplicaste una migración propia con timestamp posterior, el CLI va a pedir --include-all.',
   )
 }
 
-if (ajenas.length === 0) {
-  console.log(`✓ Local coincide con ${BASE} más la rama actual.`)
-  process.exit(0)
+let falla = false
+
+if (rezagadas.length) {
+  falla = true
+  console.error()
+  console.error(
+    `✗ La rama ${rama} está atrás de ${BASE}: local ya tiene ${rezagadas.length} migración(es) de ${BASE} que esta rama no trae:`,
+  )
+  for (const v of rezagadas) console.error(`  - ${enBase.get(v)}`)
+  console.error(`  Rebasea la rama sobre ${BASE} antes de migrar o de regenerar el snapshot.`)
 }
 
-console.error()
-console.error(
-  `✗ La DB local tiene ${ajenas.length} migración(es) que no son de ${BASE} ni de la rama ${rama}:`,
-)
-for (const v of ajenas) {
-  const nombre = enLocal.get(v) ? `${v}_${enLocal.get(v)}` : v
-  const dueno = duenoDe(v)
-  if (!dueno || dueno.ramas.length === 0) {
+if (ajenas.length) {
+  falla = true
+  const deOtraTarea = []
+  console.error()
+  console.error(
+    `✗ La DB local tiene ${ajenas.length} migración(es) que no son de ${BASE} ni de la rama ${rama}:`,
+  )
+  for (const v of ajenas) {
+    const nombre = enLocal.get(v) ? `${v}_${enLocal.get(v)}` : v
+    const dueno = duenoDe(v)
+    if (!dueno || dueno.ramas.length === 0) {
+      deOtraTarea.push(v)
+      console.error(
+        `  - ${nombre}: no está en ninguna rama de este clon. Se aplicó desde un archivo sin commitear, desde otra máquina o a mano.`,
+      )
+    } else if (dueno.ramas.includes(rama) || dueno.ramas.includes('master')) {
+      // El archivo existió en esta rama o en master y ya no está: lo renombraron (otro
+      // timestamp) o lo borraron, y local se quedó con la versión vieja.
+      const donde = dueno.ramas.includes(rama) ? `esta rama (${rama})` : 'master'
+      console.error(
+        `  - ${nombre}: es una versión vieja de ${donde}, renombrada o borrada. Hay que revertirla en local.`,
+      )
+    } else {
+      deOtraTarea.push(v)
+      const tareas = dueno.tareas.length ? ` (tarea ${dueno.tareas.join(', ')})` : ''
+      console.error(`  - ${nombre}: rama ${dueno.ramas.join(', ')}${tareas}`)
+    }
+  }
+  if (deOtraTarea.length) {
+    console.error()
     console.error(
-      `  - ${nombre}: no está en ninguna rama de este clon. Se aplicó desde un archivo sin commitear, desde otra máquina o a mano.`,
+      'Otra tarea tiene una migración aplicada en local. Las tareas con migración van una a la vez:',
     )
-  } else {
-    const tareas = dueno.tareas.length ? ` (tarea ${dueno.tareas.join(', ')})` : ''
-    console.error(`  - ${nombre}: rama ${dueno.ramas.join(', ')}${tareas}`)
+    console.error(
+      'no apliques la tuya ni confíes en db:schema:snapshot, db:schema:check o db:rls:check hasta',
+    )
+    console.error(
+      'que esa tarea se mergee a master. Si se abandonó, revertirla en local lo decide el usuario.',
+    )
   }
 }
-console.error()
-console.error(
-  'Otra tarea tiene una migración aplicada en local. Las tareas con migración van una a la vez:',
-)
-console.error(
-  'no apliques la tuya ni confíes en db:schema:snapshot, db:schema:check o db:rls:check hasta',
-)
-console.error(
-  'que esa tarea se mergee a master. Si se abandonó, revertirla en local lo decide el usuario.',
-)
-process.exit(1)
+
+if (falla) process.exit(1)
+console.log(`✓ Local coincide con ${BASE} más la rama actual.`)

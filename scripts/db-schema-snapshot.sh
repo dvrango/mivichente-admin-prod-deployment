@@ -34,6 +34,8 @@ ADMIN="$(cd "$AQUI/.." && pwd)"
 DESTINO="$ADMIN/db/schema"
 # connect_timeout: sin él, un minipc inalcanzable deja el comando colgado y callado.
 DB_LOCAL="$(node "$AQUI/db-local-url.mjs")"
+# Vacía, el CLI caería a los defaults de libpq y exportaría otra base encima de db/schema/.
+[ -n "$DB_LOCAL" ] || { echo "✗ No se pudo leer la URL de la DB local (db-local-url.mjs no imprimió nada)." >&2; exit 1; }
 case "$DB_LOCAL" in *\?*) sep='&' ;; *) sep='?' ;; esac
 case "$DB_LOCAL" in *sslmode=*) ;; *) DB_LOCAL="${DB_LOCAL}${sep}sslmode=disable"; sep='&' ;; esac
 case "$DB_LOCAL" in *connect_timeout=*) ;; *) DB_LOCAL="${DB_LOCAL}${sep}connect_timeout=10" ;; esac
