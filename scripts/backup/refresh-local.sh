@@ -58,6 +58,9 @@ COPIADAS=(
 #   probando el estado vacío de la búsqueda.
 #   business_owners: liga cuentas owner con sus negocios y apunta a profiles, que no se
 #   copia. En local se liga a mano cuando se prueba el panel de dueños.
+#   business_customers, stamp_cards, stamp_card_stamps, physical_cards: tarjeta de
+#   sellos. Son clientes reales de cada negocio: device_id, el token de su QR, y qué
+#   cuenta selló o canjeó. En local se generan probando el flujo.
 #   _backup_businesses_fase1: tabla suelta de local, borrada el 2026-10-28. Se queda en
 #   la lista por si una DB local vieja todavía la trae.
 EXCLUIDAS=(
@@ -75,6 +78,10 @@ EXCLUIDAS=(
   coupons
   missing_business_reports
   business_owners
+  business_customers
+  stamp_cards
+  stamp_card_stamps
+  physical_cards
   _backup_businesses_fase1
 )
 
@@ -93,6 +100,10 @@ SE_VACIAN=(
   business_feedback
   coupons
   business_owners
+  business_customers
+  stamp_cards
+  stamp_card_stamps
+  physical_cards
 )
 
 FECHA="$(date +%Y-%m-%d)"
@@ -287,7 +298,7 @@ truncar="${truncar%, }"
 #   `immutable_unaccent` sin calificar el schema. Con el path vacío del dump, el COPY de
 #   `businesses` falla entero (ver README, restore).
 # - truncate … cascade vacía también las tablas que referencian a las copiadas
-#   (telemetría, reportes, registros, contactos de dueños). Es lo esperado: en local
+#   (telemetría, reportes, registros, contactos de dueños, sellos). Es lo esperado: en local
 #   no deben quedar filas que apunten a negocios que ya no existen.
 # - lock_timeout: el truncate pide ACCESS EXCLUSIVE. Detrás de una sesión colgada
 #   `idle in transaction` esperaría hasta el timeout de systemd bloqueando las lecturas.
