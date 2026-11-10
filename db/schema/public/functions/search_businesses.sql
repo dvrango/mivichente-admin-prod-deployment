@@ -33,6 +33,8 @@ CREATE OR REPLACE FUNCTION public.search_businesses (
   cross join q
   where length(q.term) >= 2
     and s.total_score > 0
+    -- negocios demo: fuera del directorio público (rm3kdqga5)
+    and (not b.is_demo or public.is_staff())
   order by
     s.total_score desc,
     b.is_featured desc,

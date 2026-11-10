@@ -18,6 +18,11 @@ CREATE INDEX business_contacts_business_created_idx ON public.business_contacts 
 
 CREATE INDEX business_contacts_channel_created_idx ON public.business_contacts USING btree (channel, created_at DESC);
 
+CREATE TRIGGER business_contacts_discard_demo
+  BEFORE INSERT ON public.business_contacts
+  FOR EACH ROW
+  EXECUTE FUNCTION public.discard_demo_telemetry();
+
 CREATE POLICY "anyone can log a contact" ON "public"."business_contacts"
   FOR INSERT
   TO "anon", "authenticated"

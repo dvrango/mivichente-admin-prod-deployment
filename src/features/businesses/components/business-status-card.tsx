@@ -7,6 +7,7 @@ import {
   toggleBusinessAcceptsOrders,
   toggleBusinessActive,
   toggleBusinessDelivery,
+  toggleBusinessDemo,
   toggleBusinessFeatured,
   toggleBusinessVerified,
 } from '../actions'
@@ -18,6 +19,7 @@ type Props = {
   isFeatured: boolean
   hasDelivery: boolean
   acceptsOrders: boolean
+  isDemo: boolean
   /** Solo admin: `toggleBusinessAcceptsOrders` llama `requireAdmin()` y un trigger lo protege. */
   canManageOrders: boolean
   /** Reviewer viendo un negocio de otro municipio: la RLS rechazaría el update. */
@@ -36,6 +38,7 @@ export function BusinessStatusCard({
   isFeatured,
   hasDelivery,
   acceptsOrders,
+  isDemo,
   canManageOrders,
   readOnly,
 }: Props) {
@@ -77,6 +80,17 @@ export function BusinessStatusCard({
           checked={acceptsOrders}
           disabled={readOnly}
           onToggle={(next) => toggleBusinessAcceptsOrders(id, next)}
+        />
+      )}
+      {/* Solo admin, igual que pedidos: `toggleBusinessDemo` llama
+          `requireAdmin()` y lo protege el trigger businesses_is_demo_admin_only. */}
+      {canManageOrders && (
+        <StatusRow
+          label="Negocio demo"
+          info="Para enseñar la app a otros negocios. Se abre por link, pero no sale en la búsqueda, en las categorías ni en recomendados, y no registra métricas."
+          checked={isDemo}
+          disabled={readOnly}
+          onToggle={(next) => toggleBusinessDemo(id, next)}
         />
       )}
     </section>

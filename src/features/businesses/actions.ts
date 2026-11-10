@@ -15,6 +15,7 @@ import {
   parseCoordinates,
   photoFileSchema,
   toggleBusinessAcceptsOrdersSchema,
+  toggleBusinessDemoSchema,
   type GalleryValues,
 } from './schema'
 import { parsePromoForm } from './promo'
@@ -633,6 +634,27 @@ export async function toggleBusinessAcceptsOrders(id: string, acceptsOrders: boo
       accepts_orders: parsed.data.acceptsOrders,
       updated_by: await currentUserId(supabase),
     })
+    .eq('id', parsed.data.id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/businesses')
+  revalidatePath(`/businesses/${parsed.data.id}`)
+}
+
+// Un negocio demo se abre por link pero sale del directorio y no registra
+// telemetría (rm3kdqga5). El trigger businesses_is_demo_admin_only es la
+// protección real; este guard corta antes una llamada manual de otro rol.
+export async function toggleBusinessDemo(id: string, isDemo: boolean) {
+  const parsed = toggleBusinessDemoSchema.safeParse({ id, isDemo })
+  if (!parsed.success) throw new Error(firstIssue(parsed.error))
+
+  await requireAdmin()
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({ is_demo: parsed.data.isDemo, updated_by: await currentUserId(supabase) })
     .eq('id', parsed.data.id)
 
   if (error) throw new Error(error.message)

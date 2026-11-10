@@ -6,6 +6,7 @@ CREATE OR REPLACE FUNCTION public.businesses_open_now()
   select b.*
   from public.businesses b
   where b.is_active = true
+    and not b.is_demo
     and exists (
       select 1
       from public.business_hours h
