@@ -1,8 +1,6 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PageHeader } from '@/components/shared/page-header'
+import { SectionHeader } from '@/components/shared/section-header'
 import { requireAdmin } from '@/features/auth/queries'
 import { getBusinessById } from '@/features/businesses/queries'
 import { HojaTarjetasPanel } from '@/features/tarjeta-fisica/components/hoja-tarjetas-panel'
@@ -27,22 +25,9 @@ export default async function BusinessPhysicalCardsPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      <SectionHeader
         title="Tarjetas físicas"
-        breadcrumbs={[
-          { label: 'Negocios', href: '/businesses' },
-          { label: business.name, href: `/businesses/${id}` },
-          { label: 'Tarjetas físicas' },
-        ]}
-        description="La tarjeta de cliente impresa del negocio. El dueño se la da al cliente, el cliente la escanea con su celular y queda ligada a su tarjeta digital."
-        actions={
-          <Link
-            href={`/businesses/${id}`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Volver al negocio
-          </Link>
-        }
+        info="La tarjeta de cliente impresa del negocio. El dueño se la da al cliente, el cliente la escanea con su celular y queda ligada a su tarjeta digital."
       />
 
       <Card>

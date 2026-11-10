@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useRef } from 'react'
 import { ArrowLeft, ArrowRight, X } from 'lucide-react'
+import { InfoTip } from '@/components/shared/info-tip'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,11 +54,13 @@ export function BusinessGalleryEditor({ value, onChange, disabled }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium leading-none">
-          Fotos{' '}
-          <span className="text-muted-foreground font-normal">
-            (JPG, PNG o WEBP — máx 5 MB c/u)
-          </span>
+        <label className="flex items-center gap-2 text-sm leading-none font-medium">
+          Fotos
+          <InfoTip>
+            JPG, PNG o WEBP, máximo 5 MB cada una. Se recomiendan al menos 3: fachada, interior y
+            productos o servicios. La primera es la portada, la que se ve en las tarjetas y al
+            compartir el negocio.
+          </InfoTip>
         </label>
         {value.length > 0 && (
           <span className="text-muted-foreground text-xs">
@@ -89,11 +92,6 @@ export function BusinessGalleryEditor({ value, onChange, disabled }: Props) {
                   placeholder="Título de la foto (opcional) — ej. Fachada, Interior"
                   disabled={disabled}
                 />
-                {i === 0 && (
-                  <p className="text-muted-foreground text-xs">
-                    La portada es la que se ve en las tarjetas y al compartir el negocio.
-                  </p>
-                )}
               </div>
 
               <div className="flex shrink-0 items-start gap-0.5">
@@ -157,9 +155,6 @@ export function BusinessGalleryEditor({ value, onChange, disabled }: Props) {
       >
         + Agregar fotos
       </Button>
-      <p className="text-muted-foreground text-xs">
-        Se recomiendan al menos 3: fachada, interior y productos o servicios.
-      </p>
     </div>
   )
 }

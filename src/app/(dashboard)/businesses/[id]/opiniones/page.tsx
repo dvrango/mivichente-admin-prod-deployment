@@ -1,7 +1,5 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { buttonVariants } from '@/components/ui/button'
-import { PageHeader } from '@/components/shared/page-header'
+import { SectionHeader } from '@/components/shared/section-header'
 import { requireAdmin } from '@/features/auth/queries'
 import {
   updateBusinessFeedbackReward,
@@ -36,22 +34,9 @@ export default async function BusinessFeedbackRewardPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      <SectionHeader
         title="Opiniones con descuento"
-        breadcrumbs={[
-          { label: 'Negocios', href: '/businesses' },
-          { label: business.name, href: `/businesses/${id}` },
-          { label: 'Opiniones' },
-        ]}
-        description="El cliente escanea el QR del local, deja una opinión privada y se lleva un descuento para su siguiente compra. El negocio lo aplica en caja desde el celular del cliente."
-        actions={
-          <Link
-            href={`/businesses/${id}`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Volver al negocio
-          </Link>
-        }
+        info="El cliente escanea el QR del local, deja una opinión privada y se lleva un descuento para su siguiente compra. El negocio lo aplica en caja desde el celular del cliente."
       />
 
       <BusinessFeedbackRewardForm

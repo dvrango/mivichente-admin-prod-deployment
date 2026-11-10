@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { PageHeader } from '@/components/shared/page-header'
-import { buttonVariants } from '@/components/ui/button'
+import { SectionHeader } from '@/components/shared/section-header'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getMenuItems } from '@/features/business-menu/queries'
 import {
@@ -54,35 +53,14 @@ export default async function MaterialGraficoPage({ params }: { params: Promise<
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Material gráfico"
-        breadcrumbs={[
-          { label: 'Negocios', href: '/businesses' },
-          { label: business.name, href: `/businesses/${id}` },
-          { label: 'Material gráfico' },
-        ]}
-        description={`Fotos y piezas para ${business.name}`}
-        actions={
-          <Link
-            href={`/businesses/${id}`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Volver al negocio
-          </Link>
-        }
-      />
-
       {/* Va primero porque es el uso de todos los días: reunir el material real
           para pedirle un anuncio a ChatGPT. Las piezas de abajo se usan una
           vez por negocio, al darlo de alta. */}
       <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">Fotos para anuncios</h2>
-          <p className="text-muted-foreground text-sm">
-            Las fotos reales del negocio. Descárgalas y adjúntalas en ChatGPT para que el anuncio
-            use el logo y los productos de verdad.
-          </p>
-        </div>
+        <SectionHeader
+          title="Fotos para anuncios"
+          info="Las fotos reales del negocio. Descárgalas y adjúntalas en ChatGPT para que el anuncio use el logo y los productos de verdad."
+        />
 
         <RecursosNegocioPanel
           slug={business.slug}
@@ -99,13 +77,10 @@ export default async function MaterialGraficoPage({ params }: { params: Promise<
       </section>
 
       <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">Piezas listas para compartir</h2>
-          <p className="text-muted-foreground text-sm">
-            Se generan con los datos del negocio. Si algo sale mal, corrígelo en el negocio y vuelve
-            a abrir esta página.
-          </p>
-        </div>
+        <SectionHeader
+          title="Piezas listas para compartir"
+          info="Se generan con los datos del negocio. Si algo sale mal, corrígelo en el negocio y vuelve a abrir esta página."
+        />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>

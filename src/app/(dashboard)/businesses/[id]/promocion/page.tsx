@@ -1,8 +1,5 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
-import { PageHeader } from '@/components/shared/page-header'
+import { SectionHeader } from '@/components/shared/section-header'
 import { getCurrentProfile } from '@/features/auth/queries'
 import { updateBusinessPromo, type PromoFormState } from '@/features/businesses/actions'
 import { BusinessPromoForm } from '@/features/businesses/components/business-promo-form'
@@ -34,25 +31,9 @@ export default async function BusinessPromoPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      <SectionHeader
         title="Promoción"
-        breadcrumbs={[
-          { label: 'Negocios', href: '/businesses' },
-          { label: business.name, href: `/businesses/${id}` },
-          { label: 'Promoción' },
-        ]}
-        description="Se muestra en la ficha de la app. El cliente le toma captura y el negocio la aplica al recibir el pedido; la app no cambia precios."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {readOnly && <Badge variant="outline">Solo lectura · {business.municipio}</Badge>}
-            <Link
-              href={`/businesses/${id}`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver al negocio
-            </Link>
-          </div>
-        }
+        info="Se muestra en la ficha de la app. El cliente le toma captura y el negocio la aplica al recibir el pedido; la app no cambia precios."
       />
 
       <BusinessPromoForm

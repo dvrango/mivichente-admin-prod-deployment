@@ -1,17 +1,10 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
-import { PageHeader } from '@/components/shared/page-header'
 import { formatDateLong } from '@/lib/date'
 import { getCurrentProfile } from '@/features/auth/queries'
 import { updateBusiness, type BusinessFormState } from '@/features/businesses/actions'
 import { BusinessForm } from '@/features/businesses/components/business-form'
-import { ToggleAcceptsOrdersButton } from '@/features/businesses/components/toggle-accepts-orders-button'
-import { ToggleActiveButton } from '@/features/businesses/components/toggle-active-button'
-import { ToggleDeliveryButton } from '@/features/businesses/components/toggle-delivery-button'
-import { ToggleFeaturedButton } from '@/features/businesses/components/toggle-featured-button'
-import { ToggleVerifiedButton } from '@/features/businesses/components/toggle-verified-button'
+import { BusinessStatusCard } from '@/features/businesses/components/business-status-card'
+import { businessFormSections } from '@/features/businesses/form-sections'
 import {
   getActiveCategoryOptions,
   getBusinessById,
@@ -19,9 +12,9 @@ import {
   getBusinessHours,
   getBusinessPhotos,
 } from '@/features/businesses/queries'
-import { countMenuItems } from '@/features/business-menu/queries'
-import { promoStatus } from '@/features/businesses/promo'
 
+// Tab «Datos» de `/businesses/[id]`. El encabezado y los tabs vienen del
+// layout; aquí van el form de la ficha y la tarjeta de estado.
 export default async function EditBusinessPage({
   params,
   searchParams,
@@ -31,18 +24,14 @@ export default async function EditBusinessPage({
 }) {
   const { id } = await params
   const { returnTo } = await searchParams
-  // El menú ya no viaja al form: sólo se cuenta para el resumen con enlace a
-  // /businesses/[id]/menu, que es donde se edita.
-  const [business, categories, hours, menuItemCount, photos, categoryIds, profile] =
-    await Promise.all([
-      getBusinessById(id),
-      getActiveCategoryOptions(),
-      getBusinessHours(id),
-      countMenuItems(id),
-      getBusinessPhotos(id),
-      getBusinessCategoryIds(id),
-      getCurrentProfile(),
-    ])
+  const [business, categories, hours, photos, categoryIds, profile] = await Promise.all([
+    getBusinessById(id),
+    getActiveCategoryOptions(),
+    getBusinessHours(id),
+    getBusinessPhotos(id),
+    getBusinessCategoryIds(id),
+    getCurrentProfile(),
+  ])
 
   if (!business) notFound()
 
@@ -65,120 +54,53 @@ export default async function EditBusinessPage({
     formData: FormData,
   ) => Promise<BusinessFormState>
 
+  const sections = businessFormSections({ hasDelivery: business.has_delivery })
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={business.name}
-        breadcrumbs={[{ label: 'Negocios', href: '/businesses' }, { label: business.name }]}
-        description={
-          business.is_verified && business.verified_at ? (
-            <span className="inline-flex items-center gap-2">
-              <Badge className="bg-blue-500 text-white hover:bg-blue-600">Verificado</Badge>
-              el {formatDateLong(business.verified_at)}
-            </span>
-          ) : undefined
-        }
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {/* Pantalla propia del menú: guarda platillo por platillo y se usa
-                desde el celular. También se abre en solo lectura (adentro se
-                vuelve a decidir si es editable). Es el ÚNICO lugar donde se
-                edita el menú — el form de abajo sólo muestra el resumen. */}
-            <Link
-              href={`/businesses/${id}/menu`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              {business.services_label?.trim() || 'Servicios'}
-            </Link>
-            {/* Generar material no modifica nada, así que también está
-                disponible en solo lectura. */}
-            <Link
-              href={`/businesses/${id}/material`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Material gráfico
-            </Link>
-            <Link
-              href={`/businesses/${id}/promocion`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              {promoStatus(business) === 'live' ? 'Promoción · activa' : 'Promoción'}
-            </Link>
-            {/* Solo admin: la configuración la protege el trigger
-                businesses_feedback_reward_admin_only. */}
-            {profile?.role === 'admin' && (
-              <Link
-                href={`/businesses/${id}/opiniones`}
-                className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              >
-                {/* Mismo criterio que submit_business_feedback: inactivo no recibe. */}
-                {business.feedback_reward_active && business.is_active
-                  ? 'Opiniones · activas'
-                  : 'Opiniones'}
-              </Link>
-            )}
-            {/* Solo admin: la configuración la protege el trigger
-                businesses_stamp_card_admin_only. */}
-            {profile?.role === 'admin' && (
-              <Link
-                href={`/businesses/${id}/sellos`}
-                className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              >
-                {/* Mismo criterio que get_or_create_stamp_card: inactivo no da tarjetas. */}
-                {business.stamp_card_active && business.is_active
-                  ? 'Tarjeta de sellos · activa'
-                  : 'Tarjeta de sellos'}
-              </Link>
-            )}
-            {/* Solo admin: generar la hoja crea tarjetas físicas en la DB y
-                admin_create_physical_cards rechaza a cualquier otro rol. */}
-            {profile?.role === 'admin' && (
-              <Link
-                href={`/businesses/${id}/tarjetas`}
-                className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              >
-                Tarjetas físicas
-              </Link>
-            )}
-            {readOnly ? (
-              <Badge variant="outline">Solo lectura · {business.municipio}</Badge>
-            ) : (
-              <>
-                {profile?.role === 'admin' && (
-                  <ToggleAcceptsOrdersButton
-                    id={business.id}
-                    acceptsOrders={business.accepts_orders}
-                  />
-                )}
-                <ToggleVerifiedButton id={business.id} isVerified={business.is_verified} />
-                <ToggleFeaturedButton id={business.id} isFeatured={business.is_featured} />
-                <ToggleDeliveryButton id={business.id} hasDelivery={business.has_delivery} />
-                <ToggleActiveButton id={business.id} isActive={business.is_active} />
-              </>
-            )}
-          </div>
-        }
-      />
-      <div className="text-muted-foreground space-y-0.5 text-xs">
-        <p>
-          Creado por{' '}
-          <span className="text-foreground font-medium">
-            {business.created_by_profile?.email ?? 'desconocido'}
-          </span>{' '}
-          el {formatDateLong(business.created_at)}
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <aside className="space-y-4 lg:sticky lg:top-0 lg:order-last">
+        <BusinessStatusCard
+          id={business.id}
+          isActive={business.is_active}
+          isVerified={business.is_verified}
+          isFeatured={business.is_featured}
+          hasDelivery={business.has_delivery}
+          acceptsOrders={business.accepts_orders}
+          canManageOrders={profile?.role === 'admin'}
+          readOnly={readOnly}
+        />
+
+        {/* Índice del form: en celular el form ya se recorre con scroll y el
+            índice solo empujaría el contenido hacia abajo. */}
+        <nav aria-label="Secciones del formulario" className="hidden lg:block">
+          <ul className="space-y-0.5 text-sm">
+            {sections.map((s) => (
+              <li key={s.id}>
+                <a
+                  href={`#${s.id}`}
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground block rounded-md px-2 py-1"
+                >
+                  {s.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <p className="text-muted-foreground px-2 text-xs leading-relaxed">
+          Editado por {business.updated_by_profile?.email ?? 'desconocido'} el{' '}
+          {formatDateLong(business.updated_at)}. Creado por{' '}
+          {business.created_by_profile?.email ?? 'desconocido'} el{' '}
+          {formatDateLong(business.created_at)}.
+          {business.is_verified && business.verified_at && (
+            <> Verificado el {formatDateLong(business.verified_at)}.</>
+          )}
         </p>
-        <p>
-          Última edición por{' '}
-          <span className="text-foreground font-medium">
-            {business.updated_by_profile?.email ?? 'desconocido'}
-          </span>{' '}
-          el {formatDateLong(business.updated_at)}
-        </p>
-      </div>
+      </aside>
 
       <BusinessForm
         action={action}
-        submitLabel="Guardar"
+        submitLabel="Guardar cambios"
         categories={categories}
         lockedMunicipio={lockedMunicipio}
         readOnly={readOnly}
@@ -212,7 +134,6 @@ export default async function EditBusinessPage({
         defaultHours={hours}
         defaultPhotos={photos}
         businessId={id}
-        menuItemCount={menuItemCount}
       />
     </div>
   )

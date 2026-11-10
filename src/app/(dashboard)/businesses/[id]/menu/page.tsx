@@ -1,9 +1,8 @@
 import { ExternalLink } from 'lucide-react'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
-import { PageHeader } from '@/components/shared/page-header'
+import { SectionHeader } from '@/components/shared/section-header'
 import { getCurrentProfile } from '@/features/auth/queries'
 import { MenuEditor } from '@/features/business-menu/components/menu-editor'
 import { getMenuItems } from '@/features/business-menu/queries'
@@ -45,40 +44,26 @@ export default async function BusinessMenuPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      <SectionHeader
         title={label}
-        breadcrumbs={[
-          { label: 'Negocios', href: '/businesses' },
-          { label: business.name, href: `/businesses/${id}` },
-          { label },
-        ]}
-        description={business.name}
+        info="Se editan uno por uno y cada cambio se guarda ahí mismo."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {readOnly && <Badge variant="outline">Solo lectura · {business.municipio}</Badge>}
-            {/* Para revisar lo guardado como lo ve el cliente, sin salir del
-                editor. Un negocio inactivo no lo puede leer el cliente anónimo
-                y el link daría 404, así que ahí se dice por qué no hay botón. */}
-            {business.is_active ? (
-              <a
-                href={urlMenuPublico(business.slug)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              >
-                <ExternalLink className="size-4" />
-                Ver como lo ve el cliente
-              </a>
-            ) : (
-              <Badge variant="outline">Inactivo · el cliente todavía no lo ve</Badge>
-            )}
-            <Link
-              href={`/businesses/${id}`}
+          /* Para revisar lo guardado como lo ve el cliente, sin salir del
+             editor. Un negocio inactivo no lo puede leer el cliente anónimo
+             y el link daría 404, así que ahí se dice por qué no hay botón. */
+          business.is_active ? (
+            <a
+              href={urlMenuPublico(business.slug)}
+              target="_blank"
+              rel="noopener noreferrer"
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
-              Volver al negocio
-            </Link>
-          </div>
+              <ExternalLink className="size-4" />
+              Ver como lo ve el cliente
+            </a>
+          ) : (
+            <Badge variant="outline">Oculto · el cliente todavía no lo ve</Badge>
+          )
         }
       />
 
