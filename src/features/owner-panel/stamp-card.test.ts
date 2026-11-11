@@ -7,6 +7,7 @@ import {
   redeemedLine,
   rewardTitle,
   screenAfterScan,
+  sameStampRound,
   showsStampCardEntry,
   stampCardErrorOf,
   type StampCardState,
@@ -101,6 +102,21 @@ describe('pantalla después de leer', () => {
 })
 
 describe('intento de sello', () => {
+  it('no anima un sello en otra vuelta tras perder la respuesta', () => {
+    expect(sameStampRound(base, { ...base, stamps: 6 })).toBe(true)
+    expect(sameStampRound(base, { ...base, cardId: 'otra-vuelta', stamps: 0 })).toBe(false)
+  })
+
+  it('detecta un canje concurrente aunque la lectura no tuviera vuelta abierta', () => {
+    const before = { ...base, cardId: null, stamps: 0, lastRedeemedAt: '2026-11-10T20:00:00Z' }
+    expect(
+      sameStampRound(before, { ...base, stamps: 1, lastRedeemedAt: before.lastRedeemedAt }),
+    ).toBe(true)
+    expect(
+      sameStampRound(before, { ...base, stamps: 0, lastRedeemedAt: '2026-11-11T20:00:00Z' }),
+    ).toBe(false)
+  })
+
   it('exige un UUID y un token válidos antes de invocar la RPC', () => {
     expect(addStampSchema.safeParse({ token: TOKEN }).success).toBe(false)
     expect(addStampSchema.safeParse({ token: TOKEN, operationId: 'otro' }).success).toBe(false)

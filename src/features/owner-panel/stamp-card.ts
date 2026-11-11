@@ -121,6 +121,17 @@ export function screenAfterScan(card: StampCardState): ScanScreen {
   return 'leida'
 }
 
+/** Si se canjeó mientras faltaba la respuesta, el sello pertenece a otra vuelta.
+ * La lectura inicial puede no tener cardId: canje con programa apagado y luego
+ * reactivado. En ese caso también hay que comparar el último canje.
+ */
+export function sameStampRound(before: StampCardState, after: StampCardState): boolean {
+  return (
+    (!before.cardId || before.cardId === after.cardId) &&
+    before.lastRedeemedAt === after.lastRedeemedAt
+  )
+}
+
 /** «frappé gratis» → «Frappé gratis», para el título de D3. */
 export function rewardTitle(reward: string | null): string {
   const r = (reward ?? '').trim() || 'premio'

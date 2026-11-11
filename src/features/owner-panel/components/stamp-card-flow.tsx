@@ -11,6 +11,7 @@ import {
   rewardText,
   rewardTitle,
   screenAfterScan,
+  sameStampRound,
   unbreakableName,
   type ErrorScreen,
   type StampCardError,
@@ -173,7 +174,7 @@ export function StampCardFlow({
     if (res.ok) {
       // El sello se confirmó, pero otra sesión pudo canjear esa vuelta mientras
       // faltaba la respuesta. Mostrar la vuelta actual sin animar un sello en ella.
-      if (card.cardId && res.card.cardId !== card.cardId) return showCard(token, res.card)
+      if (!sameStampRound(card, res.card)) return showCard(token, res.card)
       return setScreen({ kind: 'sellada', token, card: res.card, before: card.stamps })
     }
     if (res.error === 'unknown') unconfirmed()
