@@ -2853,11 +2853,12 @@ export type Database = {
         Returns: string
       }
       owner_add_stamp: {
-        Args: { p_token: string }
+        Args: { p_operation_id?: string; p_token: string }
         Returns: {
           business_id: string
           business_name: string
           card_id: string
+          daily_limit_applies: boolean
           is_full: boolean
           last_redeemed_at: string
           program_active: boolean
@@ -2885,6 +2886,7 @@ export type Database = {
           business_id: string
           business_name: string
           card_id: string
+          daily_limit_applies: boolean
           is_full: boolean
           last_redeemed_at: string
           program_active: boolean
@@ -2900,6 +2902,7 @@ export type Database = {
           business_id: string
           business_name: string
           card_id: string
+          daily_limit_applies: boolean
           is_full: boolean
           last_redeemed_at: string
           program_active: boolean
@@ -3002,6 +3005,7 @@ export type Database = {
           business_id: string
           business_name: string
           card_id: string
+          daily_limit_applies: boolean
           is_full: boolean
           last_redeemed_at: string
           program_active: boolean

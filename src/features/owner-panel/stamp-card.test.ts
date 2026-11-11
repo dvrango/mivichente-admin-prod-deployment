@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { addStampSchema } from './schema'
 import {
   cardTokenFromScan,
   errorCopy,
@@ -6,6 +7,7 @@ import {
   redeemedLine,
   rewardTitle,
   screenAfterScan,
+  sameStampRound,
   showsStampCardEntry,
   stampCardErrorOf,
   type StampCardState,
@@ -23,6 +25,7 @@ const base: StampCardState = {
   stamps: 5,
   isFull: false,
   stampedToday: false,
+  dailyLimitApplies: true,
   lastRedeemedAt: null,
 }
 
@@ -85,6 +88,50 @@ describe('pantalla después de leer', () => {
 
   it('ya recibió el sello de hoy: E4', () => {
     expect(screenAfterScan({ ...base, stampedToday: true })).toBe('ya_sellada')
+  })
+
+  it('el demo permite seguir sellando después del primer sello de hoy', () => {
+    expect(screenAfterScan({ ...base, stampedToday: true, dailyLimitApplies: false })).toBe('leida')
+    expect(
+      screenAfterScan({ ...base, stampedToday: true, dailyLimitApplies: false, isFull: true }),
+    ).toBe('llena')
+    expect(screenAfterScan({ ...base, dailyLimitApplies: false, programActive: false })).toBe(
+      'apagada',
+    )
+  })
+})
+
+describe('intento de sello', () => {
+  it('no anima un sello en otra vuelta tras perder la respuesta', () => {
+    expect(sameStampRound(base, { ...base, stamps: 6 })).toBe(true)
+    expect(sameStampRound(base, { ...base, cardId: 'otra-vuelta', stamps: 0 })).toBe(false)
+  })
+
+  it('detecta un canje concurrente aunque la lectura no tuviera vuelta abierta', () => {
+    const before = { ...base, cardId: null, stamps: 0, lastRedeemedAt: '2026-11-10T20:00:00Z' }
+    expect(
+      sameStampRound(before, { ...base, stamps: 1, lastRedeemedAt: before.lastRedeemedAt }),
+    ).toBe(true)
+    expect(
+      sameStampRound(before, { ...base, stamps: 0, lastRedeemedAt: '2026-11-11T20:00:00Z' }),
+    ).toBe(false)
+  })
+
+  it('exige un UUID y un token válidos antes de invocar la RPC', () => {
+    expect(addStampSchema.safeParse({ token: TOKEN }).success).toBe(false)
+    expect(addStampSchema.safeParse({ token: TOKEN, operationId: 'otro' }).success).toBe(false)
+    expect(
+      addStampSchema.safeParse({
+        token: TOKEN,
+        operationId: '00000000-0000-4000-8000-000000000001',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('una respuesta perdida no afirma que el sello no entró', () => {
+    const copy = errorCopy('sin_conexion_sello', { businessName: base.businessName })
+    expect(copy.title).toBe('No se pudo confirmar el sello')
+    expect(copy.retries).toBe(true)
   })
 })
 

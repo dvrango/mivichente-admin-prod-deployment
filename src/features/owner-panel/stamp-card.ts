@@ -21,6 +21,8 @@ export type StampCardState = {
   stamps: number
   isFull: boolean
   stampedToday: boolean
+  /** La DB decide si este negocio conserva el límite de un sello diario. */
+  dailyLimitApplies: boolean
   lastRedeemedAt: string | null
 }
 
@@ -34,6 +36,7 @@ export const STAMP_CARD_DB_ERRORS = [
   'card_full',
   'already_redeemed',
   'card_not_full',
+  'invalid_stamp_operation',
 ] as const
 
 export type StampCardDbError = (typeof STAMP_CARD_DB_ERRORS)[number]
@@ -114,8 +117,19 @@ export type ScanScreen = 'leida' | 'llena' | 'ya_sellada' | 'apagada'
 export function screenAfterScan(card: StampCardState): ScanScreen {
   if (card.isFull) return 'llena'
   if (!card.programActive) return 'apagada'
-  if (card.stampedToday) return 'ya_sellada'
+  if (card.dailyLimitApplies && card.stampedToday) return 'ya_sellada'
   return 'leida'
+}
+
+/** Si se canjeó mientras faltaba la respuesta, el sello pertenece a otra vuelta.
+ * La lectura inicial puede no tener cardId: canje con programa apagado y luego
+ * reactivado. En ese caso también hay que comparar el último canje.
+ */
+export function sameStampRound(before: StampCardState, after: StampCardState): boolean {
+  return (
+    (!before.cardId || before.cardId === after.cardId) &&
+    before.lastRedeemedAt === after.lastRedeemedAt
+  )
 }
 
 /** «frappé gratis» → «Frappé gratis», para el título de D3. */
@@ -218,8 +232,8 @@ export function errorCopy(
       }
     case 'sin_conexion_sello':
       return {
-        title: 'No se dio el sello',
-        line: 'No hay conexión. Intenta otra vez.',
+        title: 'No se pudo confirmar el sello',
+        line: 'Intenta otra vez para comprobarlo.',
         primary: 'Intentar otra vez',
         retries: true,
       }
@@ -288,6 +302,7 @@ export function errorScreenOf(error: StampCardError): ErrorScreen | null {
     case 'card_not_full':
       return null
     case 'unknown':
+    case 'invalid_stamp_operation':
       return 'desconocido'
   }
 }

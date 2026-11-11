@@ -1664,7 +1664,7 @@ async function main() {
     const sello = (await c.query('select * from owner_add_stamp($1)', [tokPropio])).rows[0]
     check(
       'owner sella tarjeta de su negocio',
-      sello?.stamps === 1 && sello.stamped_today === true,
+      sello?.stamps === 1 && sello.stamped_today === true && sello.daily_limit_applies === true,
       JSON.stringify(sello),
     )
     const otroHoy = await attempt(c, 'select * from owner_add_stamp($1)', [tokPropio])

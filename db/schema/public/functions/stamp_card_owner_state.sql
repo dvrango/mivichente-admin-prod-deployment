@@ -2,16 +2,17 @@ CREATE OR REPLACE FUNCTION public.stamp_card_owner_state (
   p_customer_id uuid
 )
   RETURNS TABLE (
-    card_id          uuid,
-    business_id      uuid,
-    business_name    text,
-    program_active   boolean,
-    reward           text,
-    stamps_required  integer,
-    stamps           integer,
-    is_full          boolean,
-    stamped_today    boolean,
-    last_redeemed_at timestamp with time zone
+    card_id             uuid,
+    business_id         uuid,
+    business_name       text,
+    program_active      boolean,
+    reward              text,
+    stamps_required     integer,
+    stamps              integer,
+    is_full             boolean,
+    stamped_today       boolean,
+    last_redeemed_at    timestamp with time zone,
+    daily_limit_applies boolean
   )
   LANGUAGE sql
   STABLE
@@ -38,6 +39,7 @@ CREATE OR REPLACE FUNCTION public.stamp_card_owner_state (
         from public.stamp_cards c
        where c.customer_id = bc.id
     )
+    , not b.is_demo
   from public.business_customers bc
   join public.businesses b on b.id = bc.business_id
   left join public.stamp_cards oc
@@ -52,6 +54,6 @@ $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."stamp_card_owner_state"(uuid) TO "postgres";
 
-COMMENT ON FUNCTION "public"."stamp_card_owner_state"(uuid) IS 'Interna. Estado de la tarjeta de sellos de un cliente para el panel del dueño: vuelta abierta (card_id null si no hay), si está llena y si ya recibió el sello de hoy. No revisa permisos.';
+COMMENT ON FUNCTION "public"."stamp_card_owner_state"(uuid) IS 'Interna. Estado de la tarjeta de sellos de un cliente para el panel del dueño: vuelta abierta (card_id null si no hay), si está llena si ya recibió algún sello hoy y si el límite diario aplica (negocio real). No revisa permisos.';
 
 REVOKE ALL ON FUNCTION "public"."stamp_card_owner_state"(uuid) FROM PUBLIC;

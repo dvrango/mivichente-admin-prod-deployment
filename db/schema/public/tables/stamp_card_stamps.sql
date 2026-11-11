@@ -15,7 +15,7 @@ ALTER TABLE "public"."stamp_card_stamps"
 
 CREATE INDEX stamp_card_stamps_card_idx ON public.stamp_card_stamps USING btree (card_id);
 
-CREATE UNIQUE INDEX stamp_card_stamps_customer_day_key ON public.stamp_card_stamps USING btree (customer_id, stamp_day);
+CREATE INDEX stamp_card_stamps_customer_day_idx ON public.stamp_card_stamps USING btree (customer_id, stamp_day);
 
 CREATE POLICY "admin reads stamp card stamps" ON "public"."stamp_card_stamps"
   FOR SELECT
@@ -26,8 +26,8 @@ GRANT SELECT ON TABLE "public"."stamp_card_stamps" TO "authenticated";
 
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."stamp_card_stamps" TO "postgres", "service_role";
 
-COMMENT ON COLUMN "public"."stamp_card_stamps"."customer_id" IS 'Repetido de la vuelta para que «uno por día» valga por cliente y no por vuelta. Como el cliente es el mismo con la tarjeta digital o con la física, el límite cuenta igual por las dos.';
+COMMENT ON COLUMN "public"."stamp_card_stamps"."customer_id" IS 'Repetido de la vuelta con FK compuesta. El límite real consulta todo el historial del cliente, entre tarjeta digital, física y vueltas, incluyendo sellos que recibió cuando el negocio era demo.';
 
 COMMENT ON COLUMN "public"."stamp_card_stamps"."stamped_by" IS 'Cuenta del dueño que dio el sello. Rastro para revisar abusos (sellos regalados a costa del negocio).';
 
-COMMENT ON TABLE "public"."stamp_card_stamps" IS 'Un sello en una vuelta de la tarjeta. Uno por cliente y día (hora de Durango), sostenido por índice único. Solo lo crea owner_add_stamp.';
+COMMENT ON TABLE "public"."stamp_card_stamps" IS 'Un sello en una vuelta. Solo lo crea owner_add_stamp: uno por cliente y día en negocios reales, varios en demo. Bloqueo por cliente; id identifica el intento y hace idempotentes sus reintentos.';
