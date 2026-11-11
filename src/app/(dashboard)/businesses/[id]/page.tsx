@@ -87,7 +87,9 @@ export default async function EditBusinessPage({
           </ul>
         </nav>
 
-        <p className="text-muted-foreground px-2 text-xs leading-relaxed">
+        {/* Solo en escritorio: en celular el aside va arriba del form y esta
+            línea lo empujaba sin aportar a la captura. */}
+        <p className="text-muted-foreground hidden px-2 text-xs leading-relaxed lg:block">
           Editado por {business.updated_by_profile?.email ?? 'desconocido'} el{' '}
           {formatDateLong(business.updated_at)}. Creado por{' '}
           {business.created_by_profile?.email ?? 'desconocido'} el{' '}

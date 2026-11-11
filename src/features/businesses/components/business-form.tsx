@@ -142,6 +142,7 @@ export function BusinessForm({
   const [offeringInput, setOfferingInput] = useState('')
   const [secondaryIds, setSecondaryIds] = useState<string[]>(defaults?.secondary_category_ids ?? [])
   const [categorySearch, setCategorySearch] = useState('')
+  const [showAllCategories, setShowAllCategories] = useState(false)
   const [whatsappMode, setWhatsappModeState] = useState<WhatsappMode>(() =>
     initialWhatsappMode(defaults?.whatsapp_phone, defaults?.phone_is_whatsapp),
   )
@@ -527,44 +528,59 @@ export function BusinessForm({
                   ))}
                 </div>
               )}
-              <Input
-                value={categorySearch}
-                onChange={(e) => setCategorySearch(e.target.value)}
-                placeholder="Buscar categoría..."
-                disabled={isPending}
-              />
-              <div className="grid max-h-48 grid-cols-1 gap-x-4 gap-y-1.5 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
-                {(['food', 'business'] as const).map((type) => {
-                  const opts = filteredCategoriesByType[type].filter((c) => c.id !== primaryId)
-                  if (opts.length === 0) return null
-                  return (
-                    <div key={type} className="space-y-1.5">
-                      <p className="text-muted-foreground text-xs font-medium">
-                        {type === 'food' ? 'Comida y bebida' : 'Comercios y servicios'}
-                      </p>
-                      {opts.map((c) => (
-                        <label
-                          key={c.id}
-                          className="flex cursor-pointer items-center gap-2 text-sm"
-                        >
-                          <Checkbox
-                            checked={secondaryIds.includes(c.id)}
-                            onCheckedChange={(v) => toggleSecondary(c.id, v === true)}
-                            disabled={isPending}
-                          />
-                          {c.name}
-                        </label>
-                      ))}
-                    </div>
-                  )
-                })}
-                {filteredCategoriesByType.food.length === 0 &&
-                  filteredCategoriesByType.business.length === 0 && (
-                    <p className="text-muted-foreground col-span-2 text-sm">
-                      Sin resultados para &quot;{categorySearch}&quot;
-                    </p>
-                  )}
+              <div className="flex gap-2">
+                <Input
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  placeholder="Buscar categoría..."
+                  disabled={isPending}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={isPending}
+                  onClick={() => setShowAllCategories((v) => !v)}
+                >
+                  {showAllCategories ? 'Ocultar' : 'Ver todas'}
+                </Button>
               </div>
+              {/* La lista completa son decenas de casillas: se abre al buscar o
+                  al pedirla, para que no domine la sección. */}
+              {(search || showAllCategories) && (
+                <div className="grid max-h-48 grid-cols-1 gap-x-4 gap-y-1.5 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+                  {(['food', 'business'] as const).map((type) => {
+                    const opts = filteredCategoriesByType[type].filter((c) => c.id !== primaryId)
+                    if (opts.length === 0) return null
+                    return (
+                      <div key={type} className="space-y-1.5">
+                        <p className="text-muted-foreground text-xs font-medium">
+                          {type === 'food' ? 'Comida y bebida' : 'Comercios y servicios'}
+                        </p>
+                        {opts.map((c) => (
+                          <label
+                            key={c.id}
+                            className="flex cursor-pointer items-center gap-2 text-sm"
+                          >
+                            <Checkbox
+                              checked={secondaryIds.includes(c.id)}
+                              onCheckedChange={(v) => toggleSecondary(c.id, v === true)}
+                              disabled={isPending}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
+                    )
+                  })}
+                  {filteredCategoriesByType.food.length === 0 &&
+                    filteredCategoriesByType.business.length === 0 && (
+                      <p className="text-muted-foreground col-span-2 text-sm">
+                        Sin resultados para &quot;{categorySearch}&quot;
+                      </p>
+                    )}
+                </div>
+              )}
             </div>
 
             <FormField
