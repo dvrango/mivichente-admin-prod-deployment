@@ -123,6 +123,37 @@
   border-color: var(--destructive);
 }
 
+.passwordField {
+  position: relative;
+}
+
+.passwordInput {
+  padding-right: 56px;
+}
+
+.visibilityToggle {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.visibilityToggle:hover:not(:disabled) {
+  background: #fff6e8;
+  color: var(--foreground);
+}
+
+.visibilityToggle:focus-visible {
+  outline: 2px solid #c7400f;
+  outline-offset: -2px;
+}
+
 .error {
   color: var(--destructive);
   font-size: 14px;
