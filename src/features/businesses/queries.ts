@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { BUSINESSES_PAGE_SIZE, type BusinessFilters } from './schema'
 import type {
@@ -219,7 +220,9 @@ export type BusinessWithAuthors = Business & {
   owner_contact: BusinessOwnerContact | null
 }
 
-export async function getBusinessById(id: string): Promise<BusinessWithAuthors | null> {
+// Cacheado por request (React cache): el layout de `/businesses/[id]` y la
+// página de adentro lo piden en el mismo render, y sin esto serían dos queries.
+export const getBusinessById = cache(async (id: string): Promise<BusinessWithAuthors | null> => {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('businesses')
@@ -240,7 +243,7 @@ export async function getBusinessById(id: string): Promise<BusinessWithAuthors |
     Array.isArray(raw) ? (raw[0] ?? null) : (raw ?? null)
   ) as BusinessOwnerContact | null
   return { ...data, owner_contact } as BusinessWithAuthors
-}
+})
 
 /**
  * Si el negocio tiene al menos un dueño con cuenta en `business_owners`. Solo

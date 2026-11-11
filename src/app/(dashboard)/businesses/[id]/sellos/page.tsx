@@ -1,8 +1,6 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PageHeader } from '@/components/shared/page-header'
+import { SectionHeader } from '@/components/shared/section-header'
 import { requireAdmin } from '@/features/auth/queries'
 import { updateBusinessStampCard, type StampCardFormState } from '@/features/businesses/actions'
 import { BusinessStampCardForm } from '@/features/businesses/components/business-stamp-card-form'
@@ -40,22 +38,9 @@ export default async function BusinessStampCardPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      <SectionHeader
         title="Tarjeta de sellos"
-        breadcrumbs={[
-          { label: 'Negocios', href: '/businesses' },
-          { label: business.name, href: `/businesses/${id}` },
-          { label: 'Tarjeta de sellos' },
-        ]}
-        description="El cliente escanea el QR del mostrador y se lleva una tarjeta en su celular. El dueño le da un sello por compra desde su panel y le canjea el premio cuando la llena. El premio lo elige y lo paga el negocio."
-        actions={
-          <Link
-            href={`/businesses/${id}`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Volver al negocio
-          </Link>
-        }
+        info="El cliente escanea el QR del mostrador y se lleva una tarjeta en su celular. El dueño le da un sello por compra desde su panel y le canjea el premio cuando la llena. El premio lo elige y lo paga el negocio."
       />
 
       <div className="grid max-w-4xl gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">

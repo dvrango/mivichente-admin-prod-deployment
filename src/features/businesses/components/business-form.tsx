@@ -1,15 +1,15 @@
 'use client'
 
-import { useEffect, useState, useTransition, useRef, KeyboardEvent } from 'react'
-import Link from 'next/link'
+import { useEffect, useState, useTransition, useRef, KeyboardEvent, type ReactNode } from 'react'
 import { Check, Copy, X } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { CategorySelect } from '@/components/shared/category-select'
+import { InfoTip } from '@/components/shared/info-tip'
 import { PhoneInput } from '@/components/shared/phone-input'
 import { normalizeMxPhone } from '@/lib/validation/phone'
 import { coordinatesFromMapsUrl } from '@/lib/geo/maps-url'
@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import type { BusinessFormState } from '../actions'
+import { BUSINESS_FORM_SECTIONS } from '../form-sections'
 import {
   businessFormSchema,
   DELIVERY_FEE_MODES,
@@ -91,17 +92,13 @@ type Props = {
   defaultHours?: WeeklyHours
   defaultPhotos?: PhotoInput[]
   /**
-   * Negocio ya existente: habilita el resumen del menú con enlace a su pantalla
-   * (`/businesses/[id]/menu`). Ausente = alta, donde todavía no hay id al que
-   * colgarle platillos — ahí el resumen sólo avisa que el menú se captura
-   * después de guardar.
+   * Negocio ya existente. Ausente = alta, donde todavía no hay id al que
+   * colgarle platillos y el form avisa que el menú se captura después.
    *
-   * El menú NO viaja en este form: se edita ítem por ítem en su propia
-   * pantalla, que es su único escritor (features/business-menu).
+   * El menú NO viaja en este form: se edita ítem por ítem en su propio tab
+   * (`/businesses/[id]/menu`), que es su único escritor (features/business-menu).
    */
   businessId?: string
-  /** Cuántos ítems tiene hoy el menú, sólo para el resumen. */
-  menuItemCount?: number
 }
 
 // Estos campos NO los maneja react-hook-form: aliases/offerings/secondary_category_ids
@@ -131,7 +128,6 @@ export function BusinessForm({
   defaultHours,
   defaultPhotos,
   businessId,
-  menuItemCount = 0,
   lockedMunicipio,
   readOnly = false,
   registrationId,
@@ -146,6 +142,7 @@ export function BusinessForm({
   const [offeringInput, setOfferingInput] = useState('')
   const [secondaryIds, setSecondaryIds] = useState<string[]>(defaults?.secondary_category_ids ?? [])
   const [categorySearch, setCategorySearch] = useState('')
+  const [showAllCategories, setShowAllCategories] = useState(false)
   const [whatsappMode, setWhatsappModeState] = useState<WhatsappMode>(() =>
     initialWhatsappMode(defaults?.whatsapp_phone, defaults?.phone_is_whatsapp),
   )
@@ -361,9 +358,8 @@ export function BusinessForm({
   // teclea: comida → "Menú", el resto → "Servicios". Así el admin no repite un
   // dato que ya definió arriba al elegir la categoría.
   const servicesSectionLabel = primaryType === 'food' ? 'Menú' : 'Servicios'
-  // Cómo se le dice a UN renglón del menú, para el resumen de abajo.
-  const menuItemNoun = primaryType === 'food' ? 'platillo' : 'servicio'
-  const menuItemNounPlural = `${menuItemNoun}s`
+  // Cómo se le dice a los renglones del menú, para el aviso del alta.
+  const menuItemNounPlural = primaryType === 'food' ? 'platillos' : 'servicios'
 
   const categoriesByType = {
     food: categories.filter((c) => c.type === 'food'),
@@ -384,18 +380,701 @@ export function BusinessForm({
   }
   const selectedSecondary = categories.filter((c) => secondaryIds.includes(c.id))
 
+  const sections = BUSINESS_FORM_SECTIONS
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-2xl space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-3xl space-y-4">
         <fieldset disabled={readOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
+          <FormSection {...sections.identidad}>
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre</FormLabel>
+                  <FormControl>
+                    <Input disabled={isPending} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="slug"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center gap-2">
+                    <FormLabel>URL del negocio</FormLabel>
+                    <InfoTip>
+                      El link para compartir. Se genera solo del nombre y lo puedes personalizar con
+                      minúsculas y guiones.
+                    </InfoTip>
+                  </div>
+                  <FormControl>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground text-sm">vichente.com/</span>
+                      <Input
+                        disabled={isPending}
+                        placeholder="el-tunner"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => {
+                          setSlugTouched(true)
+                          // Normalización ligera mientras escribe (conserva guion final para
+                          // seguir tecleando). El slugify() final ocurre al enviar (schema).
+                          field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))
+                        }}
+                      />
+                      {/* Copia la URL completa (con https://), no lo que se lee en
+                          pantalla: es lo que se pega en WhatsApp y lo que hace que
+                          el link sea tocable del otro lado. */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        disabled={isPending || !field.value}
+                        onClick={() => copiarUrlNegocio(field.value ?? '')}
+                        title="Copiar la URL completa"
+                        aria-label="Copiar la URL completa del negocio"
+                      >
+                        {copiaUrl === 'ok' ? (
+                          <Check className="size-4 text-emerald-600" />
+                        ) : (
+                          <Copy className="size-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </FormControl>
+                  {copiaUrl === 'error' && (
+                    <p className="text-destructive text-xs">
+                      No se pudo copiar. Cópiala a mano: vichente.com/{field.value}
+                    </p>
+                  )}
+                  {/* El botón copia lo que está en el input, que puede no ser todavía
+                      lo que hay en la base. Sin este aviso se puede pegar en WhatsApp
+                      un link que aún no existe. */}
+                  {field.value && field.value !== defaults?.slug && (
+                    <p className="text-xs text-amber-600 dark:text-amber-500">
+                      {defaults?.slug
+                        ? 'Cambiaste la URL: guarda para que este link funcione.'
+                        : 'Guarda el negocio para que este link funcione.'}
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="primary_category_id"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center gap-2">
+                    <FormLabel>Categoría principal</FormLabel>
+                    <InfoTip>
+                      Define el ícono de la tarjeta y si la sección se llama Menú o Servicios.
+                    </InfoTip>
+                  </div>
+                  <FormControl>
+                    <CategorySelect
+                      categories={categories}
+                      value={field.value}
+                      onValueChange={(v) => {
+                        field.onChange(v ?? '')
+                        const newType = categories.find((c) => c.id === v)?.type
+                        // La primaria nunca debe quedar también como secundaria,
+                        // y las secundarias deben ser del mismo tipo que la principal.
+                        setSecondaryIds((prev) =>
+                          prev.filter((id) => {
+                            if (id === v) return false
+                            const c = categories.find((cat) => cat.id === id)
+                            return c?.type === newType
+                          }),
+                        )
+                      }}
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm leading-none font-medium">
+                Categorías adicionales
+                <InfoTip>El negocio aparece también en estas categorías.</InfoTip>
+              </label>
+              {selectedSecondary.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedSecondary.map((c) => (
+                    <Badge key={c.id} variant="secondary" className="gap-1 pr-1">
+                      {c.name}
+                      <button
+                        type="button"
+                        onClick={() => toggleSecondary(c.id, false)}
+                        disabled={isPending}
+                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                        aria-label={`Quitar ${c.name}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  placeholder="Buscar categoría..."
+                  disabled={isPending}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={isPending}
+                  onClick={() => setShowAllCategories((v) => !v)}
+                >
+                  {showAllCategories ? 'Ocultar' : 'Ver todas'}
+                </Button>
+              </div>
+              {/* La lista completa son decenas de casillas: se abre al buscar o
+                  al pedirla, para que no domine la sección. */}
+              {(search || showAllCategories) && (
+                <div className="grid max-h-48 grid-cols-1 gap-x-4 gap-y-1.5 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+                  {(['food', 'business'] as const).map((type) => {
+                    const opts = filteredCategoriesByType[type].filter((c) => c.id !== primaryId)
+                    if (opts.length === 0) return null
+                    return (
+                      <div key={type} className="space-y-1.5">
+                        <p className="text-muted-foreground text-xs font-medium">
+                          {type === 'food' ? 'Comida y bebida' : 'Comercios y servicios'}
+                        </p>
+                        {opts.map((c) => (
+                          <label
+                            key={c.id}
+                            className="flex cursor-pointer items-center gap-2 text-sm"
+                          >
+                            <Checkbox
+                              checked={secondaryIds.includes(c.id)}
+                              onCheckedChange={(v) => toggleSecondary(c.id, v === true)}
+                              disabled={isPending}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
+                    )
+                  })}
+                  {filteredCategoriesByType.food.length === 0 &&
+                    filteredCategoriesByType.business.length === 0 && (
+                      <p className="text-muted-foreground col-span-2 text-sm">
+                        Sin resultados para &quot;{categorySearch}&quot;
+                      </p>
+                    )}
+                </div>
+              )}
+            </div>
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descripción</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={3}
+                      placeholder="Describe brevemente el negocio…"
+                      disabled={isPending}
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </FormSection>
+
+          <FormSection {...sections.contacto}>
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Teléfono (llamadas)</FormLabel>
+                  <FormControl>
+                    <PhoneInput
+                      name={field.name}
+                      ref={field.ref}
+                      value={field.value}
+                      onBlur={field.onBlur}
+                      onChange={field.onChange}
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Una sola pregunta de WhatsApp en vez de checkbox + campo suelto.
+                Antes se podía palomear "tiene WhatsApp" Y escribir otro número, y
+                nadie sabía cuál ganaba; las tres opciones son excluyentes por
+                construcción. El mapeo a DB está en `setWhatsappMode`. */}
+            <FormItem>
+              <FormLabel>WhatsApp</FormLabel>
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {WHATSAPP_MODES.map(({ value, label }) => (
+                  <label
+                    key={value}
+                    htmlFor={`wa-mode-${value}`}
+                    className="flex cursor-pointer items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      id={`wa-mode-${value}`}
+                      name="whatsapp_mode"
+                      value={value}
+                      checked={whatsappMode === value}
+                      onChange={() => setWhatsappMode(value)}
+                      disabled={isPending}
+                      className="size-4 cursor-pointer"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </FormItem>
+
+            {whatsappMode === 'otro' && (
+              <FormField
+                control={form.control}
+                name="whatsapp_phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Número de WhatsApp</FormLabel>
+                    <FormControl>
+                      <PhoneInput
+                        name={field.name}
+                        ref={field.ref}
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onChange={field.onChange}
+                        disabled={isPending}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="facebook_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Facebook</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://facebook.com/…"
+                        disabled={isPending}
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="instagram_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Instagram</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://instagram.com/…"
+                        disabled={isPending}
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="bg-muted/40 space-y-4 rounded-lg p-4">
+              <p className="flex items-center gap-1.5 text-sm leading-none font-medium">
+                Contacto del dueño
+                <Badge variant="outline" className="font-normal">
+                  Interno
+                </Badge>
+                <InfoTip>
+                  A quién se le habla después de la visita: fotos, verificación o reclamar el
+                  perfil. No se muestra en la app.
+                </InfoTip>
+              </p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="owner"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dueño</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Nombre del dueño"
+                          disabled={isPending}
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="owner_phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Teléfono del dueño</FormLabel>
+                      <FormControl>
+                        <PhoneInput
+                          name={field.name}
+                          ref={field.ref}
+                          value={field.value ?? ''}
+                          onBlur={field.onBlur}
+                          onChange={field.onChange}
+                          disabled={isPending}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="owner_contact_note"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quién es el contacto</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej. hija del dueño, lleva el Facebook"
+                        disabled={isPending}
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </FormSection>
+
+          <FormSection {...sections.ubicacion}>
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dirección</FormLabel>
+                  <FormControl>
+                    <Textarea rows={2} disabled={isPending} {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="municipio"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>Municipio</FormLabel>
+                      {lockedMunicipio && (
+                        <InfoTip>Es tu municipio asignado y no se puede cambiar.</InfoTip>
+                      )}
+                    </div>
+                    <Select
+                      value={field.value || undefined}
+                      onValueChange={(v) => field.onChange(v)}
+                      disabled={isPending || !!lockedMunicipio}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecciona municipio" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {MUNICIPIOS.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="colonia"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Colonia</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej. Centro, La Joya…"
+                        disabled={isPending}
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="maps_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL de Google Maps</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://maps.app.goo.gl/..."
+                      disabled={isPending}
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2 text-sm leading-none font-medium">
+                  Coordenadas
+                  <InfoTip>
+                    Las pone el GPS en modo campo. Aquí se pueden pegar o sacar del link de Maps.
+                    Vacías, el negocio no sale en el mapa.
+                  </InfoTip>
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => {
+                    const coords = coordinatesFromMapsUrl(form.getValues('maps_url'))
+                    if (!coords) {
+                      setCoordsNotice(
+                        'Ese link no trae coordenadas. Si es un link corto (maps.app.goo.gl), ábrelo y copia la URL larga.',
+                      )
+                      return
+                    }
+                    setLatitude(String(coords.latitude))
+                    setLongitude(String(coords.longitude))
+                    setCoordsNotice(null)
+                  }}
+                >
+                  Extraer del link de Maps
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  aria-label="Latitud"
+                  inputMode="decimal"
+                  placeholder="Latitud (23.7…)"
+                  disabled={isPending}
+                  value={latitude}
+                  onChange={(e) => {
+                    setLatitude(e.target.value)
+                    setCoordsNotice(null)
+                  }}
+                />
+                <Input
+                  aria-label="Longitud"
+                  inputMode="decimal"
+                  placeholder="Longitud (-103.9…)"
+                  disabled={isPending}
+                  value={longitude}
+                  onChange={(e) => {
+                    setLongitude(e.target.value)
+                    setCoordsNotice(null)
+                  }}
+                />
+              </div>
+              {coordsNotice && (
+                <p className="text-xs text-amber-700 dark:text-amber-500">{coordsNotice}</p>
+              )}
+            </div>
+          </FormSection>
+
+          <FormSection
+            {...sections.busqueda}
+            info="Lo que ponga aquí ayuda a que la búsqueda de la app encuentre el negocio."
+          >
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm leading-none font-medium">
+                Qué vende u ofrece
+                <InfoTip>
+                  Productos o servicios, uno por uno. Ej. tacos, burritos, agua fresca.
+                </InfoTip>
+              </label>
+              <div
+                className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
+                onClick={() => offeringInputRef.current?.focus()}
+              >
+                {offerings.map((offering) => (
+                  <span
+                    key={offering}
+                    className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
+                  >
+                    {offering}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeOffering(offering)
+                      }}
+                      disabled={isPending}
+                      className="hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  ref={offeringInputRef}
+                  value={offeringInput}
+                  onChange={(e) => setOfferingInput(e.target.value)}
+                  onKeyDown={onOfferingKeyDown}
+                  onBlur={() => addOffering(offeringInput)}
+                  disabled={isPending}
+                  placeholder={offerings.length === 0 ? 'Ej. tacos, burritos, agua fresca…' : ''}
+                  className="placeholder:text-muted-foreground min-w-32 flex-1 bg-transparent outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm leading-none font-medium">
+                Otros nombres
+                <InfoTip>
+                  Como conoce la gente al negocio, aunque no sea su nombre oficial. Escribe uno y
+                  presiona Enter o coma.
+                </InfoTip>
+              </label>
+              <div
+                className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
+                onClick={() => aliasInputRef.current?.focus()}
+              >
+                {aliases.map((alias) => (
+                  <span
+                    key={alias}
+                    className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
+                  >
+                    {alias}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeAlias(alias)
+                      }}
+                      disabled={isPending}
+                      className="hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  ref={aliasInputRef}
+                  value={aliasInput}
+                  onChange={(e) => setAliasInput(e.target.value)}
+                  onKeyDown={onAliasKeyDown}
+                  onBlur={() => addAlias(aliasInput)}
+                  disabled={isPending}
+                  placeholder={aliases.length === 0 ? 'Ej. El Güero, Tacos del parque…' : ''}
+                  className="placeholder:text-muted-foreground min-w-32 flex-1 bg-transparent outline-none"
+                />
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection {...sections.horarioFotos}>
+            {showHours ? (
+              <BusinessHoursEditor
+                value={hours}
+                onChange={setHours}
+                onRemove={() => setShowHours(false)}
+                disabled={isPending}
+              />
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">Horarios</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => setShowHours(true)}
+                >
+                  + Agregar horarios
+                </Button>
+              </div>
+            )}
+
+            <BusinessGalleryEditor value={photos} onChange={setPhotos} disabled={isPending} />
+          </FormSection>
+
           {defaults?.has_delivery === true && (
-            <div className="space-y-3 rounded-lg border p-4">
+            <FormSection {...sections.envio}>
               <FormField
                 control={form.control}
                 name="delivery.mode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Condición del envío</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>Condición del envío</FormLabel>
+                      <InfoTip>
+                        Costo fijo solo aplica si el negocio cobra lo mismo en todas las entregas.
+                        Si cambia por colonia, distancia o ubicación, elige «Por confirmar con el
+                        negocio».
+                      </InfoTip>
+                    </div>
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
@@ -442,705 +1121,27 @@ export function BusinessForm({
                   )}
                 />
               )}
-              <p className="text-muted-foreground text-sm">
-                Costo fijo solo aplica si el negocio cobra lo mismo en todas las entregas que
-                acepta. Si cambia por colonia, distancia o ubicación, elige “Por confirmar con el
-                negocio”.
-              </p>
-            </div>
-          )}
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombre</FormLabel>
-                <FormControl>
-                  <Input disabled={isPending} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="slug"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  URL del negocio{' '}
-                  <span className="text-muted-foreground font-normal">(link para compartir)</span>
-                </FormLabel>
-                <FormControl>
-                  <div className="flex items-center gap-1">
-                    <span className="text-muted-foreground text-sm">vichente.com/</span>
-                    <Input
-                      disabled={isPending}
-                      placeholder="el-tunner"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => {
-                        setSlugTouched(true)
-                        // Normalización ligera mientras escribe (conserva guion final para
-                        // seguir tecleando). El slugify() final ocurre al enviar (schema).
-                        field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))
-                      }}
-                    />
-                    {/* Copia la URL completa (con https://), no lo que se lee en
-                        pantalla: es lo que se pega en WhatsApp y lo que hace que
-                        el link sea tocable del otro lado. */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0"
-                      disabled={isPending || !field.value}
-                      onClick={() => copiarUrlNegocio(field.value ?? '')}
-                      title="Copiar la URL completa"
-                      aria-label="Copiar la URL completa del negocio"
-                    >
-                      {copiaUrl === 'ok' ? (
-                        <Check className="size-4 text-emerald-600" />
-                      ) : (
-                        <Copy className="size-4" />
-                      )}
-                    </Button>
-                  </div>
-                </FormControl>
-                <p className="text-muted-foreground text-xs">
-                  Se genera solo del nombre. Puedes personalizarlo: minúsculas y guiones.
-                </p>
-                {copiaUrl === 'error' && (
-                  <p className="text-destructive text-xs">
-                    No se pudo copiar. Cópiala a mano: vichente.com/{field.value}
-                  </p>
-                )}
-                {/* El botón copia lo que está en el input, que puede no ser todavía
-                    lo que hay en la base. Sin este aviso se puede pegar en WhatsApp
-                    un link que aún no existe. */}
-                {field.value && field.value !== defaults?.slug && (
-                  <p className="text-xs text-amber-600 dark:text-amber-500">
-                    {defaults?.slug
-                      ? 'Cambiaste la URL: guarda para que este link funcione.'
-                      : 'Guarda el negocio para que este link funcione.'}
-                  </p>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="primary_category_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Categoría principal</FormLabel>
-                <FormControl>
-                  <CategorySelect
-                    categories={categories}
-                    value={field.value}
-                    onValueChange={(v) => {
-                      field.onChange(v ?? '')
-                      const newType = categories.find((c) => c.id === v)?.type
-                      // La primaria nunca debe quedar también como secundaria,
-                      // y las secundarias deben ser del mismo tipo que la principal.
-                      setSecondaryIds((prev) =>
-                        prev.filter((id) => {
-                          if (id === v) return false
-                          const c = categories.find((cat) => cat.id === id)
-                          return c?.type === newType
-                        }),
-                      )
-                    }}
-                    disabled={isPending}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none">
-              Categorías adicionales{' '}
-              <span className="text-muted-foreground font-normal">(opcional)</span>
-            </label>
-            {selectedSecondary.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {selectedSecondary.map((c) => (
-                  <Badge key={c.id} variant="secondary" className="gap-1 pr-1">
-                    {c.name}
-                    <button
-                      type="button"
-                      onClick={() => toggleSecondary(c.id, false)}
-                      disabled={isPending}
-                      className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                      aria-label={`Quitar ${c.name}`}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-            <Input
-              value={categorySearch}
-              onChange={(e) => setCategorySearch(e.target.value)}
-              placeholder="Buscar categoría..."
-              disabled={isPending}
-            />
-            <div className="grid max-h-64 grid-cols-2 gap-x-4 gap-y-1.5 overflow-y-auto rounded-md border p-3">
-              {(['food', 'business'] as const).map((type) => {
-                const opts = filteredCategoriesByType[type].filter((c) => c.id !== primaryId)
-                if (opts.length === 0) return null
-                return (
-                  <div key={type} className="space-y-1.5">
-                    <p className="text-muted-foreground text-xs font-medium">
-                      {type === 'food' ? 'Comida y bebida' : 'Comercios y servicios'}
-                    </p>
-                    {opts.map((c) => (
-                      <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={secondaryIds.includes(c.id)}
-                          onCheckedChange={(v) => toggleSecondary(c.id, v === true)}
-                          disabled={isPending}
-                        />
-                        {c.name}
-                      </label>
-                    ))}
-                  </div>
-                )
-              })}
-              {filteredCategoriesByType.food.length === 0 &&
-                filteredCategoriesByType.business.length === 0 && (
-                  <p className="text-muted-foreground col-span-2 text-sm">
-                    Sin resultados para &quot;{categorySearch}&quot;
-                  </p>
-                )}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              El negocio aparecerá también en estas categorías. La principal muestra el icono en la
-              tarjeta.
-            </p>
-          </div>
-
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Teléfono (llamadas)</FormLabel>
-                <FormControl>
-                  <PhoneInput
-                    name={field.name}
-                    ref={field.ref}
-                    value={field.value}
-                    onBlur={field.onBlur}
-                    onChange={field.onChange}
-                    disabled={isPending}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Una sola pregunta de WhatsApp en vez de checkbox + campo suelto.
-              Antes se podía palomear "tiene WhatsApp" Y escribir otro número, y
-              nadie sabía cuál ganaba; las tres opciones son excluyentes por
-              construcción. El mapeo a DB está en `setWhatsappMode`. */}
-          <FormItem>
-            <FormLabel>WhatsApp</FormLabel>
-            <div className="space-y-2">
-              {WHATSAPP_MODES.map(({ value, label }) => (
-                <label
-                  key={value}
-                  htmlFor={`wa-mode-${value}`}
-                  className="flex cursor-pointer items-center gap-2 text-sm"
-                >
-                  <input
-                    type="radio"
-                    id={`wa-mode-${value}`}
-                    name="whatsapp_mode"
-                    value={value}
-                    checked={whatsappMode === value}
-                    onChange={() => setWhatsappMode(value)}
-                    disabled={isPending}
-                    className="size-4 cursor-pointer"
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </FormItem>
-
-          {whatsappMode === 'otro' && (
-            <FormField
-              control={form.control}
-              name="whatsapp_phone"
-              render={({ field }) => (
-                <FormItem className="pl-6">
-                  <FormLabel>Número de WhatsApp</FormLabel>
-                  <FormControl>
-                    <PhoneInput
-                      name={field.name}
-                      ref={field.ref}
-                      value={field.value ?? ''}
-                      onBlur={field.onBlur}
-                      onChange={field.onChange}
-                      disabled={isPending}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            </FormSection>
           )}
 
-          <div className="space-y-4 rounded-md border p-4">
-            <div>
-              <p className="text-sm font-medium leading-none">
-                Contacto del dueño{' '}
-                <span className="text-muted-foreground font-normal">(interno)</span>
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                A quién se le habla después de la visita (fotos, verificación, reclamar perfil). No
-                se muestra en la app.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="owner"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Dueño</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Nombre del dueño"
-                        disabled={isPending}
-                        {...field}
-                        value={field.value ?? ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="owner_phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Teléfono del dueño</FormLabel>
-                    <FormControl>
-                      <PhoneInput
-                        name={field.name}
-                        ref={field.ref}
-                        value={field.value ?? ''}
-                        onBlur={field.onBlur}
-                        onChange={field.onChange}
-                        disabled={isPending}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="owner_contact_note"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Quién es el contacto</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Ej. hija del dueño, lleva el Facebook"
-                      disabled={isPending}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dirección</FormLabel>
-                <FormControl>
-                  <Textarea rows={2} disabled={isPending} {...field} value={field.value ?? ''} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="maps_url"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>URL de Google Maps</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="https://maps.app.goo.gl/..."
-                    disabled={isPending}
-                    {...field}
-                    value={field.value ?? ''}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-sm font-medium leading-none">
-                Coordenadas <span className="text-muted-foreground font-normal">(opcional)</span>
-              </label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isPending}
-                onClick={() => {
-                  const coords = coordinatesFromMapsUrl(form.getValues('maps_url'))
-                  if (!coords) {
-                    setCoordsNotice(
-                      'Ese link no trae coordenadas. Si es un link corto (maps.app.goo.gl), ábrelo y copia la URL larga.',
-                    )
-                    return
-                  }
-                  setLatitude(String(coords.latitude))
-                  setLongitude(String(coords.longitude))
-                  setCoordsNotice(null)
-                }}
-              >
-                Extraer del link de Maps
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                aria-label="Latitud"
-                inputMode="decimal"
-                placeholder="Latitud (23.7…)"
-                disabled={isPending}
-                value={latitude}
-                onChange={(e) => {
-                  setLatitude(e.target.value)
-                  setCoordsNotice(null)
-                }}
-              />
-              <Input
-                aria-label="Longitud"
-                inputMode="decimal"
-                placeholder="Longitud (-103.9…)"
-                disabled={isPending}
-                value={longitude}
-                onChange={(e) => {
-                  setLongitude(e.target.value)
-                  setCoordsNotice(null)
-                }}
-              />
-            </div>
-            {coordsNotice ? (
-              <p className="text-xs text-amber-700 dark:text-amber-500">{coordsNotice}</p>
-            ) : (
-              <p className="text-muted-foreground text-xs">
-                Las pone el GPS en modo campo. Aquí se pueden pegar o sacar del link de Maps. Vacías
-                = sin ubicación en el mapa.
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="municipio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Municipio</FormLabel>
-                  <Select
-                    value={field.value || undefined}
-                    onValueChange={(v) => field.onChange(v)}
-                    disabled={isPending || !!lockedMunicipio}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecciona municipio" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {MUNICIPIOS.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {lockedMunicipio && (
-                    <p className="text-muted-foreground text-xs">
-                      Tu municipio asignado. No se puede cambiar.
-                    </p>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="colonia"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Colonia <span className="text-muted-foreground font-normal">(opcional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Ej. Centro, La Joya…"
-                      disabled={isPending}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Descripción <span className="text-muted-foreground font-normal">(opcional)</span>
-                </FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={3}
-                    placeholder="Describe brevemente el negocio…"
-                    disabled={isPending}
-                    {...field}
-                    value={field.value ?? ''}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="facebook_url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Facebook <span className="text-muted-foreground font-normal">(opcional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="https://facebook.com/…"
-                      disabled={isPending}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="instagram_url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Instagram <span className="text-muted-foreground font-normal">(opcional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="https://instagram.com/…"
-                      disabled={isPending}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none">
-              Oferta <span className="text-muted-foreground font-normal">(qué vende / ofrece)</span>
-            </label>
-            <div
-              className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
-              onClick={() => offeringInputRef.current?.focus()}
-            >
-              {offerings.map((offering) => (
-                <span
-                  key={offering}
-                  className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
-                >
-                  {offering}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeOffering(offering)
-                    }}
-                    disabled={isPending}
-                    className="hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              <input
-                ref={offeringInputRef}
-                value={offeringInput}
-                onChange={(e) => setOfferingInput(e.target.value)}
-                onKeyDown={onOfferingKeyDown}
-                onBlur={() => addOffering(offeringInput)}
-                disabled={isPending}
-                placeholder={offerings.length === 0 ? 'Ej. tacos, burritos, agua fresca…' : ''}
-                className="min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-              />
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Productos o servicios. Ayudan a encontrar el negocio por lo que ofrece.
+          {/* En el alta todavía no hay id al que colgarle platillos. En la
+              edición no hace falta este aviso: el menú tiene su propio tab. */}
+          {!businessId && (
+            <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
+              {`Los ${menuItemNounPlural} se capturan después de guardar el negocio, en su pestaña «${servicesSectionLabel}».`}
             </p>
-          </div>
-
-          {showHours ? (
-            <BusinessHoursEditor
-              value={hours}
-              onChange={setHours}
-              onRemove={() => setShowHours(false)}
-              disabled={isPending}
-            />
-          ) : (
-            <div>
-              <p className="text-muted-foreground mb-2 text-sm font-medium">Horarios</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isPending}
-                onClick={() => setShowHours(true)}
-              >
-                + Agregar horarios
-              </Button>
-            </div>
           )}
-
-          {/* Resumen, no editor. El menú se edita en /businesses/[id]/menu, que
-              es su único escritor: acá adentro volvería a ser un submit global
-              que reemplaza el menú completo. */}
-          <div>
-            <p className="text-muted-foreground mb-2 text-sm font-medium">{servicesSectionLabel}</p>
-            {businessId ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
-                <p className="min-w-0 flex-1 text-sm">
-                  {menuItemCount === 0
-                    ? `Todavía no hay ${menuItemNounPlural} capturados.`
-                    : `Hay ${menuItemCount} ${
-                        menuItemCount === 1 ? menuItemNoun : menuItemNounPlural
-                      } capturado${menuItemCount === 1 ? '' : 's'}.`}{' '}
-                  <span className="text-muted-foreground">
-                    Se editan en su propia pantalla, uno por uno, y cada cambio se guarda ahí mismo.
-                  </span>
-                </p>
-                <Link
-                  href={`/businesses/${businessId}/menu`}
-                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                >
-                  {menuItemCount === 0 ? 'Capturar' : 'Abrir'} {servicesSectionLabel.toLowerCase()}
-                </Link>
-              </div>
-            ) : (
-              <p className="text-muted-foreground rounded-md border border-dashed p-4 text-sm">
-                {`Los ${menuItemNounPlural} se capturan después de guardar el negocio: al terminar acá, ábrelo otra vez y entra a "${servicesSectionLabel}".`}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none">
-              Aliases <span className="text-muted-foreground font-normal">(nombres populares)</span>
-            </label>
-            <div
-              className="border-input focus-within:ring-ring flex min-h-10 flex-wrap gap-1.5 rounded-md border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-offset-2"
-              onClick={() => aliasInputRef.current?.focus()}
-            >
-              {aliases.map((alias) => (
-                <span
-                  key={alias}
-                  className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
-                >
-                  {alias}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeAlias(alias)
-                    }}
-                    disabled={isPending}
-                    className="hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              <input
-                ref={aliasInputRef}
-                value={aliasInput}
-                onChange={(e) => setAliasInput(e.target.value)}
-                onKeyDown={onAliasKeyDown}
-                onBlur={() => addAlias(aliasInput)}
-                disabled={isPending}
-                placeholder={aliases.length === 0 ? 'Escribe y presiona Enter o coma…' : ''}
-                className="min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-              />
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Nombres como los conoce la gente. Ayudan a que la búsqueda los encuentre.
-            </p>
-          </div>
-
-          <BusinessGalleryEditor value={photos} onChange={setPhotos} disabled={isPending} />
-
-          {serverError ? (
-            <p className="text-destructive text-sm" role="alert">
-              {serverError}
-            </p>
-          ) : null}
         </fieldset>
 
-        {readOnly ? (
-          <p className="text-muted-foreground text-sm">Solo lectura — negocio de otro municipio.</p>
-        ) : (
-          <div className="flex gap-2">
+        {/* Barra fija: el form es largo y el botón de guardar quedaba al final
+            de todo. Va fuera del fieldset para no heredar su `disabled`. */}
+        {!readOnly && (
+          <div className="bg-background/95 supports-backdrop-filter:bg-background/80 sticky bottom-3 z-10 flex flex-wrap items-center justify-end gap-3 rounded-xl border p-3 shadow-sm backdrop-blur">
+            {serverError && (
+              <p className="text-destructive mr-auto text-sm" role="alert">
+                {serverError}
+              </p>
+            )}
             <Button type="submit" disabled={isPending}>
               {isPending ? 'Guardando…' : submitLabel}
             </Button>
@@ -1148,5 +1149,34 @@ export function BusinessForm({
         )}
       </form>
     </Form>
+  )
+}
+
+/** Bloque con título del form. El `id` es el ancla del índice lateral de la página. */
+function FormSection({
+  id,
+  title,
+  info,
+  children,
+}: {
+  id: string
+  title: string
+  info?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section
+      id={id}
+      aria-labelledby={`${id}-title`}
+      className="bg-card scroll-mt-4 space-y-4 rounded-xl border p-4 sm:p-5"
+    >
+      <div className="flex items-center gap-1.5">
+        <h2 id={`${id}-title`} className="text-base font-semibold">
+          {title}
+        </h2>
+        {info && <InfoTip>{info}</InfoTip>}
+      </div>
+      {children}
+    </section>
   )
 }

@@ -95,9 +95,9 @@ export function BusinessHoursEditor({ value, onChange, onRemove, disabled }: Pro
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <label className="text-sm font-medium leading-none">Horarios</label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {monOpen && (
             <Button
               type="button"
