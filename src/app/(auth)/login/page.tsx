@@ -1,18 +1,28 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Image from 'next/image'
 import { LoginForm } from '@/features/auth/components/login-form'
+import styles from '@/features/auth/components/login.module.css'
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle>Vichente Admin</CardTitle>
-          <CardDescription>Ingresa con tu cuenta de admin</CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.brand}>
+          <Image src="/brand/vichente-logo-moderno.png" alt="" width={46} height={46} />
+          <span>Vichente</span>
+        </div>
+      </header>
+      <main className={styles.main}>
+        <section className={styles.card} aria-labelledby="login-title">
+          <div className={styles.intro}>
+            <Image src="/brand/vichente-logo-moderno.png" alt="" width={94} height={94} />
+            <h1 id="login-title" className={styles.title}>
+              Bienvenido
+            </h1>
+            <p>Inicia sesión para continuar a tu panel.</p>
+          </div>
           <LoginForm />
-        </CardContent>
-      </Card>
-    </main>
+        </section>
+      </main>
+    </div>
   )
 }
