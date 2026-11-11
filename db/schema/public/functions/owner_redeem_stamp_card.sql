@@ -2,16 +2,17 @@ CREATE OR REPLACE FUNCTION public.owner_redeem_stamp_card (
   p_card_id uuid
 )
   RETURNS TABLE (
-    card_id          uuid,
-    business_id      uuid,
-    business_name    text,
-    program_active   boolean,
-    reward           text,
-    stamps_required  integer,
-    stamps           integer,
-    is_full          boolean,
-    stamped_today    boolean,
-    last_redeemed_at timestamp with time zone
+    card_id             uuid,
+    business_id         uuid,
+    business_name       text,
+    program_active      boolean,
+    reward              text,
+    stamps_required     integer,
+    stamps              integer,
+    is_full             boolean,
+    stamped_today       boolean,
+    last_redeemed_at    timestamp with time zone,
+    daily_limit_applies boolean
   )
   LANGUAGE plpgsql
   SECURITY DEFINER
@@ -26,7 +27,7 @@ begin
   select * into v_card
     from public.stamp_cards c
    where c.id = p_card_id
-     for update;
+;
 
   if not found then
     raise exception 'not_a_card' using errcode = 'P0001';
@@ -39,6 +40,15 @@ begin
   if not public.is_owner_of(v_customer.business_id) then
     raise exception 'not_your_business' using errcode = 'P0001';
   end if;
+  -- Mismo orden que owner_add_stamp: negocio -> cliente -> vuelta.
+  -- La lectura inicial solo localiza al cliente; el estado se relee bloqueado.
+  perform 1 from public.businesses b
+   where b.id = v_customer.business_id for share;
+  perform 1 from public.business_customers bc
+   where bc.id = v_customer.id for update;
+  select * into v_card from public.stamp_cards c
+   where c.id = p_card_id for update;
+
   if v_card.redeemed_at is not null then
     raise exception 'already_redeemed' using errcode = 'P0001';
   end if;

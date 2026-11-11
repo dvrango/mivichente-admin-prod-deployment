@@ -23,10 +23,9 @@ import styles from './stamp-card.module.css'
 // Dar sello y canjear en caja (mockup v4, pantallas D1 a D7 y errores E1 a E8).
 // Todas las reglas las decide la DB; esta pantalla solo pinta lo que responde.
 //
-// Doble toque: la DB ya impide dos sellos el mismo día y dos canjes de la misma
-// vuelta. Lo que cuida `lock` es que el segundo toque no llegue a la DB, porque
-// su respuesta (`already_stamped_today`, `already_redeemed`) taparía con un
-// error el sello o el canje que sí entró.
+// Doble toque: `lock` impide solicitudes simultáneas. El UUID pertenece a la
+// pantalla leída, así que incluso dos callbacks de esa pantalla son el mismo
+// intento. La DB deduplica ese UUID también en los negocios demo.
 //
 // El token solo vive en el estado de este componente: no va en la URL.
 
@@ -34,7 +33,7 @@ type Screen =
   | { kind: 'inicio' }
   | { kind: 'camara' }
   | { kind: 'leyendo' }
-  | { kind: 'leida'; token: string; card: StampCardState }
+  | { kind: 'leida'; token: string; card: StampCardState; operationId: string }
   | { kind: 'sellada'; token: string; card: StampCardState; before: number }
   | { kind: 'llena'; token: string; card: StampCardState }
   | { kind: 'confirmar'; token: string; card: StampCardState }
@@ -104,7 +103,7 @@ export function StampCardFlow({
   function showCard(token: string, card: StampCardState) {
     switch (screenAfterScan(card)) {
       case 'leida':
-        return setScreen({ kind: 'leida', token, card })
+        return setScreen({ kind: 'leida', token, card, operationId: crypto.randomUUID() })
       case 'llena':
         return setScreen({ kind: 'llena', token, card })
       case 'ya_sellada':
@@ -154,52 +153,30 @@ export function StampCardFlow({
     else await handleError(res.error, token)
   }
 
-  // Sin respuesta (la red, o la DB respondió algo que no es una regla), el
-  // sello o el canje pudo haber entrado igual. Antes de decir «no se dio» se lee
-  // la tarjeta: si ya entró se pinta D4 o D7, y el reintento solo vuelve a
-  // escribir cuando la lectura dice que no entró. Si no, «Intentar otra vez»
-  // chocaría con `already_stamped_today` o `already_redeemed` y enseñaría un
-  // error por un sello que sí se dio.
+  // Un sello anterior, o el de otra sesión, no demuestra que este intento
+  // entró. Solo se confirma con la respuesta del mismo UUID; el reintento es
+  // seguro tanto si se perdió antes de escribir como después del commit.
   type Cause = 'red' | 'desconocido'
 
-  // `thenWrite`: viene de «Intentar otra vez», así que si no entró se vuelve a
-  // escribir de una vez en vez de enseñar el mismo error otra vez.
-  async function verifyStamp(
-    token: string,
-    before: StampCardState,
-    cause: Cause,
-    thenWrite = false,
-  ): Promise<void> {
-    let res
-    try {
-      res = await readStampCard(token)
-    } catch {
-      return showError('sin_conexion_sello', {
-        name: before.businessName,
-        retry: () => void once(() => verifyStamp(token, before, 'red', true)),
+  async function stamp(token: string, card: StampCardState, operationId: string): Promise<void> {
+    const unconfirmed = () =>
+      showError('sin_conexion_sello', {
+        name: card.businessName,
+        retry: () => void once(() => stamp(token, card, operationId)),
       })
-    }
-    if (!res.ok) return handleError(res.error, token, before.businessName)
-    const c = res.card
-    if (c.stampedToday) {
-      return setScreen({ kind: 'sellada', token, card: c, before: before.stamps })
-    }
-    if (thenWrite) return stamp(token, c)
-    showError(cause === 'red' ? 'sin_conexion_sello' : 'desconocido', {
-      name: c.businessName,
-      retry: () => void once(() => stamp(token, c)),
-    })
-  }
-
-  async function stamp(token: string, card: StampCardState): Promise<void> {
     let res
     try {
-      res = await addStamp(token)
+      res = await addStamp(token, operationId)
     } catch {
-      return verifyStamp(token, card, 'red')
+      return unconfirmed()
     }
-    if (res.ok) setScreen({ kind: 'sellada', token, card: res.card, before: card.stamps })
-    else if (res.error === 'unknown') await verifyStamp(token, card, 'desconocido')
+    if (res.ok) {
+      // El sello se confirmó, pero otra sesión pudo canjear esa vuelta mientras
+      // faltaba la respuesta. Mostrar la vuelta actual sin animar un sello en ella.
+      if (card.cardId && res.card.cardId !== card.cardId) return showCard(token, res.card)
+      return setScreen({ kind: 'sellada', token, card: res.card, before: card.stamps })
+    }
+    if (res.error === 'unknown') unconfirmed()
     else await handleError(res.error, token, card.businessName)
   }
 
@@ -281,7 +258,7 @@ export function StampCardFlow({
         panelHref={panelHref}
         onCamera={toCamera}
         onStart={toStart}
-        onStamp={(s) => void once(() => stamp(s.token, s.card))}
+        onStamp={(s) => void once(() => stamp(s.token, s.card, s.operationId))}
         onAskRedeem={(s) => setScreen({ kind: 'confirmar', token: s.token, card: s.card })}
         onRedeem={(s) => void once(() => redeem(s.token, s.card))}
         onBackToFull={(s) => setScreen({ kind: 'llena', token: s.token, card: s.card })}
@@ -308,7 +285,7 @@ function Body({
   panelHref: string
   onCamera: () => void
   onStart: () => void
-  onStamp: (s: WithCard) => void
+  onStamp: (s: WithCard & { operationId: string }) => void
   onAskRedeem: (s: WithCard) => void
   onRedeem: (s: WithCard) => void
   onBackToFull: (s: WithCard) => void

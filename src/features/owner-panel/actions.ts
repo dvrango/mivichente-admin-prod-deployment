@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentProfile } from '@/features/auth/queries'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/database.types'
-import { redeemStampCardSchema, stampCardTokenSchema } from './schema'
+import { addStampSchema, redeemStampCardSchema, stampCardTokenSchema } from './schema'
 import { stampCardErrorOf, type StampCardResult, type StampCardState } from './stamp-card'
 
 // Las únicas escrituras del panel del dueño: dar un sello y canjear el premio
@@ -14,8 +14,8 @@ import { stampCardErrorOf, type StampCardResult, type StampCardState } from './s
 //
 // La protección real vive en la DB: el dueño no tiene grants sobre ninguna
 // tabla, y `owner_add_stamp` / `owner_redeem_stamp_card` revisan
-// `is_owner_of()` del negocio de la tarjeta, uno por día y una sola vez por
-// canje. El guard de rol de aquí solo evita llamar a la DB sin sesión de dueño.
+// `is_owner_of()` del negocio de la tarjeta, uno por día salvo demo y una sola
+// vez por canje. El guard de rol evita llamar a la DB sin sesión de dueño.
 //
 // El token es un secreto al portador: con él se sella. Viaja solo en el cuerpo
 // de estas llamadas, nunca en la URL, y no se registra en ningún log ni mensaje
@@ -35,6 +35,7 @@ function toState(row: OwnerStateRow): StampCardState {
     stamps: row.stamps,
     isFull: row.is_full,
     stampedToday: row.stamped_today,
+    dailyLimitApplies: row.daily_limit_applies,
     lastRedeemedAt: row.last_redeemed_at ?? null,
   }
 }
@@ -65,15 +66,16 @@ export async function readStampCard(token: string): Promise<StampCardResult> {
   return fromRpc(data, error)
 }
 
-/** D3 → D4: da el sello del día. Un segundo intento el mismo día responde `already_stamped_today`. */
-export async function addStamp(token: string): Promise<StampCardResult> {
+/** D3 → D4: reintentar el mismo UUID confirma el sello sin repetir la escritura. */
+export async function addStamp(token: string, operationId: string): Promise<StampCardResult> {
   await requireOwner()
-  const parsed = stampCardTokenSchema.safeParse({ token })
-  if (!parsed.success) return { ok: false, error: 'not_a_card' }
+  const parsed = addStampSchema.safeParse({ token, operationId })
+  if (!parsed.success) return { ok: false, error: 'invalid_stamp_operation' }
 
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('owner_add_stamp', {
     p_token: parsed.data.token,
+    p_operation_id: parsed.data.operationId,
   })
   return fromRpc(data, error)
 }

@@ -43,6 +43,7 @@ npm run db:rls:check      # verificar las policies RLS contra la DB local (imper
 npm run db:schema:snapshot # regenerar db/schema/ desde la DB local (sin Docker)
 npm run db:schema:check   # fallar si db/schema/ no coincide con la DB local
 npm run db:local:check    # fallar si la DB local tiene una migración de otra rama (y decir de qué tarea)
+node scripts/stamp-card-check.mjs # sellos demo/reales, idempotencia y carreras con conexiones distintas; solo local, limpia sus fixtures
 ```
 
 > **REGLA DE BASE DE DATOS (no la rompas):** el asistente **solo toca la DB
