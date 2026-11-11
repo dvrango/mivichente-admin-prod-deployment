@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/form'
 import { login } from '../actions'
 import { loginSchema, type LoginInput } from '../schema'
+import styles from './login.module.css'
 
 const DEV_KEY = 'dev_quick_login'
 
@@ -99,15 +100,22 @@ export function LoginForm() {
 
   return (
     <Form {...form}>
-      <form action={formAction} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form action={formAction} onSubmit={form.handleSubmit(onSubmit)} className={styles.form}>
         <FormField
           control={form.control}
           name="email"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
+            <FormItem className={styles.field}>
+              <FormLabel className={styles.label}>Correo electrónico</FormLabel>
               <FormControl>
-                <Input type="email" autoComplete="email" disabled={isPending} {...field} />
+                <Input
+                  className={styles.input}
+                  type="email"
+                  placeholder="tu@correo.com"
+                  autoComplete="email"
+                  disabled={isPending}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -117,10 +125,11 @@ export function LoginForm() {
           control={form.control}
           name="password"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Contraseña</FormLabel>
+            <FormItem className={styles.field}>
+              <FormLabel className={styles.label}>Contraseña</FormLabel>
               <FormControl>
                 <Input
+                  className={styles.input}
                   type="password"
                   autoComplete="current-password"
                   disabled={isPending}
@@ -132,12 +141,12 @@ export function LoginForm() {
           )}
         />
         {state?.error ? (
-          <p className="text-destructive text-sm" role="alert">
+          <p className={styles.error} role="alert">
             {state.error}
           </p>
         ) : null}
-        <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? 'Entrando…' : 'Entrar'}
+        <Button type="submit" className={styles.submit} disabled={isPending}>
+          {isPending ? 'Entrando…' : 'Iniciar sesión'}
         </Button>
         <DevQuickLogin onQuickLogin={handleQuickLogin} onSave={handleSaveCredentials} />
       </form>
