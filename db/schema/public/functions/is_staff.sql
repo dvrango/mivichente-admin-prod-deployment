@@ -11,6 +11,6 @@ CREATE OR REPLACE FUNCTION public.is_staff()
   );
 $function$;
 
-GRANT EXECUTE ON FUNCTION "public"."is_staff"() TO "authenticated", "postgres";
+GRANT EXECUTE ON FUNCTION "public"."is_staff"() TO "anon", "authenticated", "postgres";
 
 COMMENT ON FUNCTION "public"."is_staff"() IS 'True si la cuenta actual tiene rol asignado (admin o reviewer). False para `pending`, o sea para cualquiera que se haya registrado y todavía no habilite un admin. Es el gate de LECTURA del panel; la escritura la decide can_edit_business().';

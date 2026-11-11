@@ -150,6 +150,15 @@ export function BusinessesTable({
                     >
                       {b.name}
                     </Link>
+                    {b.is_demo && (
+                      <Badge
+                        variant="outline"
+                        className="ml-2 align-middle"
+                        title="Se abre por link; no sale en el directorio"
+                      >
+                        Demo
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{b.category?.name ?? '—'}</TableCell>
                   <TableCell className="text-muted-foreground">{b.phone}</TableCell>

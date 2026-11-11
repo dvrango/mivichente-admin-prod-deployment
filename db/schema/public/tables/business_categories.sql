@@ -33,7 +33,7 @@ CREATE POLICY "business_categories_insert" ON "public"."business_categories"
 CREATE POLICY "business_categories_public_read" ON "public"."business_categories"
   FOR SELECT
   TO "anon"
-  USING (true);
+  USING ((NOT public.is_demo_business(business_id)));
 
 CREATE POLICY "business_categories_select_auth" ON "public"."business_categories"
   FOR SELECT

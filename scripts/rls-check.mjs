@@ -2209,6 +2209,190 @@ async function main() {
     })
   }
 
+  // --- negocios demo (rm3kdqga5) ------------------------------------------
+  // Un demo se abre por link pero sale del directorio y no deja telemetría.
+  // Dos negocios activos de la MISMA categoría: si el filtro se pasara de
+  // largo, el real desaparecería junto con el demo, y eso no truena en ningún
+  // lado. Por eso cada check del demo lleva su contraparte con el real.
+  console.log('\nnegocios demo')
+  const parDemo = (
+    await c.query(
+      `select array_agg(distinct bc.business_id) as ids
+       from business_categories bc
+       join businesses b on b.id = bc.business_id
+       where b.is_active and not b.is_demo
+         -- La base local trae negocios con created_by/updated_by que apuntan a
+         -- perfiles borrados. Un segundo update en la misma transacción
+         -- revalida esas FK y truena, así que se eligen negocios sanos.
+         and (b.created_by is null or exists (select 1 from profiles p where p.id = b.created_by))
+         and (b.updated_by is null or exists (select 1 from profiles p where p.id = b.updated_by))
+       group by bc.category_id
+       having count(distinct bc.business_id) >= 2
+       limit 1`,
+    )
+  ).rows[0]
+  if (!parDemo) {
+    console.error(
+      'No hay dos negocios activos en la misma categoría: el check de demo no probaría nada.',
+    )
+    process.exit(1)
+  }
+  const [demoId, realId] = parDemo.ids
+  const nombre = async (id) =>
+    (await c.query('select name from businesses where id = $1', [id])).rows[0].name
+  const nombreDemo = await nombre(demoId)
+  const nombreReal = await nombre(realId)
+
+  // Abierto todo el día, toda la semana. Antes de marcarlo como demo tiene que
+  // salir en businesses_open_now: si no, el check de abajo pasaría por vacío.
+  await c.query('delete from business_hours where business_id = $1', [demoId])
+  await c.query(
+    `insert into business_hours (business_id, day_of_week, opens_at, closes_at)
+     select $1, d, '00:00', '00:00' from generate_series(0, 6) d`,
+    [demoId],
+  )
+  const abiertoAntes = (
+    await c.query('select count(*) from businesses_open_now() where id = $1', [demoId])
+  ).rows[0].count
+  check('fixture: antes de marcarlo, el negocio sale como abierto', Number(abiertoAntes) === 1)
+  await c.query('update businesses set is_demo = true where id = $1', [demoId])
+
+  await asAnon(c, async () => {
+    const n = (q, p) => c.query(q, p).then((r) => Number(r.rows[0].count))
+    check(
+      'anon abre la ficha del demo por id',
+      (await n('select count(*) from businesses where id = $1', [demoId])) === 1,
+    )
+    check(
+      'anon NO ve las categorías del demo',
+      (await n('select count(*) from business_categories where business_id = $1', [demoId])) === 0,
+    )
+    check(
+      'anon sí ve las categorías del real',
+      (await n('select count(*) from business_categories where business_id = $1', [realId])) > 0,
+    )
+    // Lo que hacen los listados de la app instalada: businesses con
+    // business_categories!inner.
+    const listado = `select count(*) from businesses b
+      where b.id = $1 and b.is_active
+        and exists (select 1 from business_categories bc where bc.business_id = b.id)`
+    check('anon: el demo no sale en los listados por categoría', (await n(listado, [demoId])) === 0)
+    check('anon: el real sigue en los listados por categoría', (await n(listado, [realId])) === 1)
+
+    check(
+      'anon: search_businesses no devuelve el demo',
+      (await n('select count(*) from search_businesses($1) where id = $2', [
+        nombreDemo,
+        demoId,
+      ])) === 0,
+    )
+    check(
+      'anon: search_businesses sigue devolviendo el real',
+      (await n('select count(*) from search_businesses($1) where id = $2', [
+        nombreReal,
+        realId,
+      ])) === 1,
+    )
+    check(
+      'anon: businesses_open_now no devuelve el demo',
+      (await n('select count(*) from businesses_open_now() where id = $1', [demoId])) === 0,
+    )
+    check(
+      'anon: is_staff() es false',
+      (await c.query('select public.is_staff() as v')).rows[0].v === false,
+    )
+  })
+
+  // Telemetría: el insert del demo se descarta sin error; el del real entra.
+  const telemetria = [
+    [
+      'search_result_taps',
+      "insert into search_result_taps (device_id, query, business_id) values ('rls-check', 'x', $1)",
+    ],
+    ['qr_scans', "insert into qr_scans (src, business_id) values ('rls-check', $1)"],
+    [
+      'business_contacts',
+      "insert into business_contacts (device_id, business_id, channel, source) values ('rls-check', $1, 'call', 'app')",
+    ],
+    [
+      'order_funnel_events',
+      "insert into order_funnel_events (device_id, business_id, step) values ('rls-check', $1, 'menu_viewed')",
+    ],
+  ]
+  await asAnon(c, async () => {
+    for (const [tabla, sql] of telemetria) {
+      const demo = await attempt(c, sql, [demoId])
+      check(
+        `anon: ${tabla} descarta el demo sin error`,
+        demo.outcome === 'ok' && demo.rows === 0,
+        `${demo.outcome} (${demo.rows})`,
+      )
+      const real = await attempt(c, sql, [realId])
+      check(
+        `anon: ${tabla} guarda el real`,
+        real.outcome === 'ok' && real.rows === 1,
+        `${real.outcome} (${real.rows})`,
+      )
+    }
+    const sticker = await attempt(
+      c,
+      "insert into qr_scans (src, business_id) values ('rls-check', null)",
+    )
+    check(
+      'anon: qr_scans sin negocio (stickers) se sigue guardando',
+      sticker.outcome === 'ok' && sticker.rows === 1,
+      `${sticker.outcome} (${sticker.rows})`,
+    )
+  })
+  await asServiceRole(c, async () => {
+    const [, sql] = telemetria[1]
+    const demo = await attempt(c, sql, [demoId])
+    check(
+      'service_role (landing): qr_scans descarta el demo',
+      demo.outcome === 'ok' && demo.rows === 0,
+      `${demo.outcome} (${demo.rows})`,
+    )
+  })
+
+  // Quién marca un demo: solo admin. Sacar del directorio un negocio real no
+  // truena en ningún lado.
+  await as(c, reviewer.id, async () => {
+    const r = await attempt(c, 'update businesses set is_demo = true where id = $1', [bizSuyo])
+    check(
+      'reviewer NO marca como demo un negocio de su municipio',
+      r.outcome === 'denied',
+      r.outcome,
+    )
+    const ins = await attempt(
+      c,
+      "insert into businesses (name, phone, municipio, is_demo) values ('RLS check demo', '6180000000', $1, true)",
+      [suyo],
+    )
+    check('reviewer NO crea un negocio demo', ins.outcome === 'denied', ins.outcome)
+  })
+  await asServiceRole(c, async () => {
+    const r = await attempt(c, 'update businesses set is_demo = false where id = $1', [demoId])
+    check('service_role NO desmarca un demo', r.outcome === 'denied', r.outcome)
+  })
+  await as(c, admin.id, async () => {
+    const n = (q, p) => c.query(q, p).then((r) => Number(r.rows[0].count))
+    check(
+      'admin ve las categorías del demo',
+      (await n('select count(*) from business_categories where business_id = $1', [demoId])) > 0,
+    )
+    check(
+      'admin encuentra el demo con search_businesses',
+      (await n('select count(*) from search_businesses($1) where id = $2', [
+        nombreDemo,
+        demoId,
+      ])) === 1,
+    )
+    const quita = await attempt(c, 'update businesses set is_demo = false where id = $1', [demoId])
+    check('admin desmarca un demo', quita.outcome === 'ok' && quita.rows === 1, quita.outcome)
+    const pone = await attempt(c, 'update businesses set is_demo = true where id = $1', [demoId])
+    check('admin marca un demo', pone.outcome === 'ok' && pone.rows === 1, pone.outcome)
+  })
+
   console.log('\nbucket business-photos')
   const bucket = (
     await c.query(

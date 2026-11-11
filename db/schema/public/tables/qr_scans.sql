@@ -18,6 +18,11 @@ CREATE INDEX qr_scans_business_created_idx ON public.qr_scans USING btree (busin
 
 CREATE INDEX qr_scans_channel_created_idx ON public.qr_scans USING btree (channel, created_at DESC);
 
+CREATE TRIGGER qr_scans_discard_demo
+  BEFORE INSERT ON public.qr_scans
+  FOR EACH ROW
+  EXECUTE FUNCTION public.discard_demo_telemetry();
+
 CREATE TRIGGER qr_scans_set_channel_trigger
   BEFORE INSERT OR UPDATE OF src, channel, user_agent ON public.qr_scans
   FOR EACH ROW

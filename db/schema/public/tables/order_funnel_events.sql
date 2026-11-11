@@ -19,6 +19,11 @@ CREATE INDEX order_funnel_events_business_step_created_idx ON public.order_funne
 
 CREATE INDEX order_funnel_events_device_created_idx ON public.order_funnel_events USING btree (device_id, created_at DESC);
 
+CREATE TRIGGER order_funnel_events_discard_demo
+  BEFORE INSERT ON public.order_funnel_events
+  FOR EACH ROW
+  EXECUTE FUNCTION public.discard_demo_telemetry();
+
 CREATE POLICY "anyone can log an order funnel event" ON "public"."order_funnel_events"
   FOR INSERT
   TO "anon", "authenticated"

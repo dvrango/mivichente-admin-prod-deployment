@@ -11,6 +11,11 @@ CREATE TABLE "public"."search_result_taps" (
 ALTER TABLE "public"."search_result_taps"
   ENABLE ROW LEVEL SECURITY;
 
+CREATE TRIGGER search_result_taps_discard_demo
+  BEFORE INSERT ON public.search_result_taps
+  FOR EACH ROW
+  EXECUTE FUNCTION public.discard_demo_telemetry();
+
 CREATE POLICY "anyone can log a search result tap" ON "public"."search_result_taps"
   FOR INSERT
   TO "anon", "authenticated"

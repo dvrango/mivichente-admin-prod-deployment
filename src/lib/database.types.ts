@@ -2067,6 +2067,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_active: boolean
+          is_demo: boolean
           is_featured: boolean
           is_verified: boolean
           latitude: number | null
@@ -2115,6 +2116,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_active?: boolean
+          is_demo?: boolean
           is_featured?: boolean
           is_verified?: boolean
           latitude?: number | null
@@ -2163,6 +2165,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_active?: boolean
+          is_demo?: boolean
           is_featured?: boolean
           is_verified?: boolean
           latitude?: number | null
@@ -2743,6 +2746,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_active: boolean
+          is_demo: boolean
           is_featured: boolean
           is_verified: boolean
           latitude: number | null
@@ -2832,6 +2836,7 @@ export type Database = {
       }
       immutable_unaccent: { Args: { '': string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
+      is_demo_business: { Args: { p_business_id: string }; Returns: boolean }
       is_food: {
         Args: { b: Database['public']['Tables']['businesses']['Row'] }
         Returns: boolean
@@ -2949,6 +2954,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_active: boolean
+          is_demo: boolean
           is_featured: boolean
           is_verified: boolean
           latitude: number | null

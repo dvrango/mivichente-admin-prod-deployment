@@ -66,6 +66,7 @@ export default async function EditBusinessPage({
           isFeatured={business.is_featured}
           hasDelivery={business.has_delivery}
           acceptsOrders={business.accepts_orders}
+          isDemo={business.is_demo}
           canManageOrders={profile?.role === 'admin'}
           readOnly={readOnly}
         />
