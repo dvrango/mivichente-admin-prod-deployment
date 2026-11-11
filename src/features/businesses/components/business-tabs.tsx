@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -20,6 +21,14 @@ export type BusinessTab = {
  */
 export function BusinessTabs({ tabs }: { tabs: BusinessTab[] }) {
   const pathname = usePathname()
+  const listRef = useRef<HTMLUListElement>(null)
+  // En celular los tabs no caben y la barra de scroll está oculta: al entrar
+  // directo a una subpágina, el tab activo podría quedar fuera de la vista.
+  useEffect(() => {
+    listRef.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [pathname])
   // `returnTo` lo trae quien entró desde la lista filtrada o desde /campo, y el
   // guardado del tab Datos regresa ahí. Se arrastra entre tabs para no perderlo
   // por pasar a ver la promoción antes de guardar.
@@ -31,7 +40,10 @@ export function BusinessTabs({ tabs }: { tabs: BusinessTab[] }) {
 
   return (
     <nav aria-label="Secciones del negocio" className="-mx-4 border-b px-4 lg:mx-0 lg:px-0">
-      <ul className="-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul
+        ref={listRef}
+        className="-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {tabs.map((tab) => {
           const active = tab.href === root ? pathname === tab.href : pathname.startsWith(tab.href)
           return (
@@ -53,7 +65,10 @@ export function BusinessTabs({ tabs }: { tabs: BusinessTab[] }) {
                   </span>
                 )}
                 {tab.live && (
-                  <span className="size-1.5 rounded-full bg-emerald-500" aria-label="activa" />
+                  <>
+                    <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+                    <span className="sr-only">(activa)</span>
+                  </>
                 )}
               </Link>
             </li>

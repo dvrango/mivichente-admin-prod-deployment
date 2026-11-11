@@ -406,13 +406,13 @@ export function BusinessForm({
               name="slug"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    URL del negocio
+                  <div className="flex items-center gap-2">
+                    <FormLabel>URL del negocio</FormLabel>
                     <InfoTip>
                       El link para compartir. Se genera solo del nombre y lo puedes personalizar con
                       minúsculas y guiones.
                     </InfoTip>
-                  </FormLabel>
+                  </div>
                   <FormControl>
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground text-sm">vichente.com/</span>
@@ -474,12 +474,12 @@ export function BusinessForm({
               name="primary_category_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    Categoría principal
+                  <div className="flex items-center gap-2">
+                    <FormLabel>Categoría principal</FormLabel>
                     <InfoTip>
                       Define el ícono de la tarjeta y si la sección se llama Menú o Servicios.
                     </InfoTip>
-                  </FormLabel>
+                  </div>
                   <FormControl>
                     <CategorySelect
                       categories={categories}
@@ -814,12 +814,12 @@ export function BusinessForm({
                 name="municipio"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      Municipio
+                    <div className="flex items-center gap-2">
+                      <FormLabel>Municipio</FormLabel>
                       {lockedMunicipio && (
                         <InfoTip>Es tu municipio asignado y no se puede cambiar.</InfoTip>
                       )}
-                    </FormLabel>
+                    </div>
                     <Select
                       value={field.value || undefined}
                       onValueChange={(v) => field.onChange(v)}
@@ -1067,14 +1067,14 @@ export function BusinessForm({
                 name="delivery.mode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      Condición del envío
+                    <div className="flex items-center gap-2">
+                      <FormLabel>Condición del envío</FormLabel>
                       <InfoTip>
                         Costo fijo solo aplica si el negocio cobra lo mismo en todas las entregas.
                         Si cambia por colonia, distancia o ubicación, elige «Por confirmar con el
                         negocio».
                       </InfoTip>
-                    </FormLabel>
+                    </div>
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}

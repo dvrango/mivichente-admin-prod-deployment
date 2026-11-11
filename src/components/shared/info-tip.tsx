@@ -33,8 +33,13 @@ export function InfoTip({ children, label = 'Más información', className }: Pr
         nativeButton={false}
         render={<span />}
         aria-label={label}
+        // `after:` agranda el área de toque a 32 px sin mover el layout: el
+        // ícono mide 20 px y en campo se toca con el dedo.
+        // `onClick` cancela el default para que, si el ícono queda dentro de
+        // un <label>, el tap no active también el input de ese label.
+        onClick={(event) => event.preventDefault()}
         className={cn(
-          'text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 inline-flex size-5 shrink-0 cursor-help items-center justify-center rounded-full align-middle outline-none focus-visible:ring-2',
+          'text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 relative inline-flex size-5 shrink-0 cursor-help items-center justify-center rounded-full align-middle outline-none after:absolute after:-inset-1.5 focus-visible:ring-2',
           className,
         )}
       >
