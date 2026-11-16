@@ -88,6 +88,11 @@ supabase/migrations/
 - Todos los filtros deben ir por URL
 - Listas con paginacion o infinite scroll, no cargar todo de golpe
 - Inputs con validacion que es probable que se repitan en forms tienen que ser reusables
+- **Las imágenes se generan en canvas, del lado del cliente.** Vercel no tiene Chrome ni binarios del sistema, así que un render en servidor implicaría puppeteer o un servicio aparte. El ejemplo vivo es `src/features/material-grafico/`. Tres trampas del canvas que no dan error:
+  - Hay que esperar la fuente (`FontFace` + `document.fonts`) antes de dibujar. Si no, la pieza sale con la letra del sistema.
+  - El QR se pinta módulo a módulo, con los módulos de `QRCode.create` y un tamaño de módulo entero (`Math.floor`). Con fracciones, el código sale rayado al imprimirse.
+  - Un QR se verifica decodificando el PNG (por ejemplo con `jsqr` + `pngjs`), no comparándolo contra el texto que lo generó.
+- **El `Button` de `components/ui` no soporta `asChild`.** Para un link con aspecto de botón, se pone `buttonVariants()` en el `className` del `<Link>`.
 
 ## Variables de entorno
 
