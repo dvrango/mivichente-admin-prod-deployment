@@ -446,6 +446,13 @@ try {
   )
   await rejects('sin platillos', 'anon', createSql, order(biz, [], 2500), /invalid_items/)
   await rejects(
+    'platillo sin cantidad',
+    'anon',
+    createSql,
+    order(biz, [{ service_id: taco }], 7500),
+    /invalid_items/,
+  )
+  await rejects(
     'teléfono incompleto',
     'anon',
     createSql,
@@ -668,6 +675,26 @@ try {
     directo,
   ])
   ok('los datos del cliente sí se pueden borrar', (await row(sinPin)).customer_phone === null)
+  await upd(
+    `update orders set items = (
+       select jsonb_agg(e || '{"note": null}'::jsonb order by ord)
+         from jsonb_array_elements(items) with ordinality as t(e, ord))
+     where id = $1`,
+    [id],
+  )
+  const sinNotas = (await row(token)).items
+  ok(
+    'las notas de los platillos sí se pueden borrar',
+    sinNotas[0].note === null && sinNotas[0].name === 'Taco' && sinNotas[0].quantity === 2,
+    JSON.stringify(sinNotas[0]),
+  )
+  await rejects(
+    'fuera de las notas, los platillos no cambian',
+    'service_role',
+    `update orders set items = jsonb_set(items, '{0,name}', '"Otro"') where id = $1`,
+    [id],
+    /order_is_immutable/,
+  )
 
   // --- carrera -----------------------------------------------------------------
   console.log('\ncarrera')

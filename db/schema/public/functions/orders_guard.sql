@@ -17,11 +17,22 @@ begin
   end if;
 
   -- Lo que el cliente pidió no cambia después de crearse.
-  if (new.id, new.token, new.business_id, new.mode, new.items, new.subtotal_cents,
+  if (new.id, new.token, new.business_id, new.mode, new.subtotal_cents,
       new.delivery_fee_cents, new.total_cents, new.created_at)
      is distinct from
-     (old.id, old.token, old.business_id, old.mode, old.items, old.subtotal_cents,
+     (old.id, old.token, old.business_id, old.mode, old.subtotal_cents,
       old.delivery_fee_cents, old.total_cents, old.created_at) then
+    raise exception 'order_is_immutable' using errcode = '42501';
+  end if;
+
+  -- De los platillos, lo único que se puede hacer es borrar las notas: son
+  -- texto libre y el cliente puede escribir ahí su teléfono o su casa, así que
+  -- la retención tiene que poder quitarlas igual que los datos del cliente.
+  if new.items is distinct from old.items
+     and new.items is distinct from (
+       select jsonb_agg(e || jsonb_build_object('note', null) order by ord)
+         from jsonb_array_elements(old.items) with ordinality as t(e, ord)
+     ) then
     raise exception 'order_is_immutable' using errcode = '42501';
   end if;
 
@@ -77,6 +88,6 @@ $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."orders_guard"() TO "postgres";
 
-COMMENT ON FUNCTION "public"."orders_guard"() IS 'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok, entregado solo lo pone confirm_order_received y la hora de cada estado y del aviso la pone el trigger.';
+COMMENT ON FUNCTION "public"."orders_guard"() IS 'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable salvo borrar las notas de los platillos, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok, entregado solo lo pone confirm_order_received y la hora de cada estado y del aviso la pone el trigger.';
 
 REVOKE ALL ON FUNCTION "public"."orders_guard"() FROM PUBLIC;

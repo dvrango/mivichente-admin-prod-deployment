@@ -146,8 +146,9 @@ comment on column public.orders.accepted_at is
 -- admin lee por policy.
 revoke all on public.orders from anon, authenticated;
 grant select on public.orders to authenticated;
--- Un pedido solo nace por create_order, que valida negocio, menú y total. El
--- servidor tampoco inserta ni vacía la tabla directo.
+-- Un pedido solo nace por create_order, que valida negocio, menú y total: el
+-- servidor no inserta directo. Tampoco tiene TRUNCATE; DELETE sí, por fila,
+-- para lo que decida la retención (uuyrkazz7).
 revoke insert, truncate on public.orders from service_role;
 
 create policy "admin reads orders" on public.orders
@@ -198,11 +199,22 @@ begin
   end if;
 
   -- Lo que el cliente pidió no cambia después de crearse.
-  if (new.id, new.token, new.business_id, new.mode, new.items, new.subtotal_cents,
+  if (new.id, new.token, new.business_id, new.mode, new.subtotal_cents,
       new.delivery_fee_cents, new.total_cents, new.created_at)
      is distinct from
-     (old.id, old.token, old.business_id, old.mode, old.items, old.subtotal_cents,
+     (old.id, old.token, old.business_id, old.mode, old.subtotal_cents,
       old.delivery_fee_cents, old.total_cents, old.created_at) then
+    raise exception 'order_is_immutable' using errcode = '42501';
+  end if;
+
+  -- De los platillos, lo único que se puede hacer es borrar las notas: son
+  -- texto libre y el cliente puede escribir ahí su teléfono o su casa, así que
+  -- la retención tiene que poder quitarlas igual que los datos del cliente.
+  if new.items is distinct from old.items
+     and new.items is distinct from (
+       select jsonb_agg(e || jsonb_build_object('note', null) order by ord)
+         from jsonb_array_elements(old.items) with ordinality as t(e, ord)
+     ) then
     raise exception 'order_is_immutable' using errcode = '42501';
   end if;
 
@@ -257,7 +269,7 @@ end;
 $function$;
 
 comment on function public.orders_guard() is
-  'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok, entregado solo lo pone confirm_order_received y la hora de cada estado y del aviso la pone el trigger.';
+  'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable salvo borrar las notas de los platillos, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok, entregado solo lo pone confirm_order_received y la hora de cada estado y del aviso la pone el trigger.';
 
 revoke all on function public.orders_guard() from public, anon, authenticated;
 
@@ -388,7 +400,7 @@ begin
 
   for v_item in select value from jsonb_array_elements(p_items) loop
     if jsonb_typeof(v_item) <> 'object'
-       or jsonb_typeof(v_item -> 'quantity') <> 'number'
+       or coalesce(jsonb_typeof(v_item -> 'quantity'), 'missing') <> 'number'
        or (v_item ? 'option_ids' and jsonb_typeof(v_item -> 'option_ids') not in ('array', 'null')) then
       raise exception 'invalid_items' using errcode = '22023';
     end if;

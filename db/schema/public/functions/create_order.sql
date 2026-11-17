@@ -117,7 +117,7 @@ begin
 
   for v_item in select value from jsonb_array_elements(p_items) loop
     if jsonb_typeof(v_item) <> 'object'
-       or jsonb_typeof(v_item -> 'quantity') <> 'number'
+       or coalesce(jsonb_typeof(v_item -> 'quantity'), 'missing') <> 'number'
        or (v_item ? 'option_ids' and jsonb_typeof(v_item -> 'option_ids') not in ('array', 'null')) then
       raise exception 'invalid_items' using errcode = '22023';
     end if;
