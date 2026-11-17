@@ -49,6 +49,12 @@ begin
         using errcode = '23514';
     end if;
 
+    -- Entregado lo marca solo el cliente, por confirm_order_received (security
+    -- definer, corre como postgres). El servidor escribiendo directo no puede.
+    if new.status = 'delivered' and current_user <> 'postgres' then
+      raise exception 'only_customer_confirms_delivery' using errcode = '42501';
+    end if;
+
     case new.status
       when 'accepted' then new.accepted_at := now();
       when 'rejected' then new.rejected_at := now();
@@ -71,6 +77,6 @@ $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."orders_guard"() TO "postgres";
 
-COMMENT ON FUNCTION "public"."orders_guard"() IS 'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok y la hora de cada estado y del aviso la pone el trigger.';
+COMMENT ON FUNCTION "public"."orders_guard"() IS 'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok, entregado solo lo pone confirm_order_received y la hora de cada estado y del aviso la pone el trigger.';
 
 REVOKE ALL ON FUNCTION "public"."orders_guard"() FROM PUBLIC;

@@ -56,7 +56,7 @@ CREATE POLICY "admin reads orders" ON "public"."orders"
 
 GRANT SELECT ON TABLE "public"."orders" TO "authenticated";
 
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."orders" TO "postgres", "service_role";
+GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."orders" TO "postgres";
 
 COMMENT ON COLUMN "public"."orders"."accepted_at" IS 'Hora del cambio a ese estado; igual rejected_at, preparing_at, on_the_way_at y delivered_at. Las escribe orders_guard, nadie más.';
 
@@ -72,4 +72,8 @@ COMMENT ON COLUMN "public"."orders"."notify_status" IS 'Aviso al restaurante: pe
 
 COMMENT ON COLUMN "public"."orders"."token" IS 'Secreto con el que el cliente lee su pedido; la app lo guarda en el dispositivo. El id no es secreto: puede ir en registros y en los botones de WhatsApp, y no sirve para leer el pedido.';
 
-COMMENT ON TABLE "public"."orders" IS 'Pedido del flujo con estados (piloto). Anon no tiene grants: crea, lee y confirma su pedido por token vía create_order / get_order / confirm_order_received. El servidor cambia el estado con set_order_status (service_role) y anota el aviso al restaurante en notify_*. Solo el admin lee la tabla. orders_guard impide transiciones inválidas y cambios a lo pedido.';
+COMMENT ON TABLE "public"."orders" IS 'Pedido del flujo con estados (piloto). Anon no tiene grants: crea, lee y confirma su pedido por token vía create_order / get_order / confirm_order_received. El servidor cambia el estado con set_order_status (service_role) y anota el aviso al restaurante en notify_*. Solo el admin lee la tabla. Un pedido solo nace por create_order: service_role no tiene INSERT. orders_guard impide transiciones inválidas y cambios a lo pedido.';
+
+REVOKE ALL ON TABLE "public"."orders" FROM "service_role";
+
+GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, UPDATE ON TABLE "public"."orders" TO "service_role";

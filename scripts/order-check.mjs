@@ -515,6 +515,13 @@ try {
   s = await setStatus(id, 'on_the_way')
   ok('pasa a en camino', s.status === 'on_the_way' && s.changed === true)
   await rejects(
+    'el servidor no marca entregado ni escribiendo directo',
+    'service_role',
+    "update orders set status = 'delivered' where id = $1",
+    [id],
+    /only_customer_confirms_delivery/,
+  )
+  await rejects(
     'el servidor no marca entregado',
     'service_role',
     'select * from set_order_status($1, $2)',
@@ -614,12 +621,27 @@ try {
     /invalid_order_transition/,
   )
   await rejects(
-    'no inserta un pedido que no empiece pendiente',
+    'no inserta pedidos directo: solo nacen por create_order',
     'service_role',
-    `insert into orders (business_id, mode, items, subtotal_cents, delivery_fee_cents, total_cents, status)
-     values ($1, 'pickup', '[{}]', 0, 0, 0, 'accepted')`,
+    `insert into orders (business_id, mode, items, subtotal_cents, delivery_fee_cents, total_cents)
+     values ($1, 'pickup', '[{}]', 0, 0, 0)`,
     [biz],
-    /order_must_start_pending/,
+    /permission denied/,
+  )
+  const inicial = await admin
+    .query(
+      `insert into orders (business_id, mode, items, subtotal_cents, delivery_fee_cents, total_cents, status)
+       values ($1, 'pickup', '[{}]', 0, 0, 0, 'accepted')`,
+      [biz],
+    )
+    .then(
+      () => 'ok',
+      (e) => e.message,
+    )
+  ok(
+    'ni postgres inserta un pedido que no empiece pendiente',
+    /order_must_start_pending/.test(inicial),
+    inicial,
   )
   await upd(
     "update orders set notify_status = 'sending' where id = $1 and notify_status = 'pending'",

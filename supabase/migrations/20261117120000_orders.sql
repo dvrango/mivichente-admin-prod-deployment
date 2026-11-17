@@ -125,7 +125,7 @@ create index orders_business_created_idx on public.orders (business_id, created_
 alter table public.orders enable row level security;
 
 comment on table public.orders is
-  'Pedido del flujo con estados (piloto). Anon no tiene grants: crea, lee y confirma su pedido por token vía create_order / get_order / confirm_order_received. El servidor cambia el estado con set_order_status (service_role) y anota el aviso al restaurante en notify_*. Solo el admin lee la tabla. orders_guard impide transiciones inválidas y cambios a lo pedido.';
+  'Pedido del flujo con estados (piloto). Anon no tiene grants: crea, lee y confirma su pedido por token vía create_order / get_order / confirm_order_received. El servidor cambia el estado con set_order_status (service_role) y anota el aviso al restaurante en notify_*. Solo el admin lee la tabla. Un pedido solo nace por create_order: service_role no tiene INSERT. orders_guard impide transiciones inválidas y cambios a lo pedido.';
 
 comment on column public.orders.token is
   'Secreto con el que el cliente lee su pedido; la app lo guarda en el dispositivo. El id no es secreto: puede ir en registros y en los botones de WhatsApp, y no sirve para leer el pedido.';
@@ -146,6 +146,9 @@ comment on column public.orders.accepted_at is
 -- admin lee por policy.
 revoke all on public.orders from anon, authenticated;
 grant select on public.orders to authenticated;
+-- Un pedido solo nace por create_order, que valida negocio, menú y total. El
+-- servidor tampoco inserta ni vacía la tabla directo.
+revoke insert, truncate on public.orders from service_role;
 
 create policy "admin reads orders" on public.orders
   for select
@@ -227,6 +230,12 @@ begin
         using errcode = '23514';
     end if;
 
+    -- Entregado lo marca solo el cliente, por confirm_order_received (security
+    -- definer, corre como postgres). El servidor escribiendo directo no puede.
+    if new.status = 'delivered' and current_user <> 'postgres' then
+      raise exception 'only_customer_confirms_delivery' using errcode = '42501';
+    end if;
+
     case new.status
       when 'accepted' then new.accepted_at := now();
       when 'rejected' then new.rejected_at := now();
@@ -248,7 +257,7 @@ end;
 $function$;
 
 comment on function public.orders_guard() is
-  'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok y la hora de cada estado y del aviso la pone el trigger.';
+  'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok, entregado solo lo pone confirm_order_received y la hora de cada estado y del aviso la pone el trigger.';
 
 revoke all on function public.orders_guard() from public, anon, authenticated;
 
