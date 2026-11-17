@@ -16,6 +16,7 @@ import {
   photoFileSchema,
   toggleBusinessAcceptsOrdersSchema,
   toggleBusinessDemoSchema,
+  toggleBusinessOrderTrackingSchema,
   type GalleryValues,
 } from './schema'
 import { parsePromoForm } from './promo'
@@ -632,6 +633,31 @@ export async function toggleBusinessAcceptsOrders(id: string, acceptsOrders: boo
     .from('businesses')
     .update({
       accepts_orders: parsed.data.acceptsOrders,
+      updated_by: await currentUserId(supabase),
+    })
+    .eq('id', parsed.data.id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/businesses')
+  revalidatePath(`/businesses/${parsed.data.id}`)
+}
+
+// El pedido con estados del piloto (ypol0a1j4): el pedido se guarda en
+// Vichente y el restaurante lo recibe por WhatsApp con botones. El trigger
+// businesses_order_tracking_admin_only es la protección real; este guard corta
+// antes una llamada manual de otro rol.
+export async function toggleBusinessOrderTracking(id: string, orderTracking: boolean) {
+  const parsed = toggleBusinessOrderTrackingSchema.safeParse({ id, orderTracking })
+  if (!parsed.success) throw new Error(firstIssue(parsed.error))
+
+  await requireAdmin()
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({
+      order_tracking: parsed.data.orderTracking,
       updated_by: await currentUserId(supabase),
     })
     .eq('id', parsed.data.id)

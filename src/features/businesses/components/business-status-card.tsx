@@ -9,6 +9,7 @@ import {
   toggleBusinessDelivery,
   toggleBusinessDemo,
   toggleBusinessFeatured,
+  toggleBusinessOrderTracking,
   toggleBusinessVerified,
 } from '../actions'
 
@@ -19,6 +20,7 @@ type Props = {
   isFeatured: boolean
   hasDelivery: boolean
   acceptsOrders: boolean
+  orderTracking: boolean
   isDemo: boolean
   /** Solo admin: `toggleBusinessAcceptsOrders` llama `requireAdmin()` y un trigger lo protege. */
   canManageOrders: boolean
@@ -38,6 +40,7 @@ export function BusinessStatusCard({
   isFeatured,
   hasDelivery,
   acceptsOrders,
+  orderTracking,
   isDemo,
   canManageOrders,
   readOnly,
@@ -80,6 +83,18 @@ export function BusinessStatusCard({
           checked={acceptsOrders}
           disabled={readOnly}
           onToggle={(next) => toggleBusinessAcceptsOrders(id, next)}
+        />
+      )}
+      {/* Solo admin: `toggleBusinessOrderTracking` llama `requireAdmin()` y lo
+          protege el trigger businesses_order_tracking_admin_only. Sin «Recibe
+          pedidos» no hace nada, así que no se deja encender; apagarlo sí. */}
+      {canManageOrders && (
+        <StatusRow
+          label="Pedido con estados"
+          info="Piloto. El pedido se guarda en Vichente, le llega al negocio por WhatsApp con botones para aceptarlo y avisar que ya salió, y el cliente ve en la app en qué va. Necesita «Recibe pedidos» encendido."
+          checked={orderTracking}
+          disabled={readOnly || (!acceptsOrders && !orderTracking)}
+          onToggle={(next) => toggleBusinessOrderTracking(id, next)}
         />
       )}
       {/* Solo admin, igual que pedidos: `toggleBusinessDemo` llama

@@ -2078,6 +2078,7 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
+          order_tracking: boolean
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
@@ -2127,6 +2128,7 @@ export type Database = {
           name: string
           name_normalized?: string | null
           offerings?: string[]
+          order_tracking?: boolean
           phone: string
           phone_is_whatsapp?: boolean
           photo_url?: string | null
@@ -2176,6 +2178,7 @@ export type Database = {
           name?: string
           name_normalized?: string | null
           offerings?: string[]
+          order_tracking?: boolean
           phone?: string
           phone_is_whatsapp?: boolean
           photo_url?: string | null
@@ -2371,6 +2374,97 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'order_funnel_events_business_id_fkey'
+            columns: ['business_id']
+            referencedRelation: 'businesses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          accepted_at: string | null
+          business_id: string
+          created_at: string
+          customer_name: string | null
+          customer_phone: string | null
+          delivered_at: string | null
+          delivery_directions: string | null
+          delivery_fee_cents: number | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          delivery_references: string | null
+          id: string
+          items: Json
+          mode: string
+          notify_error: string | null
+          notify_status: string
+          notify_updated_at: string | null
+          on_the_way_at: string | null
+          pays_with: string | null
+          preparing_at: string | null
+          rejected_at: string | null
+          status: string
+          subtotal_cents: number
+          token: string
+          total_cents: number
+        }
+        Insert: {
+          accepted_at?: string | null
+          business_id: string
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivered_at?: string | null
+          delivery_directions?: string | null
+          delivery_fee_cents?: number | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
+          delivery_references?: string | null
+          id?: string
+          items: Json
+          mode: string
+          notify_error?: string | null
+          notify_status?: string
+          notify_updated_at?: string | null
+          on_the_way_at?: string | null
+          pays_with?: string | null
+          preparing_at?: string | null
+          rejected_at?: string | null
+          status?: string
+          subtotal_cents: number
+          token?: string
+          total_cents: number
+        }
+        Update: {
+          accepted_at?: string | null
+          business_id?: string
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivered_at?: string | null
+          delivery_directions?: string | null
+          delivery_fee_cents?: number | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
+          delivery_references?: string | null
+          id?: string
+          items?: Json
+          mode?: string
+          notify_error?: string | null
+          notify_status?: string
+          notify_updated_at?: string | null
+          on_the_way_at?: string | null
+          pays_with?: string | null
+          preparing_at?: string | null
+          rejected_at?: string | null
+          status?: string
+          subtotal_cents?: number
+          token?: string
+          total_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'orders_business_id_fkey'
             columns: ['business_id']
             referencedRelation: 'businesses'
             referencedColumns: ['id']
@@ -2757,6 +2851,7 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
+          order_tracking: boolean
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
@@ -2791,6 +2886,23 @@ export type Database = {
         Args: { object_name: string }
         Returns: boolean
       }
+      confirm_order_received: { Args: { p_token: string }; Returns: string }
+      create_order: {
+        Args: {
+          p_business_id: string
+          p_customer_name: string
+          p_customer_phone: string
+          p_delivery_directions?: string
+          p_delivery_lat?: number
+          p_delivery_lng?: number
+          p_delivery_references?: string
+          p_expected_total_cents: number
+          p_items: Json
+          p_mode: string
+          p_pays_with?: string
+        }
+        Returns: string
+      }
       get_card_entry: {
         Args: { p_token: string }
         Returns: {
@@ -2817,6 +2929,25 @@ export type Database = {
       get_or_create_stamp_card: {
         Args: { p_device_id: string; p_slug: string }
         Returns: string
+      }
+      get_order: {
+        Args: { p_token: string }
+        Returns: {
+          accepted_at: string
+          business_id: string
+          created_at: string
+          delivered_at: string
+          delivery_fee_cents: number
+          items: Json
+          mode: string
+          notify_status: string
+          on_the_way_at: string
+          preparing_at: string
+          rejected_at: string
+          status: string
+          subtotal_cents: number
+          total_cents: number
+        }[]
       }
       get_stamp_card: {
         Args: { p_token: string }
@@ -2851,6 +2982,10 @@ export type Database = {
           p_token: string
         }
         Returns: string
+      }
+      order_status_transition_ok: {
+        Args: { p_from: string; p_to: string }
+        Returns: boolean
       }
       owner_add_stamp: {
         Args: { p_operation_id?: string; p_token: string }
@@ -2968,6 +3103,7 @@ export type Database = {
           name: string
           name_normalized: string | null
           offerings: string[]
+          order_tracking: boolean
           phone: string
           phone_is_whatsapp: boolean
           photo_url: string | null
@@ -2993,6 +3129,13 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      set_order_status: {
+        Args: { p_order_id: string; p_status: string }
+        Returns: {
+          changed: boolean
+          status: string
+        }[]
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { '': string }; Returns: string[] }

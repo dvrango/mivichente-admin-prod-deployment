@@ -2393,6 +2393,116 @@ async function main() {
     check('admin marca un demo', pone.outcome === 'ok' && pone.rows === 1, pone.outcome)
   })
 
+  // --- pedido con estados (ypol0a1j4) -------------------------------------
+  // La tabla guarda nombre, teléfono y ubicación de gente real. Anon no tiene
+  // grants: todo pasa por funciones con el token. El comportamiento de esas
+  // funciones (precios, transiciones, carreras) lo prueba order-check.mjs;
+  // aquí va quién toca la tabla y quién enciende el flujo.
+  console.log('\npedido con estados (orders)')
+  const pedido = (
+    await c.query(
+      `insert into orders (business_id, mode, items, subtotal_cents, delivery_fee_cents,
+         total_cents, customer_name, customer_phone, delivery_directions)
+       values ($1, 'delivery', '[{"name":"RLS check"}]', 1000, 0, 1000,
+         'RLS check', '6180000000', 'RLS check')
+       returning id, token`,
+      [bizSuyo],
+    )
+  ).rows[0]
+  check(
+    'el flujo nace apagado',
+    (await c.query('select order_tracking from businesses where id = $1', [bizSuyo])).rows[0]
+      .order_tracking === false,
+  )
+
+  await asAnon(c, async () => {
+    const lee = await attempt(c, 'select * from orders')
+    check('anon NO lee la tabla de pedidos', lee.outcome === 'denied', lee.outcome)
+    const cambia = await attempt(c, "update orders set status = 'accepted' where id = $1", [
+      pedido.id,
+    ])
+    check('anon NO actualiza pedidos', cambia.outcome === 'denied', cambia.outcome)
+    const inserta = await attempt(
+      c,
+      `insert into orders (business_id, mode, items, subtotal_cents, total_cents)
+       values ($1, 'pickup', '[{}]', 0, 0)`,
+      [bizSuyo],
+    )
+    check('anon NO inserta pedidos directo', inserta.outcome === 'denied', inserta.outcome)
+    const servidor = await attempt(c, "select * from set_order_status($1, 'accepted')", [pedido.id])
+    check('anon NO cambia el estado como servidor', servidor.outcome === 'denied', servidor.outcome)
+    const enciende = await attempt(c, 'update businesses set order_tracking = true where id = $1', [
+      bizSuyo,
+    ])
+    check(
+      'anon NO enciende el flujo',
+      enciende.rows === 0,
+      `${enciende.outcome} (${enciende.rows})`,
+    )
+    const ajeno = await c.query('select count(*) from get_order($1)', ['token-inventado'])
+    check('anon con un token inventado no ve nada', Number(ajeno.rows[0].count) === 0)
+  })
+
+  await as(c, reviewer.id, async () => {
+    const n = (q, p) => c.query(q, p).then((r) => Number(r.rows[0].count))
+    check('reviewer NO lee pedidos', (await n('select count(*) from orders')) === 0)
+    const enciende = await attempt(c, 'update businesses set order_tracking = true where id = $1', [
+      bizSuyo,
+    ])
+    check(
+      'reviewer NO enciende el flujo en un negocio de su municipio',
+      enciende.outcome === 'denied',
+      enciende.outcome,
+    )
+    const servidor = await attempt(c, "select * from set_order_status($1, 'accepted')", [pedido.id])
+    check(
+      'reviewer NO cambia el estado como servidor',
+      servidor.outcome === 'denied',
+      servidor.outcome,
+    )
+  })
+
+  await as(c, admin.id, async () => {
+    const n = (q, p) => c.query(q, p).then((r) => Number(r.rows[0].count))
+    check(
+      'admin lee pedidos',
+      (await n('select count(*) from orders where id = $1', [pedido.id])) === 1,
+    )
+    const enciende = await attempt(c, 'update businesses set order_tracking = true where id = $1', [
+      bizSuyo,
+    ])
+    check(
+      'admin enciende el flujo',
+      enciende.outcome === 'ok' && enciende.rows === 1,
+      enciende.outcome,
+    )
+    const cambia = await attempt(c, "update orders set status = 'accepted' where id = $1", [
+      pedido.id,
+    ])
+    check(
+      'admin NO cambia el estado directo en la tabla',
+      cambia.outcome === 'denied',
+      cambia.outcome,
+    )
+  })
+
+  await asServiceRole(c, async () => {
+    const r = (await c.query("select * from set_order_status($1, 'accepted')", [pedido.id])).rows[0]
+    check(
+      'el servidor acepta el pedido',
+      r.status === 'accepted' && r.changed === true,
+      JSON.stringify(r),
+    )
+    const salta = await attempt(c, "update orders set status = 'on_the_way' where id = $1", [
+      pedido.id,
+    ])
+    check(
+      'el servidor NO salta pasos ni escribiendo directo',
+      salta.outcome.includes('invalid_order_transition'),
+      salta.outcome,
+    )
+  })
+
   console.log('\nbucket business-photos')
   const bucket = (
     await c.query(
