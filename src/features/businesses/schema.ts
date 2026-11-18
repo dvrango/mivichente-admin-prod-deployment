@@ -155,6 +155,11 @@ export const toggleBusinessAcceptsOrdersSchema = z.object({
   acceptsOrders: z.boolean(),
 })
 
+export const toggleBusinessOrderTrackingSchema = z.object({
+  id: z.string().uuid('Negocio inválido.'),
+  orderTracking: z.boolean(),
+})
+
 export const toggleBusinessDemoSchema = z.object({
   id: z.string().uuid('Negocio inválido.'),
   isDemo: z.boolean(),
