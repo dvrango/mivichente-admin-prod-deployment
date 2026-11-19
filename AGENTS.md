@@ -115,6 +115,8 @@ Migraciones en `supabase/migrations/`: son la fuente de verdad y se escriben a m
 
 El check no ve cambios hechos a mano sin migración: antes de commitear, revisar que `git diff db/schema` solo traiga lo de la migración de la rama. `npm run db:replay:check` muestra lo que local tiene fuera de las migraciones, aunque solo de `public`: las policies de `storage` no las compara.
 
+`db:push` y `db:types:prod` nombran el proyecto de producción (`fmvzwonzcnkrhjdeonaz`) en `package.json` en vez de leer la liga de `supabase link`. Esa liga vive en `supabase/.temp/`, que git ignora, así que las carpetas del mikitasks-runner y cualquier clon nuevo nacen sin ella y el CLI fallaba con «Cannot find project ref». La autenticación sale del token global del CLI (`supabase login`), no de la carpeta. El identificador no es secreto: va en la URL pública del proyecto.
+
 La URL de la DB local sale de `LOCAL_DATABASE_URL` (fuente única en `scripts/db-local-url.mjs`); sin la variable es la del minipc. La usan `db:migrate:local`, `db:schema:snapshot`/`check`, `db:rls:check` y `db:local:check`. `db:types:local` no: pasa por postgres-meta vía Kong, que siempre lee la base `postgres`.
 
 El porqué de cada tabla y función (decisiones, trampas, historia de RLS) vive en Obsidian: `02 Apps/v2-admin-web/Database Schema.md`. Ahí no se pegan columnas ni cuerpos de funciones.
