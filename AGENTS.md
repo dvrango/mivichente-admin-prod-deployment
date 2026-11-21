@@ -45,6 +45,7 @@ npm run db:schema:check   # fallar si db/schema/ no coincide con la DB local
 npm run db:local:check    # fallar si la DB local tiene una migración de otra rama (y decir de qué tarea)
 node scripts/stamp-card-check.mjs # sellos demo/reales, idempotencia y carreras con conexiones distintas; solo local, limpia sus fixtures
 node scripts/order-check.mjs      # pedido con estados como anon y service_role: precios, rechazos, transiciones y carrera; solo local, limpia sus fixtures
+node scripts/in-directory-check.mjs # negocio fuera del directorio: se oculta a anon, solo admin cambia la marca, Durango nace fuera y las métricas de la región no lo cuentan; solo local, todo en rollback
 ```
 
 > **REGLA DE BASE DE DATOS (no la rompas):** el asistente **solo toca la DB

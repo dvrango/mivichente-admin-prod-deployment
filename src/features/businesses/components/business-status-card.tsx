@@ -9,6 +9,7 @@ import {
   toggleBusinessDelivery,
   toggleBusinessDemo,
   toggleBusinessFeatured,
+  toggleBusinessInDirectory,
   toggleBusinessOrderTracking,
   toggleBusinessVerified,
 } from '../actions'
@@ -22,6 +23,7 @@ type Props = {
   acceptsOrders: boolean
   orderTracking: boolean
   isDemo: boolean
+  inDirectory: boolean
   /** Solo admin: `toggleBusinessAcceptsOrders` llama `requireAdmin()` y un trigger lo protege. */
   canManageOrders: boolean
   /** Reviewer viendo un negocio de otro municipio: la RLS rechazaría el update. */
@@ -42,6 +44,7 @@ export function BusinessStatusCard({
   acceptsOrders,
   orderTracking,
   isDemo,
+  inDirectory,
   canManageOrders,
   readOnly,
 }: Props) {
@@ -95,6 +98,19 @@ export function BusinessStatusCard({
           checked={orderTracking}
           disabled={readOnly || (!acceptsOrders && !orderTracking)}
           onToggle={(next) => toggleBusinessOrderTracking(id, next)}
+        />
+      )}
+      {/* Solo admin: `toggleBusinessInDirectory` llama `requireAdmin()` y lo
+          protege el trigger businesses_in_directory_guard. Se deja cambiar con
+          el demo encendido: así se apaga antes de quitar el demo y el negocio
+          nunca sale un momento en el directorio de la región. */}
+      {canManageOrders && (
+        <StatusRow
+          label="Aparece en el directorio"
+          info={`Apagado, el negocio se abre por su link (ficha, tarjeta de sellos, menú, opinión) pero no sale en la búsqueda, las categorías ni recomendados, y no cuenta en las métricas de la región. Sus métricas y el límite de un sello al día siguen igual. Un negocio de Durango nace apagado.${isDemo ? ' Mientras sea demo queda oculto aunque esté encendido.' : ''}`}
+          checked={inDirectory}
+          disabled={readOnly}
+          onToggle={(next) => toggleBusinessInDirectory(id, next)}
         />
       )}
       {/* Solo admin, igual que pedidos: `toggleBusinessDemo` llama

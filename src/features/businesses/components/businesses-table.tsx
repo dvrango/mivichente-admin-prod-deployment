@@ -159,6 +159,15 @@ export function BusinessesTable({
                         Demo
                       </Badge>
                     )}
+                    {!b.is_demo && !b.in_directory && (
+                      <Badge
+                        variant="outline"
+                        className="ml-2 align-middle"
+                        title="Se abre por link; no sale en el directorio"
+                      >
+                        Fuera del directorio
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{b.category?.name ?? '—'}</TableCell>
                   <TableCell className="text-muted-foreground">{b.phone}</TableCell>

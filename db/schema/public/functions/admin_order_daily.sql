@@ -31,6 +31,8 @@ CREATE OR REPLACE FUNCTION public.admin_order_daily (
     where f.created_at >= ((params.today - (p_days - 1))::timestamp at time zone 'America/Monterrey')
       and f.created_at <= p_now
       and not exists (select 1 from excluded_devices e where e.device_id = f.device_id)
+      -- businesses outside the directory are not part of the region (gr96hhp28)
+      and exists (select 1 from businesses b where b.id = f.business_id and b.in_directory)
   ),
   views as (
     select ev.day, count(distinct ev.device_id)::integer as menu_devices

@@ -47,6 +47,8 @@ CREATE OR REPLACE FUNCTION public.admin_order_funnel (
     where f.created_at > params.since
       and f.created_at <= p_now
       and not exists (select 1 from excluded_devices e where e.device_id = f.device_id)
+      -- businesses outside the directory are not part of the region (gr96hhp28)
+      and exists (select 1 from businesses b where b.id = f.business_id and b.in_directory)
   ),
   intents as (
     select distinct on (ev.device_id, ev.business_id, floor(extract(epoch from ev.created_at) / 1800))
