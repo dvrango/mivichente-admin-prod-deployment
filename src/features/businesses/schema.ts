@@ -13,10 +13,18 @@ export const MUNICIPIOS = [
   'Suchil',
   'Villa Unión',
   'Nombre de Dios',
+  'Durango',
   'Sombrerete',
   'Otro',
 ] as const
 export type Municipio = (typeof MUNICIPIOS)[number]
+
+// Municipios cuyos negocios nacen fuera del directorio: Durango es un mercado
+// aparte, sin directorio (decisión del 2026-10-16). La regla la aplica el
+// trigger `businesses_in_directory_guard` al crear el negocio o al cambiarlo a
+// uno de estos municipios; esta lista solo sirve para avisarlo en el form, y
+// tiene que ir a la par de la del trigger.
+export const MUNICIPIOS_FUERA_DEL_DIRECTORIO: readonly Municipio[] = ['Durango']
 export type DataSource = (typeof DATA_SOURCES)[number]
 
 export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
@@ -163,6 +171,11 @@ export const toggleBusinessOrderTrackingSchema = z.object({
 export const toggleBusinessDemoSchema = z.object({
   id: z.string().uuid('Negocio inválido.'),
   isDemo: z.boolean(),
+})
+
+export const toggleBusinessInDirectorySchema = z.object({
+  id: z.string().uuid('Negocio inválido.'),
+  inDirectory: z.boolean(),
 })
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>

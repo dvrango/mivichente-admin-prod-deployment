@@ -38,6 +38,7 @@ import {
   DELIVERY_FEE_MODES,
   initialDeliveryFee,
   MUNICIPIOS,
+  MUNICIPIOS_FUERA_DEL_DIRECTORIO,
   type BusinessFormInput,
 } from '../schema'
 import type { CategoryOption, PhotoInput, WeeklyHours } from '../types'
@@ -838,6 +839,17 @@ export function BusinessForm({
                         ))}
                       </SelectContent>
                     </Select>
+                    {/* Solo cuando guardar lo va a sacar del directorio: al
+                        crearlo o al cambiarlo a Durango. Si ya era de Durango,
+                        el trigger no toca la marca y el aviso mentiría. */}
+                    {MUNICIPIOS_FUERA_DEL_DIRECTORIO.includes(field.value) &&
+                      defaults?.municipio !== field.value && (
+                        <p className="text-muted-foreground text-xs">
+                          Al guardar, el negocio queda fuera del directorio: se abre por su link
+                          pero no sale en la búsqueda ni en las categorías. Se puede cambiar en
+                          Estado.
+                        </p>
+                      )}
                     <FormMessage />
                   </FormItem>
                 )}

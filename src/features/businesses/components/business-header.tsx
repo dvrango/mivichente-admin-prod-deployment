@@ -16,6 +16,7 @@ type Props = {
     | 'is_verified'
     | 'is_featured'
     | 'is_demo'
+    | 'in_directory'
   >
   readOnly: boolean
 }
@@ -55,6 +56,11 @@ export function BusinessHeader({ business, readOnly }: Props) {
             {business.is_demo && (
               <Badge variant="outline" title="Se abre por link; no sale en el directorio">
                 Demo · fuera del directorio
+              </Badge>
+            )}
+            {!business.is_demo && !business.in_directory && (
+              <Badge variant="outline" title="Se abre por link; no sale en el directorio">
+                Fuera del directorio
               </Badge>
             )}
             {readOnly && <Badge variant="outline">Solo lectura</Badge>}

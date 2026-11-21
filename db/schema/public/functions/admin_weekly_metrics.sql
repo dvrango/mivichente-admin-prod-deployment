@@ -29,6 +29,11 @@ CREATE OR REPLACE FUNCTION public.admin_weekly_metrics (
   weeks as (
     select generate_series(0, p_weeks - 1) as week_index
   ),
+  -- Businesses outside the directory (gr96hhp28): their contacts, taps and
+  -- order events are not part of the region's readings.
+  off_directory as (
+    select b.id from businesses b where not b.in_directory
+  ),
   -- Una fila por evento de cualquiera de las cuatro tablas con device_id: es
   -- la base de devices únicos y de los que regresan.
   activity as (
@@ -37,10 +42,13 @@ CREATE OR REPLACE FUNCTION public.admin_weekly_metrics (
       select device_id, created_at from search_events
       union all
       select device_id, created_at from search_result_taps
+      where business_id not in (select id from off_directory)
       union all
       select device_id, created_at from business_contacts
+      where business_id not in (select id from off_directory)
       union all
       select device_id, created_at from order_funnel_events
+      where business_id not in (select id from off_directory)
     ) a, params
     where a.created_at >= params.since
       and not exists (select 1 from excluded_devices e where e.device_id = a.device_id)
@@ -91,6 +99,7 @@ CREATE OR REPLACE FUNCTION public.admin_weekly_metrics (
       count(*)::integer as business_taps
     from search_result_taps t, params
     where t.created_at >= params.since
+      and t.business_id not in (select id from off_directory)
       and not exists (select 1 from excluded_devices e where e.device_id = t.device_id)
     group by 1
   ),
@@ -107,6 +116,7 @@ CREATE OR REPLACE FUNCTION public.admin_weekly_metrics (
       count(*) filter (where c.source = 'landing')::integer as contacts_landing
     from business_contacts c, params
     where c.created_at >= params.since
+      and c.business_id not in (select id from off_directory)
       and not exists (select 1 from excluded_devices e where e.device_id = c.device_id)
     group by 1
   )

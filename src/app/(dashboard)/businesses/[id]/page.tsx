@@ -68,6 +68,7 @@ export default async function EditBusinessPage({
           acceptsOrders={business.accepts_orders}
           orderTracking={business.order_tracking}
           isDemo={business.is_demo}
+          inDirectory={business.in_directory}
           canManageOrders={profile?.role === 'admin'}
           readOnly={readOnly}
         />

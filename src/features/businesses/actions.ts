@@ -16,6 +16,7 @@ import {
   photoFileSchema,
   toggleBusinessAcceptsOrdersSchema,
   toggleBusinessDemoSchema,
+  toggleBusinessInDirectorySchema,
   toggleBusinessOrderTrackingSchema,
   type GalleryValues,
 } from './schema'
@@ -681,6 +682,33 @@ export async function toggleBusinessDemo(id: string, isDemo: boolean) {
   const { error } = await supabase
     .from('businesses')
     .update({ is_demo: parsed.data.isDemo, updated_by: await currentUserId(supabase) })
+    .eq('id', parsed.data.id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/businesses')
+  revalidatePath(`/businesses/${parsed.data.id}`)
+}
+
+// Un negocio fuera del directorio se abre por link (ficha, tarjeta, menú,
+// opinión, /ordenar) pero no sale en la búsqueda ni en los listados, y las
+// métricas de la región no lo cuentan. A diferencia del demo, conserva su
+// telemetría y el límite de un sello al día (gr96hhp28). El trigger
+// businesses_in_directory_guard es la protección real; este guard corta antes
+// una llamada manual de otro rol.
+export async function toggleBusinessInDirectory(id: string, inDirectory: boolean) {
+  const parsed = toggleBusinessInDirectorySchema.safeParse({ id, inDirectory })
+  if (!parsed.success) throw new Error(firstIssue(parsed.error))
+
+  await requireAdmin()
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('businesses')
+    .update({
+      in_directory: parsed.data.inDirectory,
+      updated_by: await currentUserId(supabase),
+    })
     .eq('id', parsed.data.id)
 
   if (error) throw new Error(error.message)

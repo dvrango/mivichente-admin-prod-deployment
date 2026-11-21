@@ -2065,6 +2065,7 @@ export type Database = {
           feedback_reward_days: number
           has_delivery: boolean
           id: string
+          in_directory: boolean
           instagram_url: string | null
           is_active: boolean
           is_demo: boolean
@@ -2115,6 +2116,7 @@ export type Database = {
           feedback_reward_days?: number
           has_delivery?: boolean
           id?: string
+          in_directory?: boolean
           instagram_url?: string | null
           is_active?: boolean
           is_demo?: boolean
@@ -2165,6 +2167,7 @@ export type Database = {
           feedback_reward_days?: number
           has_delivery?: boolean
           id?: string
+          in_directory?: boolean
           instagram_url?: string | null
           is_active?: boolean
           is_demo?: boolean
@@ -2838,6 +2841,7 @@ export type Database = {
           feedback_reward_days: number
           has_delivery: boolean
           id: string
+          in_directory: boolean
           instagram_url: string | null
           is_active: boolean
           is_demo: boolean
@@ -2972,6 +2976,7 @@ export type Database = {
         Args: { b: Database['public']['Tables']['businesses']['Row'] }
         Returns: boolean
       }
+      is_in_directory: { Args: { p_business_id: string }; Returns: boolean }
       is_owner_of: { Args: { p_business_id: string }; Returns: boolean }
       is_search_stopword: { Args: { term: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
@@ -3090,6 +3095,7 @@ export type Database = {
           feedback_reward_days: number
           has_delivery: boolean
           id: string
+          in_directory: boolean
           instagram_url: string | null
           is_active: boolean
           is_demo: boolean

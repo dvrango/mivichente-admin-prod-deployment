@@ -46,6 +46,7 @@ CREATE TABLE "public"."businesses" (
   "stamp_card_reward"          text,
   "is_demo"                    boolean                  NOT NULL DEFAULT false,
   "order_tracking"             boolean                  NOT NULL DEFAULT false,
+  "in_directory"               boolean                  NOT NULL DEFAULT true,
   CONSTRAINT "businesses_data_source_check" CHECK ((data_source = ANY (ARRAY['scraping'::text, 'self_registered'::text, 'admin'::text]))),
   CONSTRAINT "businesses_delivery_fee_valid" CHECK (((delivery_fee IS NULL) OR ((delivery_fee >= (0)::numeric) AND (delivery_fee <= 99999999.99)))),
   CONSTRAINT "businesses_feedback_reward_active_needs_benefit" CHECK (((NOT feedback_reward_active) OR (NULLIF(btrim(feedback_reward_benefit), ''::text) IS NOT NULL))),
@@ -93,6 +94,11 @@ CREATE TRIGGER businesses_feedback_reward_admin_only
   BEFORE INSERT OR UPDATE OF feedback_reward_active, feedback_reward_benefit, feedback_reward_days ON public.businesses
   FOR EACH ROW
   EXECUTE FUNCTION public.guard_business_feedback_reward_admin();
+
+CREATE TRIGGER businesses_in_directory_guard
+  BEFORE INSERT OR UPDATE OF in_directory, municipio ON public.businesses
+  FOR EACH ROW
+  EXECUTE FUNCTION public.guard_business_in_directory();
 
 CREATE TRIGGER businesses_is_demo_admin_only
   BEFORE INSERT OR UPDATE OF is_demo ON public.businesses
@@ -180,6 +186,8 @@ COMMENT ON COLUMN "public"."businesses"."feedback_reward_active" IS 'Interruptor
 COMMENT ON COLUMN "public"."businesses"."feedback_reward_benefit" IS 'Qué da el descuento, en texto corto ("10%"). Cada cupón guarda su propia copia al crearse. Solo lo cambia un admin (trigger).';
 
 COMMENT ON COLUMN "public"."businesses"."feedback_reward_days" IS 'Días de vigencia del descuento que se genera al dejar una opinión. El cupón vale hasta el final del día N en hora de Durango. Solo lo cambia un admin (trigger).';
+
+COMMENT ON COLUMN "public"."businesses"."in_directory" IS 'False: the business opens by link (page, stamp card, menu, feedback, /ordenar) but does not appear in search, category listings, recommended or open-now, and the region metrics leave it out. Unlike is_demo it keeps its telemetry and the daily stamp limit. Only an admin changes it; a business set to Durango starts outside the directory.';
 
 COMMENT ON COLUMN "public"."businesses"."is_demo" IS 'Negocio para demostraciones. Se abre por link (ficha, tarjeta, menú, opinión) pero no aparece en búsqueda, listados ni «abierto ahora», y su telemetría se descarta. Solo un admin lo cambia.';
 
