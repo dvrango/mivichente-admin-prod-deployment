@@ -101,14 +101,15 @@ export function BusinessStatusCard({
         />
       )}
       {/* Solo admin: `toggleBusinessInDirectory` llama `requireAdmin()` y lo
-          protege el trigger businesses_in_directory_guard. Con el demo
-          encendido el negocio ya está fuera, así que no se deja cambiar. */}
+          protege el trigger businesses_in_directory_guard. Se deja cambiar con
+          el demo encendido: así se apaga antes de quitar el demo y el negocio
+          nunca sale un momento en el directorio de la región. */}
       {canManageOrders && (
         <StatusRow
           label="Aparece en el directorio"
-          info="Apagado, el negocio se abre por su link (ficha, tarjeta de sellos, menú, opinión) pero no sale en la búsqueda, las categorías ni recomendados, y no cuenta en las métricas de la región. Sus métricas y el límite de un sello al día siguen igual. Un negocio de Durango nace apagado."
-          checked={inDirectory && !isDemo}
-          disabled={readOnly || isDemo}
+          info={`Apagado, el negocio se abre por su link (ficha, tarjeta de sellos, menú, opinión) pero no sale en la búsqueda, las categorías ni recomendados, y no cuenta en las métricas de la región. Sus métricas y el límite de un sello al día siguen igual. Un negocio de Durango nace apagado.${isDemo ? ' Mientras sea demo queda oculto aunque esté encendido.' : ''}`}
+          checked={inDirectory}
+          disabled={readOnly}
           onToggle={(next) => toggleBusinessInDirectory(id, next)}
         />
       )}
