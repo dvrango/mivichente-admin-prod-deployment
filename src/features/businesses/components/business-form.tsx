@@ -850,16 +850,18 @@ export function BusinessForm({
                           Estado.
                         </p>
                       )}
-                    {/* Al revés el trigger no la prende: salir de Durango no lo
-                        regresa al directorio, y sin el aviso parecería que sí. */}
+                    {/* Al revés el trigger no toca la marca: salir de Durango no
+                        lo regresa al directorio, y sin el aviso parecería que sí.
+                        El formulario no conoce la marca (un admin pudo haberla
+                        encendido ya), así que el texto vale para los dos casos. */}
                     {defaults?.municipio &&
                       (MUNICIPIOS_FUERA_DEL_DIRECTORIO as readonly string[]).includes(
                         defaults.municipio,
                       ) &&
                       !MUNICIPIOS_FUERA_DEL_DIRECTORIO.includes(field.value) && (
                         <p className="text-muted-foreground text-xs">
-                          Cambiar el municipio no lo regresa al directorio. Si debe salir en la
-                          búsqueda y en las categorías, enciéndelo en Estado.
+                          Cambiar el municipio no cambia si aparece en el directorio. Revísalo en
+                          Estado, en «Aparece en el directorio».
                         </p>
                       )}
                     <FormMessage />
