@@ -1,16 +1,19 @@
 /**
- * Preguntas frecuentes del panel del dueño. Cada respuesta sale de una nota del
- * vault (decisiones y guías de `06 Guías y Procesos/`); si una de esas cambia,
- * la respuesta de aquí cambia con ella.
+ * FAQ of the owner panel. Each answer comes from a vault note (decisions and the
+ * guides in `06 Guías y Procesos/`); when one of those changes, its answer here
+ * changes with it.
  *
- * El costo y el del sticker los decidió el usuario el 2026-10-29 (decisión «Hoy
- * Vichente es gratis para el negocio, igual que los stickers que entregamos»):
- * hoy no hay funciones con costo. No prometer que será gratis para siempre.
+ * Cost: being in Vichente (listing, menu, stickers) is free, per the 2026-10-29
+ * decision «Hoy Vichente es gratis para el negocio, igual que los stickers que
+ * entregamos». Since 2026-11-12 some services have a price (the stamp card).
+ * The user approved this answer on 2026-11-12 and asked that it name no service
+ * and no price: prices are still being tested, and the text has to stay true
+ * when they change or a new paid service is added. Never promise free forever.
  */
 export const OWNER_FAQ: { q: string; a: string }[] = [
   {
     q: '¿Cuánto me cuesta estar en Vichente?',
-    a: 'Hoy no te cuesta nada: todo lo que ya tienes en Vichente es gratis. Todavía no tenemos funciones con costo.',
+    a: 'Estar en Vichente no te cuesta nada. Algunos servicios tienen costo, y siempre te lo decimos antes de activarlos.',
   },
   {
     q: '¿Cómo me llegan los pedidos hoy?',
