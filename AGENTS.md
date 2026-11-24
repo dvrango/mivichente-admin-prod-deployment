@@ -46,6 +46,7 @@ npm run db:local:check    # fallar si la DB local tiene una migración de otra r
 node scripts/stamp-card-check.mjs # sellos demo/reales, idempotencia y carreras con conexiones distintas; solo local, limpia sus fixtures
 node scripts/order-check.mjs      # pedido con estados como anon y service_role: precios, rechazos, transiciones y carrera; solo local, limpia sus fixtures
 node scripts/in-directory-check.mjs # negocio fuera del directorio: se oculta a anon, solo admin cambia la marca, Durango nace fuera y las métricas de la región no lo cuentan; solo local, todo en rollback
+node scripts/order-notify-check.mjs # aviso del pedido por WhatsApp: levanta next dev con un Meta falso y prueba las dos rutas de punta a punta (firma, toques repetidos, número ajeno, envío rechazado); solo local, limpia sus fixtures
 ```
 
 > **REGLA DE BASE DE DATOS (no la rompas):** el asistente **solo toca la DB
@@ -79,7 +80,7 @@ supabase/migrations/
 
 - **`app/` solo orquesta** — no SQL ni lógica inline; importar desde `features/*/queries.ts`.
 - **Server Components por defecto.** `'use client'` solo para forms/interactividad.
-- **Mutations = Server Action** (`'use server'` + parse con Zod + `revalidatePath`). Nada de API routes salvo webhooks.
+- **Mutations = Server Action** (`'use server'` + parse con Zod + `revalidatePath`). Nada de API routes salvo webhooks y lo que llama la app sin sesión: hoy solo `src/app/api/` del aviso del pedido por WhatsApp (`features/order-notifications/`). Una ruta así no tiene login detrás: valida su propio secreto (la firma de Meta, el token del pedido).
 - **Un Zod schema por mutation** en `features/*/schema.ts` (fuente de verdad).
 - **Tipos de DB** se generan (`database.types.ts`). Nunca tipar tablas a mano.
 - **`server-only`** en `queries.ts` y `lib/supabase/admin.ts`.
@@ -104,6 +105,13 @@ Validadas en `lib/env.ts` — el build falla si falta una.
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=   # solo server
+
+# Opcionales: aviso del pedido por WhatsApp. Sin ellas solo las rutas del
+# aviso responden 503; el resto del panel funciona y compila.
+WHATSAPP_ACCESS_TOKEN=       # token de usuario de sistema de Meta
+WHATSAPP_PHONE_NUMBER_ID=    # id del número 618 en la Cloud API
+WHATSAPP_APP_SECRET=         # firma de los webhooks
+WHATSAPP_VERIFY_TOKEN=       # el que se pega en Meta al registrar el webhook
 ```
 
 ## Base de datos
