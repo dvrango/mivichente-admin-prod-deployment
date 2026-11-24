@@ -3,7 +3,6 @@
  * logic over injected dependencies, so the tests can drive it without Meta or
  * the database; `server.ts` wires the real ones.
  */
-import { normalizeMxPhone } from '@/lib/validation/phone'
 import {
   UNATTENDED_REPLY,
   afterChangeMessages,
@@ -119,7 +118,7 @@ async function handleTap(event: Extract<WebhookEvent, { kind: 'tap' }>, deps: We
 
   // Only the business's own WhatsApp moves its orders: a forwarded message
   // must not hand the order to whoever received it.
-  if (!order.businessWhatsapp || normalizeMxPhone(event.from) !== order.businessWhatsapp) {
+  if (!isBusinessNumber(event.from, order.businessWhatsapp)) {
     deps.log('whatsapp tap from a number that is not the business', { orderId: order.id })
     return
   }
@@ -130,6 +129,16 @@ async function handleTap(event: Extract<WebhookEvent, { kind: 'tap' }>, deps: We
     ? afterChangeMessages(current, result.status)
     : [unchangedMessage(current, event.action, result.status)]
   await reply(deps, event.from, messages)
+}
+
+/**
+ * Meta writes a Mexican number as 52 or 521 plus the 10 digits. Compared
+ * exactly: trimming a longer number to 10 digits would let a foreign number
+ * that happens to start with those digits pass.
+ */
+export function isBusinessNumber(from: string, businessWhatsapp: string | null): boolean {
+  if (!businessWhatsapp) return false
+  return from === `52${businessWhatsapp}` || from === `521${businessWhatsapp}`
 }
 
 async function reply(deps: WebhookDeps, to: string, messages: OutgoingMessage[]) {

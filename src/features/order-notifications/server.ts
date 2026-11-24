@@ -12,31 +12,18 @@ import { parseWebhook, processWebhookEvents, type WebhookDeps, type WebhookEvent
 // orders_guard trigger keep the server from skipping steps or touching what
 // was ordered.
 
+// One literal, so supabase-js infers the row type from database.types.ts.
 const ORDER_COLUMNS =
-  'id, status, mode, items, subtotal_cents, delivery_fee_cents, total_cents, customer_name, ' +
-  'customer_phone, delivery_lat, delivery_lng, delivery_directions, delivery_references, ' +
-  'pays_with, businesses(phone, phone_is_whatsapp, whatsapp_phone)'
+  'id, status, mode, items, subtotal_cents, delivery_fee_cents, total_cents, customer_name, customer_phone, delivery_lat, delivery_lng, delivery_directions, delivery_references, pays_with, businesses(phone, phone_is_whatsapp, whatsapp_phone)'
 
-type OrderRow = {
-  id: string
-  status: string
-  mode: string
-  items: unknown
-  subtotal_cents: number
-  delivery_fee_cents: number | null
-  total_cents: number
-  customer_name: string | null
-  customer_phone: string | null
-  delivery_lat: number | null
-  delivery_lng: number | null
-  delivery_directions: string | null
-  delivery_references: string | null
-  pays_with: string | null
-  businesses: { phone: string; phone_is_whatsapp: boolean; whatsapp_phone: string | null } | null
-}
+type BusinessContact = {
+  phone: string
+  phone_is_whatsapp: boolean
+  whatsapp_phone: string | null
+} | null
 
 /** Same rule as create_order: whatsapp_phone, or phone when it is WhatsApp. */
-function businessWhatsapp(b: OrderRow['businesses']): string | null {
+function businessWhatsapp(b: BusinessContact): string | null {
   if (!b) return null
   const raw = b.whatsapp_phone?.trim() || (b.phone_is_whatsapp ? b.phone?.trim() : '') || ''
   const digits = normalizeMxPhone(raw)
@@ -69,7 +56,7 @@ async function loadOrder(orderId: string): Promise<OrderForMessage | null> {
     .maybeSingle()
   if (error) throw new Error(`No se pudo leer el pedido: ${error.message}`)
   if (!data) return null
-  const row = data as unknown as OrderRow
+  const row = data
   return {
     id: row.id,
     status: row.status as OrderStatus,
@@ -92,7 +79,7 @@ async function loadOrder(orderId: string): Promise<OrderForMessage | null> {
 /** Moves the notice of an order still in `from` to `to`; true if it moved. */
 async function moveNotice(
   orderId: string,
-  from: NotifyStatus,
+  from: NotifyStatus | NotifyStatus[],
   to: NotifyStatus,
   error: string | null = null,
 ): Promise<boolean> {
@@ -100,7 +87,7 @@ async function moveNotice(
     .from('orders')
     .update({ notify_status: to, notify_error: error })
     .eq('id', orderId)
-    .eq('notify_status', from)
+    .in('notify_status', Array.isArray(from) ? from : [from])
     .select('id')
   if (dbError) throw new Error(`No se pudo anotar el aviso: ${dbError.message}`)
   return (data?.length ?? 0) > 0
@@ -178,8 +165,9 @@ function webhookDeps(config: WhatsappConfig): WebhookDeps {
     },
     send: (to, message) => sendWhatsapp(config, to, message),
     async markDeliveryFailed(orderId, error) {
-      // Only a notice Meta had accepted: a later status must not undo a retry.
-      await moveNotice(orderId, 'sent', 'failed', error.slice(0, 500))
+      // A notice Meta took, even if the failure arrives before the server
+      // wrote `sent`: then markSent finds it failed and leaves it alone.
+      await moveNotice(orderId, ['sending', 'sent'], 'failed', error.slice(0, 500))
     },
     log,
   }

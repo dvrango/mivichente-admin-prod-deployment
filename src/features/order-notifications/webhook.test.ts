@@ -238,6 +238,14 @@ describe('processWebhookEvents', () => {
     expect(state.order.status).toBe('pending')
   })
 
+  it('a foreign number that starts with the business digits does not pass', async () => {
+    const { deps } = fakeDeps()
+    await run(templateTap('accepted', '61899988770'), deps) // +61 8 9998 8770
+    await run(templateTap('accepted', '6189998877'), deps)
+    await run(templateTap('accepted', '15216189998877'), deps)
+    expect(deps.setStatus).not.toHaveBeenCalled()
+  })
+
   it('a business without WhatsApp cannot move its orders', async () => {
     const { deps } = fakeDeps(makeOrder({ businessWhatsapp: null }))
     await run(templateTap('accepted'), deps)
