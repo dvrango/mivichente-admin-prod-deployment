@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 #
-# Copia los scripts de backup al minipc y reporta qué falta para dejarlo corriendo.
+# Copies the backup scripts to the minipc and reports what is missing to leave it running.
 #
-# Lo que necesita sudo (instalar paquetes, registrar las unidades de systemd) NO se
-# ejecuta aquí: el minipc pide password para sudo. De eso se encarga setup-minipc.sh,
-# que este script deja copiado allá.
+# What needs sudo (installing packages, registering the systemd units) is NOT run here:
+# the minipc asks for a password for sudo. setup-minipc.sh takes care of that, and this
+# script leaves it copied over there.
+#
+# The output is in Spanish: the owner reads it.
 #
 set -euo pipefail
 
 HOST="${VICHENTE_MINIPC_HOST:-minipc}"
-REMOTO="/home/dvrango/vichente-backup"
-AQUI="$(cd "$(dirname "$0")" && pwd)"
+REMOTE="/home/dvrango/vichente-backup"
+HERE="$(cd "$(dirname "$0")" && pwd)"
 
 log() { printf '  %s\n' "$*"; }
 
@@ -21,50 +23,51 @@ echo
 ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" true 2>/dev/null \
   || { echo "Error: no hay SSH a '$HOST'. Revisa ~/.ssh/config." >&2; exit 1; }
 
-# --- Copiar ----------------------------------------------------------------
+# --- Copy ------------------------------------------------------------------
 
-ssh "$HOST" "mkdir -p $REMOTO/bin $REMOTO/systemd ~/.config/vichente-backup"
-scp -q "$AQUI/backup-prod.sh" "$AQUI/restore-check.sh" "$AQUI/refresh-local.sh" "$AQUI/setup-minipc.sh" "$HOST:$REMOTO/bin/"
-scp -q "$AQUI/systemd/"*.service "$AQUI/systemd/"*.timer "$HOST:$REMOTO/systemd/"
-ssh "$HOST" "chmod +x $REMOTO/bin/*.sh"
-log "✓ scripts en $REMOTO/bin/"
+ssh "$HOST" "mkdir -p $REMOTE/bin $REMOTE/systemd ~/.config/vichente-backup"
+scp -q "$HERE/backup-prod.sh" "$HERE/order-retention-status.sh" "$HERE/restore-check.sh" \
+  "$HERE/refresh-local.sh" "$HERE/setup-minipc.sh" "$HOST:$REMOTE/bin/"
+scp -q "$HERE/systemd/"*.service "$HERE/systemd/"*.timer "$HOST:$REMOTE/systemd/"
+ssh "$HOST" "chmod +x $REMOTE/bin/*.sh"
+log "✓ scripts en $REMOTE/bin/"
 
-# --- Diagnóstico -----------------------------------------------------------
+# --- Diagnosis -------------------------------------------------------------
 
-# Mismo PATH que usa el service. El CLI de Supabase vive en linuxbrew, que no está
-# en el PATH de una sesión SSH no interactiva ni en el de systemd.
-PATH_REMOTO='/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/17/bin'
-faltan="$(ssh "$HOST" "PATH=$PATH_REMOTO; for c in supabase rclone psql jq docker; do command -v \$c >/dev/null || printf '%s ' \"\$c\"; done")"
-# `supabase db dump` corre pg_dump dentro de un contenedor: sin la imagen, la primera
-# corrida se va a descargar ~1 GB en medio del timer.
-hay_imagen="$(ssh "$HOST" 'docker image ls --format "{{.Repository}}" 2>/dev/null | grep -q "supabase/postgres" && echo si || echo no')"
-hay_env="$(ssh "$HOST" '[ -s ~/.config/vichente-backup/env ] && echo si || echo no')"
-hay_link="$(ssh "$HOST" "[ -f $REMOTO/supabase/.temp/project-ref ] && echo si || echo no")"
-hay_timer="$(ssh "$HOST" 'systemctl list-unit-files vichente-backup.timer --no-legend 2>/dev/null | grep -q . && echo si || echo no')"
-hay_timer_copia="$(ssh "$HOST" 'systemctl list-unit-files vichente-refresh-local.timer --no-legend 2>/dev/null | grep -q . && echo si || echo no')"
+# Same PATH the service uses. The Supabase CLI lives in linuxbrew, which is not in the
+# PATH of a non-interactive SSH session nor in systemd's.
+REMOTE_PATH='/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/17/bin'
+missing="$(ssh "$HOST" "PATH=$REMOTE_PATH; for c in supabase rclone psql jq docker; do command -v \$c >/dev/null || printf '%s ' \"\$c\"; done")"
+# `supabase db dump` runs pg_dump inside a container: without the image, the first run
+# downloads ~1 GB in the middle of the timer.
+has_image="$(ssh "$HOST" 'docker image ls --format "{{.Repository}}" 2>/dev/null | grep -q "supabase/postgres" && echo yes || echo no')"
+has_env="$(ssh "$HOST" '[ -s ~/.config/vichente-backup/env ] && echo yes || echo no')"
+has_link="$(ssh "$HOST" "[ -f $REMOTE/supabase/.temp/project-ref ] && echo yes || echo no")"
+has_timer="$(ssh "$HOST" 'systemctl list-unit-files vichente-backup.timer --no-legend 2>/dev/null | grep -q . && echo yes || echo no')"
+has_refresh_timer="$(ssh "$HOST" 'systemctl list-unit-files vichente-refresh-local.timer --no-legend 2>/dev/null | grep -q . && echo yes || echo no')"
 
 echo
-[ -z "$faltan" ]        && log "✓ dependencias instaladas"        || log "✗ faltan comandos: $faltan"
-[ "$hay_imagen" = si ]  && log "✓ imagen de postgres descargada"  || log "· imagen de postgres sin descargar (la baja sola en la 1ª corrida)"
-[ "$hay_env" = si ]     && log "✓ archivo de secretos presente"   || log "✗ falta ~/.config/vichente-backup/env"
-[ "$hay_link" = si ]    && log "✓ proyecto de Supabase enlazado"  || log "✗ falta 'supabase link'"
-[ "$hay_timer" = si ]   && log "✓ timer registrado en systemd"    || log "✗ falta registrar el timer"
-[ "$hay_timer_copia" = si ] && log "✓ timer de la copia a la DB local registrado" || log "✗ falta registrar el timer de la copia a la DB local"
+[ -z "$missing" ]               && log "✓ dependencias instaladas"        || log "✗ faltan comandos: $missing"
+[ "$has_image" = yes ]          && log "✓ imagen de postgres descargada"  || log "· imagen de postgres sin descargar (la baja sola en la 1ª corrida)"
+[ "$has_env" = yes ]            && log "✓ archivo de secretos presente"   || log "✗ falta ~/.config/vichente-backup/env"
+[ "$has_link" = yes ]           && log "✓ proyecto de Supabase enlazado"  || log "✗ falta 'supabase link'"
+[ "$has_timer" = yes ]          && log "✓ timer registrado en systemd"    || log "✗ falta registrar el timer"
+[ "$has_refresh_timer" = yes ]  && log "✓ timer de la copia a la DB local registrado" || log "✗ falta registrar el timer de la copia a la DB local"
 echo
 
-if [ -z "$faltan" ] && [ "$hay_env" = si ] && [ "$hay_link" = si ] && [ "$hay_timer" = si ] && [ "$hay_timer_copia" = si ]; then
+if [ -z "$missing" ] && [ "$has_env" = yes ] && [ "$has_link" = yes ] && [ "$has_timer" = yes ] && [ "$has_refresh_timer" = yes ]; then
   echo "Todo listo. Correr a mano:  ssh $HOST 'sudo systemctl start vichente-backup.service'"
   echo "Copia a la DB local:        ssh $HOST 'sudo systemctl start vichente-refresh-local.service'"
   echo "Ver las próximas corridas:  ssh $HOST 'systemctl list-timers \"vichente-*\"'"
   exit 0
 fi
 
-# --- Qué falta hacer -------------------------------------------------------
+# --- What is left to do ----------------------------------------------------
 
 echo "───────────────────────────────────────────────────────────────"
 
-if [ "$hay_env" = no ]; then
-  cat <<'PASO'
+if [ "$has_env" = no ]; then
+  cat <<'STEP'
 Falta el archivo de secretos. En el minipc:
 
   ssh minipc
@@ -82,18 +85,18 @@ Falta el archivo de secretos. En el minipc:
   nano ~/.config/vichente-backup/env
 
 De dónde sale cada valor: ver README.md, sección Setup.
-PASO
+STEP
   echo
 fi
 
-cat <<PASO
+cat <<STEP
 Todo lo demás lo hace un solo script, en el minipc:
 
   ssh $HOST
-  $REMOTO/bin/setup-minipc.sh
+  $REMOTE/bin/setup-minipc.sh
 
 Instala dependencias, enlaza el proyecto y registra el timer. Pide sudo una vez
 y es idempotente: salta lo que ya esté hecho.
-PASO
+STEP
 echo
 echo "Cuando termines, corre este script otra vez para confirmar."

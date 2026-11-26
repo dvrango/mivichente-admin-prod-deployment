@@ -55,6 +55,7 @@ npm run db:backup
 
 - **Falla** → mensaje inmediato con el paso donde murió.
 - **Rotación fallida** → aviso aparte. El backup sí se subió; lo que no corrió fue la limpieza. Se avisa porque si falla todas las noches, R2 crece sin que nadie se entere.
+- **Limpieza de pedidos detenida** → aviso aparte, cualquier día. El borrado de los datos del cliente a los 90 días corre en prod con `pg_cron`, no aquí (mikitasks `uuyrkazz7`); cada corrida deja una fila en `public.order_retention_runs`, que viene en el dump. `order-retention-status.sh` la lee y, si la última corrida tiene dos días o más, avisa. El mensaje del domingo trae además la fecha de la última corrida. Si `pg_cron` se detiene no hay ningún error en ningún lado: los datos simplemente se quedan.
 - **Domingos** → "sigo vivo": fecha, negocios, espacio, y **cuántos días de backup hay contra cuántos debería haber**. Si falta alguno, lo dice.
 
 El heartbeat semanal no es adorno: si el timer deja de dispararse, no hay ningún error que reportar y el silencio parecería normal. La ausencia del mensaje del domingo es la única señal de que se rompió.
