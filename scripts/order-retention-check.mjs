@@ -352,6 +352,15 @@ try {
     check(`${role} NO corre el borrado`, run === 'denied', run)
     const log = await asRole(role, () => attempt('select * from order_retention_runs'))
     check(`${role} NO lee el registro de corridas`, log === 'denied', log)
+    // With the sequence, the service key could setval it onto a used id and
+    // make every purge fail on its log insert.
+    const sequence = (
+      await c.query(
+        `select has_sequence_privilege($1, 'public.order_retention_runs_id_seq', 'usage, select, update') as p`,
+        [role],
+      )
+    ).rows[0].p
+    check(`${role} no toca la secuencia del registro`, sequence === false, String(sequence))
   }
 
   // --- The schedule ---------------------------------------------------------

@@ -156,9 +156,16 @@ if [ "$retention_code" -eq 1 ]; then
 ${retention_line}
 Revisar en Supabase: \`select * from cron.job_run_details order by start_time desc limit 5\`"
 elif [ "$retention_code" -gt 2 ]; then
-  retention_line="Limpieza de pedidos: no se pudo revisar (exit ${retention_code})."
+  # The check itself broke: said every day, because until it is fixed nobody
+  # would notice the purge stopping.
+  retention_line="⚠️ Limpieza de pedidos: no se pudo revisar (exit ${retention_code})."
   log "ADVERTENCIA: $retention_line"
+  notify "🟠 **Vichente: no se pudo revisar la limpieza de pedidos**
+El backup del \`${TODAY}\` sí se subió. Lo que falló fue \`order-retention-status.sh\` (exit ${retention_code}).
+Revisar: \`journalctl -u vichente-backup.service -n 50\`"
 fi
+# Exit 2 (the table is not in the dump) is expected only until the migration's
+# db:push; it shows on the Sunday heartbeat line without a daily message.
 
 # --- Storage bucket mirror -------------------------------------------------
 

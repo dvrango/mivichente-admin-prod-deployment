@@ -33,9 +33,12 @@ alter table public.order_retention_runs enable row level security;
 comment on table public.order_retention_runs is
   'One row per run of purge_order_customer_data: when it ran and how many orders it cleaned. No order ids or customer data. The backup heartbeat reads it from the dump to tell whether the purge stopped running. Rows older than 400 days are trimmed by the purge itself.';
 
--- Supabase hands out broad grants through default privileges. Nobody outside
--- postgres needs this table.
+-- Supabase hands out broad grants through default privileges, on the table and
+-- on its identity sequence. Nobody outside postgres needs either: with the
+-- sequence, the service key could setval it onto a used id and make every
+-- purge fail on its log insert.
 revoke all on public.order_retention_runs from anon, authenticated, service_role;
+revoke all on sequence public.order_retention_runs_id_seq from anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- The purge

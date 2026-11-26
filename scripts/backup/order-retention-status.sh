@@ -63,7 +63,10 @@ esac
 
 ran_at="${last%%$'\t'*}"
 purged="${last#*$'\t'}"
-age_days=$(( ( $(date +%s) - $(date -d "$ran_at" +%s) ) / 86400 ))
+# Parsed in its own assignment: in some bash versions (3.2 on macOS) a failure
+# inside $(( )) exits 1 without the ERR trap, and would read as "the purge stopped".
+ran_epoch="$(date -d "$ran_at" +%s)"
+age_days=$(( ( $(date +%s) - ran_epoch ) / 86400 ))
 day="$(date -d "$ran_at" +%Y-%m-%d)"
 
 if [ "$age_days" -ge "$MAX_DAYS" ]; then
