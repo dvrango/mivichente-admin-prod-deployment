@@ -100,10 +100,14 @@ function notifyDeps(config: WhatsappConfig): NotifyDeps {
   return {
     async claim(token) {
       const db = createAdminClient()
+      // Only a pending order: one the customer withdrew during the send
+      // window (status withdrawn) is never announced. orders_guard refuses it
+      // too; the filter keeps that refusal from surfacing as a 500.
       const { data: claimed, error } = await db
         .from('orders')
         .update({ notify_status: 'sending' })
         .eq('token', token)
+        .eq('status', 'pending')
         .eq('notify_status', 'pending')
         .select('id')
         .maybeSingle()

@@ -35,7 +35,8 @@ CREATE TABLE "public"."orders" (
   CONSTRAINT "orders_pickup_check"
     CHECK (((mode = 'delivery'::text) OR ((delivery_fee_cents = 0) AND (delivery_lat IS NULL) AND (delivery_directions IS NULL) AND (delivery_references IS NULL)))),
   CONSTRAINT "orders_pkey" PRIMARY KEY (id),
-  CONSTRAINT "orders_status_check" CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'rejected'::text, 'preparing'::text, 'on_the_way'::text, 'delivered'::text]))),
+  CONSTRAINT "orders_status_check"
+    CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'rejected'::text, 'preparing'::text, 'on_the_way'::text, 'delivered'::text, 'withdrawn'::text]))),
   CONSTRAINT "orders_token_key" UNIQUE (token)
 );
 
@@ -43,6 +44,9 @@ ALTER TABLE "public"."orders"
   ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX orders_business_created_idx ON public.orders USING btree (business_id, created_at DESC);
+
+CREATE INDEX orders_notice_due_idx ON public.orders USING btree (created_at)
+  WHERE ((status = 'pending'::text) AND (notify_status = 'pending'::text));
 
 CREATE TRIGGER orders_guard
   BEFORE INSERT OR UPDATE ON public.orders
@@ -69,6 +73,8 @@ COMMENT ON COLUMN "public"."orders"."delivery_fee_cents" IS 'Envío al crearse. 
 COMMENT ON COLUMN "public"."orders"."items" IS 'Foto de lo pedido al crearse, con precios del menú vigente en ese momento: [{service_id, name, variant_id, variant_name, options: [{group_id, group_name, option_id, name, price_delta_cents}], quantity, unit_price_cents, line_total_cents, note}]. No cambia aunque cambie el menú.';
 
 COMMENT ON COLUMN "public"."orders"."notify_status" IS 'Aviso al restaurante: pending (nadie lo ha tomado), sending (el servidor lo está mandando), sent (Meta lo aceptó), failed (Meta lo rechazó; el detalle en notify_error). Lo escribe el servidor.';
+
+COMMENT ON COLUMN "public"."orders"."status" IS 'pending → accepted or rejected; accepted → preparing → on_the_way → delivered. withdrawn: the customer changed it during the send window, before the restaurant got the notice (withdraw_order); for the restaurant and the pilot numbers it never existed. rejected, delivered and withdrawn are final.';
 
 COMMENT ON COLUMN "public"."orders"."token" IS 'Secreto con el que el cliente lee su pedido; la app lo guarda en el dispositivo. El id no es secreto: puede ir en registros y en los botones de WhatsApp, y no sirve para leer el pedido.';
 

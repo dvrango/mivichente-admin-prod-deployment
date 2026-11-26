@@ -726,6 +726,179 @@ try {
     final.status === 'accepted' && final.rejected_at === null,
   )
 
+  // --- send window: «Cambiar algo» (58re295uc) ---------------------------------
+  console.log('\nventana para cambiar el pedido')
+  const tacoArgs = () => order(biz, [{ service_id: taco, quantity: 1 }], 7500)
+  const withdraw = async (token) =>
+    (await call('anon', 'select withdraw_order($1) as result', [token]))[0].result
+
+  const changed = await create(tacoArgs())
+  ok('«Cambiar algo» recién creado: lo retira', (await withdraw(changed)) === 'withdrawn')
+  const withdrawnRow = await row(changed)
+  ok(
+    'queda retirado, con el aviso sin tocar',
+    withdrawnRow.status === 'withdrawn' && withdrawnRow.notify_status === 'pending',
+  )
+  ok('repetirlo responde lo mismo', (await withdraw(changed)) === 'withdrawn')
+  ok('get_order lo lee como retirado', (await read(changed)).status === 'withdrawn')
+  await rejects(
+    'el servidor no puede tomar el aviso de un pedido retirado',
+    'service_role',
+    "update orders set notify_status = 'sending' where token = $1",
+    [changed],
+    /order_withdrawn/,
+  )
+  const acceptWithdrawn = await setStatus(withdrawnRow.id, 'accepted')
+  ok(
+    'el restaurante no puede aceptar un pedido retirado',
+    acceptWithdrawn.changed === false && acceptWithdrawn.status === 'withdrawn',
+  )
+
+  const direct = await create(tacoArgs())
+  await rejects(
+    'el servidor no puede retirar un pedido directo',
+    'service_role',
+    "update orders set status = 'withdrawn' where token = $1",
+    [direct],
+    /only_customer_withdraws/,
+  )
+
+  const notified = await create(tacoArgs())
+  await call('service_role', "update orders set notify_status = 'sending' where token = $1", [
+    notified,
+  ])
+  ok('con el aviso ya tomado llega tarde', (await withdraw(notified)) === 'too_late')
+  ok('y el pedido sigue pendiente', (await row(notified)).status === 'pending')
+
+  // Inserted by postgres to backdate it: create_order always stamps now().
+  const old = (
+    await admin.query(
+      `insert into orders (business_id, mode, items, subtotal_cents, delivery_fee_cents,
+         total_cents, created_at)
+       values ($1, 'pickup', '[{"name": "Taco", "quantity": 1}]', 5000, 0, 5000,
+         now() - interval '2 minutes')
+       returning token`,
+      [biz],
+    )
+  ).rows[0].token
+  ok('pasado el minuto ya no se retira', (await withdraw(old)) === 'too_late')
+  await rejects(
+    'token que no existe',
+    'anon',
+    'select withdraw_order($1)',
+    ['no-existe'],
+    /order_not_found/,
+  )
+
+  // The notice and «Cambiar algo» at the same time: the notice takes the row
+  // first, so the withdraw waits for it and then matches nothing.
+  const race = await create(tacoArgs())
+  const notice = await connection('service_role')
+  const customer = await connection('anon')
+  try {
+    const taken = await notice.query(
+      `update orders set notify_status = 'sending'
+        where token = $1 and status = 'pending' and notify_status = 'pending' returning id`,
+      [race],
+    )
+    const pendingWithdraw = customer.query('select withdraw_order($1) as result', [race])
+    await waitForLock(customer)
+    await notice.query('commit')
+    const result = (await pendingWithdraw).rows[0].result
+    await customer.query('commit')
+    ok(
+      'aviso y «Cambiar algo» a la vez: gana el aviso y el cliente llega tarde',
+      taken.rowCount === 1 && result === 'too_late',
+      result,
+    )
+  } finally {
+    await notice.query('rollback').catch(() => {})
+    await customer.query('rollback').catch(() => {})
+    await close(notice)
+    await close(customer)
+  }
+  ok('el pedido de la carrera sigue pendiente', (await row(race)).status === 'pending')
+
+  // --- the notice of an order whose app closed ---------------------------------
+  console.log('\naviso de los pedidos cuya app se cerró')
+  await rejects(
+    'anon no puede correr el job del aviso',
+    'anon',
+    'select notify_due_orders()',
+    [],
+    /permission denied/,
+  )
+  await rejects(
+    'service_role tampoco',
+    'service_role',
+    'select notify_due_orders()',
+    [],
+    /permission denied/,
+  )
+  ok(
+    'el job está programado cada 30 segundos',
+    (await admin.query("select schedule from cron.job where jobname = 'notify-due-orders'"))
+      .rows[0]?.schedule === '30 seconds',
+  )
+
+  // Everything below runs in one transaction that is rolled back: the Vault
+  // secret and the queued requests never leave it, so nothing is called.
+  const job = new pg.Client({ connectionString: LOCAL_DATABASE_URL, ssl: false })
+  await job.connect()
+  live.add(job)
+  try {
+    await job.query('begin')
+    const withoutUrl = (await job.query('select notify_due_orders() as n')).rows[0].n
+    const hasSecret =
+      (await job.query("select 1 from vault.secrets where name = 'orders_notify_url'")).rowCount >
+      0
+    if (!hasSecret) {
+      ok('sin la URL en Vault no pide nada', withoutUrl === 0, String(withoutUrl))
+      await job.query(
+        "select vault.create_secret('http://127.0.0.1:9/api/orders/notify', 'orders_notify_url')",
+      )
+    }
+    const backdated = async (seconds, status = 'pending') => {
+      const token = (
+        await job.query(
+          `insert into orders (business_id, mode, items, subtotal_cents, delivery_fee_cents,
+             total_cents, created_at)
+           values ($1, 'pickup', '[{"name": "Taco", "quantity": 1}]', 5000, 0, 5000,
+             now() - make_interval(secs => $2))
+           returning token`,
+          [biz, seconds],
+        )
+      ).rows[0].token
+      if (status === 'withdrawn') {
+        await job.query("update orders set status = 'withdrawn' where token = $1", [token])
+      }
+      return token
+    }
+    const due = await backdated(20)
+    const inWindow = await backdated(5)
+    const tooOld = await backdated(11 * 60)
+    const withdrawnDue = await backdated(20, 'withdrawn')
+    const before = (
+      await job.query('select coalesce(max(id), 0) as id from net.http_request_queue')
+    ).rows[0].id
+    await job.query('select notify_due_orders()')
+    const tokens = (
+      await job.query(
+        `select convert_from(body, 'utf8')::jsonb ->> 'token' as token
+           from net.http_request_queue where id > $1`,
+        [before],
+      )
+    ).rows.map((r) => r.token)
+    ok('pide el aviso del pedido que pasó la ventana', tokens.includes(due), tokens.join(','))
+    ok('no el que sigue en la ventana', !tokens.includes(inWindow))
+    ok('no el de hace más de 10 minutos', !tokens.includes(tooOld))
+    ok('no el retirado', !tokens.includes(withdrawnDue))
+  } finally {
+    await job.query('rollback').catch(() => {})
+    live.delete(job)
+    await job.end()
+  }
+
   console.log(`\n${passed} comprobaciones de pedidos OK`)
 } finally {
   for (const c of live) {

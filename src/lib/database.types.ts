@@ -3127,6 +3127,7 @@ export type Database = {
         }
         Returns: string
       }
+      notify_due_orders: { Args: never; Returns: number }
       order_status_transition_ok: {
         Args: { p_from: string; p_to: string }
         Returns: boolean
@@ -3335,6 +3336,7 @@ export type Database = {
         Returns: string
       }
       user_municipio: { Args: never; Returns: string }
+      withdraw_order: { Args: { p_token: string }; Returns: string }
     }
     Enums: {
       business_report_reason: 'cerrado' | 'datos_incorrectos' | 'duplicado' | 'spam' | 'otro'
