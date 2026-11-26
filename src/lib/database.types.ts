@@ -996,6 +996,127 @@ export type Database = {
       [_ in never]: never
     }
   }
+  cron: {
+    Tables: {
+      job: {
+        Row: {
+          active: boolean
+          command: string
+          database: string
+          jobid: number
+          jobname: string | null
+          nodename: string
+          nodeport: number
+          schedule: string
+          username: string
+        }
+        Insert: {
+          active?: boolean
+          command: string
+          database?: string
+          jobid?: number
+          jobname?: string | null
+          nodename?: string
+          nodeport?: number
+          schedule: string
+          username?: string
+        }
+        Update: {
+          active?: boolean
+          command?: string
+          database?: string
+          jobid?: number
+          jobname?: string | null
+          nodename?: string
+          nodeport?: number
+          schedule?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      job_run_details: {
+        Row: {
+          command: string | null
+          database: string | null
+          end_time: string | null
+          job_pid: number | null
+          jobid: number | null
+          return_message: string | null
+          runid: number
+          start_time: string | null
+          status: string | null
+          username: string | null
+        }
+        Insert: {
+          command?: string | null
+          database?: string | null
+          end_time?: string | null
+          job_pid?: number | null
+          jobid?: number | null
+          return_message?: string | null
+          runid?: number
+          start_time?: string | null
+          status?: string | null
+          username?: string | null
+        }
+        Update: {
+          command?: string | null
+          database?: string | null
+          end_time?: string | null
+          job_pid?: number | null
+          jobid?: number | null
+          return_message?: string | null
+          runid?: number
+          start_time?: string | null
+          status?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      alter_job: {
+        Args: {
+          active?: boolean
+          command?: string
+          database?: string
+          job_id: number
+          schedule?: string
+          username?: string
+        }
+        Returns: undefined
+      }
+      schedule:
+        | {
+            Args: { command: string; job_name: string; schedule: string }
+            Returns: number
+          }
+        | { Args: { command: string; schedule: string }; Returns: number }
+      schedule_in_database: {
+        Args: {
+          active?: boolean
+          command: string
+          database: string
+          job_name: string
+          schedule: string
+          username?: string
+        }
+        Returns: number
+      }
+      unschedule:
+        | { Args: { job_name: string }; Returns: boolean }
+        | { Args: { job_id: number }; Returns: boolean }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   extensions: {
     Tables: {
       [_ in never]: never
@@ -2383,6 +2504,24 @@ export type Database = {
           },
         ]
       }
+      order_retention_runs: {
+        Row: {
+          id: number
+          orders_purged: number
+          ran_at: string
+        }
+        Insert: {
+          id?: never
+          orders_purged: number
+          ran_at?: string
+        }
+        Update: {
+          id?: never
+          orders_purged?: number
+          ran_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           accepted_at: string | null
@@ -3052,6 +3191,7 @@ export type Database = {
           stamps_required: number
         }[]
       }
+      purge_order_customer_data: { Args: never; Returns: number }
       qr_scan_channel_from_src: { Args: { p_src: string }; Returns: string }
       qr_scan_is_bot: { Args: { p_user_agent: string }; Returns: boolean }
       redeem_coupon: {
@@ -3238,7 +3378,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_23: {
+      messages_2026_11_20: {
         Row: {
           event: string | null
           extension: string
@@ -3271,7 +3411,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_24: {
+      messages_2026_11_21: {
         Row: {
           event: string | null
           extension: string
@@ -3304,7 +3444,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_25: {
+      messages_2026_11_22: {
         Row: {
           event: string | null
           extension: string
@@ -3337,7 +3477,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_26: {
+      messages_2026_11_23: {
         Row: {
           event: string | null
           extension: string
@@ -3370,7 +3510,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_27: {
+      messages_2026_11_24: {
         Row: {
           event: string | null
           extension: string
@@ -4484,6 +4624,9 @@ export const Constants = {
         'phone_change_token',
       ],
     },
+  },
+  cron: {
+    Enums: {},
   },
   extensions: {
     Enums: {},
