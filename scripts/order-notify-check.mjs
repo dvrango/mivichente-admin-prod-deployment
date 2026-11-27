@@ -315,6 +315,24 @@ try {
   const again = await (await notify(token)).json()
   ok('llamar otra vez no manda otro mensaje', again.notify_status === 'sent' && sent.length === 1)
 
+  // --- a withdrawn order («Cambiar algo» during the send window, 58re295uc) ---
+  {
+    const withdrawn = await createOrder(biz, service)
+    await asAnon('select withdraw_order($1)', [withdrawn])
+    const response = await notify(withdrawn)
+    const body = await response.json()
+    const row = await orderRow(withdrawn)
+    ok(
+      'un pedido retirado no manda aviso',
+      response.status === 200 &&
+        body.notify_status === 'pending' &&
+        sent.length === 1 &&
+        row.status === 'withdrawn' &&
+        row.notify_status === 'pending',
+      { body, status: row.status, sent: sent.length },
+    )
+  }
+
   // --- the webhook ------------------------------------------------------------
   {
     const raw = tap(order.id, 'accepted')

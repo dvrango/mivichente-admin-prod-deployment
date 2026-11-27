@@ -66,13 +66,32 @@ begin
       raise exception 'only_customer_confirms_delivery' using errcode = '42501';
     end if;
 
+    -- Withdrawn is only set by withdraw_order (security definer, runs as
+    -- postgres), and only while the restaurant has not been told.
+    if new.status = 'withdrawn' then
+      if current_user <> 'postgres' then
+        raise exception 'only_customer_withdraws' using errcode = '42501';
+      end if;
+      if old.notify_status <> 'pending' then
+        raise exception 'order_already_notified' using errcode = '23514';
+      end if;
+    end if;
+
     case new.status
       when 'accepted' then new.accepted_at := now();
       when 'rejected' then new.rejected_at := now();
       when 'preparing' then new.preparing_at := now();
       when 'on_the_way' then new.on_the_way_at := now();
       when 'delivered' then new.delivered_at := now();
+      -- No time of its own: it happens within the window, so created_at says
+      -- when, and the retention counts 90 days from it.
+      when 'withdrawn' then null;
     end case;
+  end if;
+
+  -- A withdrawn order is never announced to the restaurant.
+  if new.status = 'withdrawn' and new.notify_status <> 'pending' then
+    raise exception 'order_withdrawn' using errcode = '23514';
   end if;
 
   if new.notify_status is distinct from old.notify_status
@@ -88,6 +107,6 @@ $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."orders_guard"() TO "postgres";
 
-COMMENT ON FUNCTION "public"."orders_guard"() IS 'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable salvo borrar las notas de los platillos, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok, entregado solo lo pone confirm_order_received y la hora de cada estado y del aviso la pone el trigger.';
+COMMENT ON FUNCTION "public"."orders_guard"() IS 'Trigger de orders. Al insertar exige estado y aviso pendientes. Al actualizar: lo pedido es inmutable salvo borrar las notas de los platillos, los datos del cliente solo pasan a null, el estado solo avanza por order_status_transition_ok, entregado solo lo pone confirm_order_received, retirado solo lo pone withdraw_order y con el aviso todavía pendiente, un pedido retirado nunca cambia su aviso, y la hora de cada estado y del aviso la pone el trigger.';
 
 REVOKE ALL ON FUNCTION "public"."orders_guard"() FROM PUBLIC;
