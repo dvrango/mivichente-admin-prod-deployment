@@ -2,7 +2,8 @@
 export const ORDER_ACTIONS = ['accepted', 'rejected', 'preparing', 'on_the_way'] as const
 export type OrderAction = (typeof ORDER_ACTIONS)[number]
 
-export type OrderStatus = 'pending' | OrderAction | 'delivered'
+/** withdrawn: the customer changed it during the send window (withdraw_order); it never reaches the restaurant. */
+export type OrderStatus = 'pending' | OrderAction | 'delivered' | 'withdrawn'
 export type OrderMode = 'delivery' | 'pickup'
 export type NotifyStatus = 'pending' | 'sending' | 'sent' | 'failed'
 

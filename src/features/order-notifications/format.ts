@@ -170,6 +170,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   preparing: 'en preparación',
   on_the_way: 'en camino',
   delivered: 'entregado',
+  withdrawn: 'retirado por el cliente',
 }
 
 export function statusLabel(status: OrderStatus, mode: OrderForMessage['mode']): string {

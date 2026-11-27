@@ -220,6 +220,12 @@ grant execute on function public.withdraw_order(text) to anon, authenticated;
 create index orders_notice_due_idx on public.orders (created_at)
   where status = 'pending' and notify_status = 'pending';
 
+-- Only orders older than 25 seconds: 10 more than the countdown, because the
+-- app starts counting when create_order answers, not when the row was
+-- written, and a slow answer would otherwise let this job tell the restaurant
+-- while the customer still sees seconds left. The app asks on its own zero,
+-- so the margin only delays the order of an app that closed mid-countdown.
+--
 -- Only orders younger than 10 minutes: past that, a notice that never went out
 -- is better left to the customer's tracking screen, which already tells them
 -- to call the restaurant, than sent to a restaurant that is no longer
@@ -247,7 +253,7 @@ begin
       from public.orders o
      where o.status = 'pending'
        and o.notify_status = 'pending'
-       and o.created_at <= now() - interval '15 seconds'
+       and o.created_at <= now() - interval '25 seconds'
        and o.created_at > now() - interval '10 minutes'
   loop
     perform net.http_post(
@@ -264,7 +270,7 @@ end;
 $function$;
 
 comment on function public.notify_due_orders() is
-  'Pide el aviso al restaurante de cada pedido pendiente con el aviso pendiente, creado hace más de 15 s (la ventana para cambiarlo) y menos de 10 min. Llama la ruta del admin guardada en Vault como orders_notify_url con pg_net; sin ella no hace nada. La ruta es idempotente, así que repetirla no manda dos avisos. Devuelve cuántos pidió. La corre pg_cron cada 30 s (job notify-due-orders); solo postgres.';
+  'Pide el aviso al restaurante de cada pedido pendiente con el aviso pendiente, creado hace más de 25 s (los 15 s de la ventana para cambiarlo más 10 de margen, porque el contador de la app arranca cuando create_order responde) y menos de 10 min. Llama la ruta del admin guardada en Vault como orders_notify_url con pg_net; sin ella no hace nada. La ruta es idempotente, así que repetirla no manda dos avisos. Devuelve cuántos pidió. La corre pg_cron cada 30 s (job notify-due-orders); solo postgres.';
 
 revoke all on function public.notify_due_orders() from public, anon, authenticated, service_role;
 
@@ -274,3 +280,14 @@ select cron.schedule(
   '30 seconds',
   $$select public.notify_due_orders()$$
 );
+
+-- notify-due-orders adds about 2,880 rows a day to cron.job_run_details, and
+-- pg_cron never trims it. A week of history is enough to see a failing job.
+select cron.schedule(
+  'purge-cron-history',
+  '17 4 * * *',
+  $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$
+);
+
+comment on table public.orders is
+  'Pedido del flujo con estados (piloto). Anon no tiene grants: crea, lee, retira y confirma su pedido por token vía create_order / get_order / withdraw_order / confirm_order_received. El servidor cambia el estado con set_order_status (service_role) y anota el aviso al restaurante en notify_*. Solo el admin lee la tabla. Un pedido solo nace por create_order: service_role no tiene INSERT. orders_guard impide transiciones inválidas y cambios a lo pedido.';

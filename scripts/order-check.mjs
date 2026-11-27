@@ -840,6 +840,11 @@ try {
     (await admin.query("select schedule from cron.job where jobname = 'notify-due-orders'"))
       .rows[0]?.schedule === '30 seconds',
   )
+  ok(
+    'el historial de pg_cron se recorta cada día',
+    (await admin.query("select schedule from cron.job where jobname = 'purge-cron-history'"))
+      .rows[0]?.schedule === '17 4 * * *',
+  )
 
   // Everything below runs in one transaction that is rolled back: the Vault
   // secret and the queued requests never leave it, so nothing is called.
@@ -874,10 +879,13 @@ try {
       }
       return token
     }
-    const due = await backdated(20)
+    const due = await backdated(30)
     const inWindow = await backdated(5)
+    // Past the 15 s countdown but inside the margin: the app may have started
+    // counting a few seconds later, so the job leaves it to the app.
+    const inMargin = await backdated(20)
     const tooOld = await backdated(11 * 60)
-    const withdrawnDue = await backdated(20, 'withdrawn')
+    const withdrawnDue = await backdated(30, 'withdrawn')
     const before = (
       await job.query('select coalesce(max(id), 0) as id from net.http_request_queue')
     ).rows[0].id
@@ -891,6 +899,7 @@ try {
     ).rows.map((r) => r.token)
     ok('pide el aviso del pedido que pasó la ventana', tokens.includes(due), tokens.join(','))
     ok('no el que sigue en la ventana', !tokens.includes(inWindow))
+    ok('no el que pasó el contador hace menos de 10 s', !tokens.includes(inMargin))
     ok('no el de hace más de 10 minutos', !tokens.includes(tooOld))
     ok('no el retirado', !tokens.includes(withdrawnDue))
   } finally {
