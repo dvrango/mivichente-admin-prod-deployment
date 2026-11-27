@@ -8,41 +8,38 @@ import { cn } from '@/lib/utils'
 export type BusinessTab = {
   href: string
   label: string
-  /** Punto verde junto al nombre: la función está prendida para el público. */
+  /** Green dot next to the label: the feature is enabled for the public. */
   live?: boolean
-  /** Número chico junto al nombre, como los platillos capturados. */
+  /** Small count next to the label, such as the number of menu items. */
   count?: number
 }
 
 /**
- * Navegación entre las pantallas de un negocio. Son links por ruta, no tabs de
- * cliente: cada pantalla conserva su propia ruta, su `requireAdmin()` y su
- * carga de datos.
+ * Route-based navigation between business pages. Each page keeps its own
+ * route, `requireAdmin()` guard, and data loading.
  */
 export function BusinessTabs({ tabs }: { tabs: BusinessTab[] }) {
   const pathname = usePathname()
   const listRef = useRef<HTMLUListElement>(null)
-  // En celular los tabs no caben y la barra de scroll está oculta: al entrar
-  // directo a una subpágina, el tab activo podría quedar fuera de la vista.
+  // Mobile tabs overflow with a hidden scrollbar. Keep the active tab visible
+  // when opening a subpage directly.
   useEffect(() => {
     listRef.current
       ?.querySelector('[aria-current="page"]')
       ?.scrollIntoView({ block: 'nearest', inline: 'center' })
   }, [pathname])
-  // `returnTo` lo trae quien entró desde la lista filtrada o desde /campo, y el
-  // guardado del tab Datos regresa ahí. Se arrastra entre tabs para no perderlo
-  // por pasar a ver la promoción antes de guardar.
+  // Preserve the filtered list or /campo return destination across tabs so
+  // saving the details form still returns to the original entry point.
   const returnTo = useSearchParams().get('returnTo')
   const query = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''
-  // El primer tab es la raíz del negocio: se marca solo con match exacto, si
-  // no quedaría activo en todas las subpáginas.
+  // The first tab is the business root and must only match its exact pathname.
   const root = tabs[0]?.href
 
   return (
     <nav aria-label="Secciones del negocio" className="-mx-4 border-b px-4 lg:mx-0 lg:px-0">
       <ul
         ref={listRef}
-        className="-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="relative -mb-px flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {tabs.map((tab) => {
           const active = tab.href === root ? pathname === tab.href : pathname.startsWith(tab.href)
